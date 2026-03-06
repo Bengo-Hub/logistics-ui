@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { useMe } from "@/hooks/useMe";
+import { cn, orgRoute } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth";
 import {
   LayoutDashboard,
   Users,
@@ -13,8 +14,8 @@ import {
   Server,
   X,
 } from "lucide-react";
-import { cn, orgRoute } from "@/lib/utils";
-import { useAuthStore } from "@/store/auth";
+import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
 
 interface SidebarProps {
   open?: boolean;
@@ -39,8 +40,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const orgSlug = (params.orgSlug as string) || "codevertex";
+  const session = useAuthStore((s) => s.session);
   const user = useAuthStore((s) => s.user);
-  const isSuperAdmin = user?.role === "super_admin";
+  const { data: me } = useMe(!!session);
+  const roles = me?.roles ?? (me?.role ? [me.role] : []) ?? (user ? [user.role] : []);
+  const isSuperAdmin = roles.includes("super_admin");
 
   const isActive = (href: string) => {
     const full = orgRoute(orgSlug, href);

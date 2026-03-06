@@ -1,6 +1,7 @@
 "use client";
 
-import { Save, Settings, Zap } from "lucide-react";
+import { Globe, Save, Settings, Zap } from "lucide-react";
+import { useParams } from "next/navigation";
 import {
   Button,
   Card,
@@ -11,7 +12,14 @@ import {
   Input,
 } from "@/components/ui/base";
 
+const NOTIFICATIONS_URL =
+  process.env.NEXT_PUBLIC_NOTIFICATIONS_URL ||
+  "https://notifications.codevertexitsolutions.com";
+
 export default function SettingsPage() {
+  const params = useParams();
+  const orgSlug = (params?.orgSlug as string) || "";
+
   return (
     <div className="space-y-6">
       <div>
@@ -20,6 +28,29 @@ export default function SettingsPage() {
           Configure logistics operations, auto-assignment, and SLA thresholds.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="size-5 text-primary" />
+            Brand & organisation
+          </CardTitle>
+          <CardDescription>
+            Logo and brand colours are managed in the Notifications service.
+            To change your organisation logo, primary colour, or secondary colour,
+            open the{" "}
+            <a
+              href={orgSlug ? `${NOTIFICATIONS_URL}/${orgSlug}/settings/branding` : "#"}
+              className="text-primary underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Branding settings
+            </a>{" "}
+            page in Notifications (opens in new tab). Theme is applied automatically on this app from that config.
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Auto-Assignment Rules */}

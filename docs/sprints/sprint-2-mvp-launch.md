@@ -3,7 +3,7 @@
 **Timeline**: March 3 - March 17, 2026
 **Goal**: Deliver a functional logistics-ui for tenant admins to manage riders, fleets, and tasks; provide live tracking; ship as part of BengoBox MVP.
 
-**Progress (March 6, 2026):** Full Next.js app scaffold complete: SSO/PKCE, [orgSlug] routes, dashboard, riders (list + detail), tasks, tracking, zones, settings, platform admin. devops-k8s values.yaml created (logistics.codevertexitsolutions.com). **Remaining:** Wire all pages to logisticsapi; deploy.
+**Progress (March 6, 2026):** Full Next.js app scaffold complete: SSO/PKCE, [orgSlug] routes, dashboard, riders (list + detail), tasks, tracking, zones, settings, platform admin. devops-k8s values.yaml created (logistics.codevertexitsolutions.com). **RBAC:** Roles/permissions loaded from auth-api `GET /me` via TanStack Query with 5 min TTL (`hooks/useMe`); used for nav visibility (platform section for super_admin) and route protection. All fetches should use TanStack Query (provider in AuthProvider). **Remaining:** Wire all pages to logisticsapi; deploy. Logistics-api: auth-api is source of truth for roles/permissions; Redis (location tracking), NATS/outbox (events) documented in docs/architecture.md.
 
 ---
 
@@ -28,7 +28,7 @@
 - [ ] Dashboard layout (sidebar, header, breadcrumbs)
 - [ ] Sidebar navigation with role-based visibility
 - [ ] User menu (avatar, name, role badge, logout)
-- [ ] Tenant context provider (`NEXT_PUBLIC_TENANT_SLUG=urban-loft`)
+- [ ] Tenant context provider (`NEXT_PUBLIC_TENANT_SLUG=urban-loft`) — **doc:** tenant from [orgSlug] or env; brand from auth-api + notifications-api (see BrandingProvider)
 
 ### D2: Rider management (Days 3-5)
 
