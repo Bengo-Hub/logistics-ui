@@ -3,7 +3,7 @@
 **Timeline**: March 3 - March 17, 2026
 **Goal**: Deliver a functional logistics-ui for tenant admins to manage riders, fleets, and tasks; provide live tracking; ship as part of BengoBox MVP.
 
-**Progress (March 6, 2026):** Full Next.js app scaffold complete: SSO/PKCE, [orgSlug] routes, dashboard, riders (list + detail), tasks, tracking, zones, settings, platform admin. devops-k8s values.yaml created (logistics.codevertexitsolutions.com). **RBAC:** Roles/permissions loaded from auth-api `GET /me` via TanStack Query with 5 min TTL (`hooks/useMe`); used for nav visibility (platform section for super_admin) and route protection. All fetches should use TanStack Query (provider in AuthProvider). **Remaining:** Wire all pages to logisticsapi; deploy. Logistics-api: auth-api is source of truth for roles/permissions; Redis (location tracking), NATS/outbox (events) documented in docs/architecture.md.
+**Progress (March 7, 2026):** Full Next.js app scaffold complete: SSO/PKCE, [orgSlug] routes, dashboard, riders (list + detail), tasks, tracking, zones, settings, platform admin. devops-k8s values.yaml created (logistics.codevertexitsolutions.com). **RBAC:** Current user (roles + permissions) from auth-api `GET /me` cached with TanStack Query (`useMe`, staleTime 5 min); `hasRole`/`hasPermission` helpers for RBAC; nav/sidebar visibility by permission or role; route protection in AuthGuard (redirect unauthenticated to SSO, 403 from /me to `/[orgSlug]/unauthorized`); 404 not-found and 403 unauthorized pages added. All data fetches use TanStack Query (provider in AuthProvider). **Remaining:** Wire all pages to logisticsapi; deploy. Logistics-api: auth-api is source of truth for roles/permissions; Redis (location tracking), NATS/outbox (events) documented in docs/architecture.md.
 
 ---
 
@@ -74,7 +74,7 @@
 - [ ] Responsive layout (desktop + tablet)
 - [ ] Error boundaries and retry UI
 - [ ] Loading skeletons on all pages
-- [ ] 404 and error pages
+- [x] 404 (not-found) and 403 (unauthorized) pages
 - [ ] Dockerfile and build.sh
 - [ ] CI/CD pipeline (GitHub Actions -> deploy)
 - [ ] Environment config for production

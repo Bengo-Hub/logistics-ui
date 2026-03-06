@@ -53,9 +53,10 @@ Logistics UI redirects to:
 ### Sprint 1: Foundation & SSO (COMPLETED)
 - [x] Project scaffolding with Next.js 15.
 - [x] Zustand store for auth state.
-- [x] TanStack Query for data fetching.
+- [x] TanStack Query for data fetching (useMe 5 min TTL, all fetches via TanStack Query).
 - [x] Axios client with 401 interceptors.
 - [x] PWA manifest and service worker configuration.
+- [x] RBAC: useMe (roles/permissions), permission-based nav, route protection, 404/403 pages.
 
 ### Sprint 2: Rider Onboarding
 - [ ] KYC document upload.

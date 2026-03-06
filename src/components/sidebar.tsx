@@ -22,12 +22,19 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const mainNav = [
+const mainNav: Array<{
+  id: string;
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  permission?: string;
+  role?: string;
+}> = [
   { id: "dashboard", label: "Dashboard", href: "", icon: LayoutDashboard },
-  { id: "riders", label: "Riders", href: "/riders", icon: Users },
-  { id: "tasks", label: "Tasks", href: "/tasks", icon: ClipboardList },
-  { id: "tracking", label: "Tracking", href: "/tracking", icon: MapPin },
-  { id: "zones", label: "Zones", href: "/zones", icon: Hexagon },
+  { id: "riders", label: "Riders", href: "/riders", icon: Users, permission: "riders:read" },
+  { id: "tasks", label: "Tasks", href: "/tasks", icon: ClipboardList, permission: "tasks:read" },
+  { id: "tracking", label: "Tracking", href: "/tracking", icon: MapPin, permission: "tracking:read" },
+  { id: "zones", label: "Zones", href: "/zones", icon: Hexagon, permission: "zones:read" },
   { id: "settings", label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -36,15 +43,24 @@ const platformNav = [
   { id: "system-config", label: "System Config", href: "/platform?tab=config", icon: Shield },
 ];
 
+function canSeeNavItem(
+  item: (typeof mainNav)[0],
+  hasRole: (r: string) => boolean,
+  hasPermission: (p: string) => boolean
+) {
+  if (item.role && !hasRole(item.role)) return false;
+  if (item.permission && !hasPermission(item.permission)) return false;
+  return true;
+}
+
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const orgSlug = (params.orgSlug as string) || "codevertex";
   const session = useAuthStore((s) => s.session);
-  const user = useAuthStore((s) => s.user);
-  const { data: me } = useMe(!!session);
-  const roles = me?.roles ?? (me?.role ? [me.role] : []) ?? (user ? [user.role] : []);
-  const isSuperAdmin = roles.includes("super_admin");
+  const { data: me, hasRole, hasPermission } = useMe(!!session);
+  const isSuperAdmin = hasRole("super_admin");
+  const visibleMainNav = mainNav.filter((item) => canSeeNavItem(item, hasRole, hasPermission));
 
   const isActive = (href: string) => {
     const full = orgRoute(orgSlug, href);
@@ -88,7 +104,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               Operations
             </p>
           </div>
-          {mainNav.map((item) => {
+          {visibleMainNav.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (

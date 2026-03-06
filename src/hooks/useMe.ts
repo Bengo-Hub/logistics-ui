@@ -34,7 +34,7 @@ async function fetchMe(): Promise<MeResponse> {
 
 /** Load current user and RBAC (roles/permissions) from auth-api GET /me with TanStack Query and TTL. */
 export function useMe(enabled = true) {
-  return useQuery({
+  const query = useQuery({
     queryKey: ME_QUERY_KEY,
     queryFn: fetchMe,
     enabled,
@@ -45,17 +45,39 @@ export function useMe(enabled = true) {
       return failureCount < 2;
     },
   });
+
+  const user = query.data ?? null;
+  const roles = user?.roles ?? (user?.role ? [user.role] : []) as string[];
+  const permissions = (user?.permissions ?? []) as string[];
+
+  const hasRole = (role: string) => {
+    if (!roles.length) return false;
+    return roles.includes(role) || roles.includes("super_admin") || roles.includes("admin");
+  };
+
+  const hasPermission = (permission: string) => {
+    if (!user) return false;
+    if (roles.includes("super_admin") || roles.includes("admin")) return true;
+    return permissions.includes(permission);
+  };
+
+  return {
+    ...query,
+    user,
+    hasRole,
+    hasPermission,
+    isAuthenticated: !!user,
+  };
 }
 
 export function useHasRole(role: string): boolean {
-  const { data } = useMe();
-  const roles = data?.roles ?? (data?.role ? [data.role] : []);
-  return roles.includes(role);
+  const { hasRole } = useMe();
+  return hasRole(role);
 }
 
 export function useHasPermission(permission: string): boolean {
-  const { data } = useMe();
-  return data?.permissions?.includes(permission) ?? false;
+  const { hasPermission } = useMe();
+  return hasPermission(permission);
 }
 
 export function useIsSuperAdmin(): boolean {
