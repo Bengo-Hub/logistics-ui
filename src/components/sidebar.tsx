@@ -59,7 +59,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const orgSlug = (params.orgSlug as string) || "codevertex";
   const session = useAuthStore((s) => s.session);
   const { data: me, hasRole, hasPermission } = useMe(!!session);
-  const isSuperAdmin = hasRole("super_admin");
+  const isPlatformOwner = orgSlug === 'codevertex';
   const visibleMainNav = mainNav.filter((item) => canSeeNavItem(item, hasRole, hasPermission));
 
   const isActive = (href: string) => {
@@ -125,7 +125,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             );
           })}
 
-          {isSuperAdmin && (
+          {isPlatformOwner && (
             <>
               <div className="px-3 pb-2 pt-6">
                 <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
