@@ -148,7 +148,7 @@ GET /api/v1/{tenant}/tracking/rider/{riderId}/location  (every 5s)
 |---------|--------|-------------|
 | "View in cafe portal" link | cafe-website | `https://theurbanloftcafe.com/staff/riders` |
 | "View order" link on task | ordering-service | `https://ordersapp.codevertexitsolutions.com/order/{orderId}` |
-| Rider self-service link | rider-app | `https://rider.codevertexitsolutions.com/{tenantSlug}` |
+| Rider self-service link | rider-app | `https://riderapp.codevertexitsolutions.com/{tenantSlug}` |
 
 ---
 

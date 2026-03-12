@@ -41,7 +41,7 @@
 | Customer ordering | ordering-service | ordering.codevertexitsolutions.com |
 | Staff portal (general) | cafe-website | theurbanloftcafe.com/staff |
 | SSO login | auth-ui | accounts.codevertexitsolutions.com |
-| Rider self-service | rider-app | rider.codevertexitsolutions.com |
+| Rider self-service | rider-app | riderapp.codevertexitsolutions.com |
 
 ---
 
