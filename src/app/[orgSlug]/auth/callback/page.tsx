@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export default function AuthCallbackPage() {
 
     handled.current = true;
     const callbackUrl = `${window.location.origin}/${orgSlug}/auth/callback`;
-    handleSSOCallback(code, callbackUrl).then(() => {
+    handleSSOCallback(code, callbackUrl, orgSlug).then(() => {
       const returnTo = sessionStorage.getItem("sso_return_to") || `/${orgSlug}`;
       sessionStorage.removeItem("sso_return_to");
       router.replace(returnTo);

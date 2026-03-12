@@ -45,3 +45,14 @@ public/swe-worker-*.js
 # test
 coverage/
 .nyc_output/
+/playwright-report/
+/test-results/
+/cypress/
+/cypress/videos/
+/cypress/screenshots/
+/cypress/downloads/
+/cypress/logs/
+/cypress/reports/
+/cypress/fixtures/
+/cypress/plugins/
+/cypress/support/

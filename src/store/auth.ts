@@ -3,19 +3,19 @@ import { create } from "zustand";
 
 import { attachAuthTokenGetter } from "@/lib/api/client";
 import {
-  buildAuthorizeUrl,
-  buildLogoutUrl,
-  exchangeCodeForTokens,
-  fetchProfile,
+    buildAuthorizeUrl,
+    buildLogoutUrl,
+    exchangeCodeForTokens,
+    fetchProfile,
 } from "@/lib/auth/api";
 import {
-  consumeState,
-  consumeVerifier,
-  generateCodeChallenge,
-  generateCodeVerifier,
-  generateState,
-  storeState,
-  storeVerifier,
+    consumeState,
+    consumeVerifier,
+    generateCodeChallenge,
+    generateCodeVerifier,
+    generateState,
+    storeState,
+    storeVerifier,
 } from "@/lib/auth/pkce";
 import { clearAuthState, loadAuthState, persistAuthState } from "@/lib/auth/session";
 import type { AuthResponse, SessionTokens, UserProfile } from "@/lib/auth/types";
@@ -28,8 +28,9 @@ interface AuthState {
   session: SessionTokens | null;
   user: UserProfile | null;
   initialize: () => Promise<void>;
-  redirectToSSO: (returnTo?: string) => Promise<void>;
-  handleSSOCallback: (code: string, callbackUrl: string) => Promise<void>;
+  /** returnTo = URL to resume after login; tenant = slug when in tenant context (e.g. from path). */
+  redirectToSSO: (returnTo?: string, tenant?: string) => Promise<void>;
+  handleSSOCallback: (code: string, callbackUrl: string, tenantSlug?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -87,7 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  redirectToSSO: async (returnTo?: string) => {
+  redirectToSSO: async (returnTo?: string, tenant?: string) => {
     set({ status: "loading", error: null });
     try {
       const verifier = generateCodeVerifier();
@@ -103,13 +104,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const callbackUrl =
         typeof window !== "undefined"
-          ? `${window.location.origin}${window.location.pathname.split("/").slice(0, 2).join("/")}/auth/callback`
+          ? tenant
+            ? `${window.location.origin}/${tenant}/auth/callback`
+            : `${window.location.origin}${window.location.pathname.split("/").slice(0, 2).join("/")}/auth/callback`
           : "";
 
       const authorizeUrl = buildAuthorizeUrl({
         codeChallenge: challenge,
         state,
         redirectUri: callbackUrl,
+        tenant,
       });
 
       if (typeof window !== "undefined") {

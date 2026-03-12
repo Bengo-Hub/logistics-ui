@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { LogIn, LogOut, Menu, Truck, UserIcon } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/base";
-import { useAuthStore } from "@/store/auth";
 import { orgRoute } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth";
+import { LogIn, LogOut, Menu, Truck, UserIcon } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -57,7 +57,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               </Button>
             </div>
           ) : (
-            <Button size="sm" onClick={() => void redirectToSSO()}>
+            <Button size="sm" onClick={() => void redirectToSSO(undefined, orgSlug)}>
               <LogIn className="size-4" />
               <span className="hidden sm:inline">Sign in</span>
             </Button>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type PropsWithChildren } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type PropsWithChildren } from "react";
 
-import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
 
@@ -32,14 +32,15 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const isAuthCallback = pathname?.includes("/auth/callback");
   const isUnauthorizedPage = pathname?.endsWith("/unauthorized");
+  const orgSlug = pathname?.split("/")[1]; // tenant from path when on /[orgSlug]/...
 
   useEffect(() => {
     if (status === "loading" || isAuthCallback) return;
     if (!session && !isAuthCallback) {
-      redirectToSSO(pathname ?? undefined);
+      redirectToSSO(pathname ?? undefined, orgSlug);
       return;
     }
-  }, [status, session, isAuthCallback, pathname, redirectToSSO]);
+  }, [status, session, isAuthCallback, pathname, orgSlug, redirectToSSO]);
 
   useEffect(() => {
     if (!session || isUnauthorizedPage || meLoading) return;
