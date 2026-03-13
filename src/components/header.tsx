@@ -1,10 +1,11 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/base";
-import { orgRoute } from "@/lib/utils";
+import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
-import { LogIn, LogOut, Menu, Truck, UserIcon } from "lucide-react";
+import { Bell, ChevronDown, LogIn, LogOut, Menu, Settings, Truck, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useBranding } from "@/providers/branding-provider";
@@ -25,52 +26,103 @@ export function Header({ onMenuClick }: HeaderProps) {
   const logout = useAuthStore((s) => s.logout);
   const redirectToSSO = useAuthStore((s) => s.redirectToSSO);
   const { getServiceTitle } = useBranding();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const name = displayName(user);
+  const role = (user as any)?.roles?.[0] || (user as any)?.role;
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-card/50 backdrop-blur-xl">
-      <div className="flex h-16 items-center justify-between gap-4 px-4 lg:px-6">
-        <div className="flex items-center gap-3">
+    <header className="h-20 border-b border-slate-200 dark:border-white/5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center justify-between">
+        <div className="flex items-center gap-4 flex-1">
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+            className="lg:hidden p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
             aria-label="Open menu"
           >
-            <Menu className="size-5" />
+            <Menu className="h-5 w-5 text-slate-500" />
           </button>
-          <div className="flex items-center gap-2">
-            <Truck className="size-6 text-primary lg:hidden" />
-            <h1 className="text-lg font-black tracking-tight text-foreground uppercase bg-gradient-to-r from-brand-orange to-brand-gold bg-clip-text text-transparent">
+          <div className="flex items-center gap-6">
+            <h1 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white uppercase truncate max-w-[150px] sm:max-w-none">
                 {getServiceTitle('Logistics')}
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-3">
+          <button className="relative group p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+            <Bell className="h-5 w-5 text-slate-500 group-hover:text-primary transition-colors" />
+            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-950" />
+          </button>
+
           <ThemeToggle />
+
+          <div className="h-8 w-[1px] bg-slate-200 dark:bg-white/10 mx-1 hidden sm:block"></div>
+
           {user ? (
-            <div className="flex items-center gap-1">
-              <span className="hidden text-sm text-muted-foreground md:inline">
-                {name}
-              </span>
-              <Button variant="ghost" size="icon" asChild>
-                <Link href={orgRoute(orgSlug, "/settings")}>
-                  <UserIcon className="size-4" />
-                </Link>
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => void logout()}>
-                <LogOut className="size-4" />
-              </Button>
+            <div className="relative" ref={profileRef}>
+              <button
+                type="button"
+                onClick={() => setProfileOpen((v) => !v)}
+                className="flex items-center gap-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 p-1 transition-all group"
+              >
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-500 to-sky-400 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
+                  {name[0]?.toUpperCase() ?? <UserIcon className="h-5 w-5" />}
+                </div>
+                <div className="hidden md:block text-left mr-1">
+                  <p className="text-xs font-black text-slate-900 dark:text-white truncate max-w-[120px]">{name}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{role || 'Dispatcher'}</p>
+                </div>
+                <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform duration-300", profileOpen && "rotate-180")} />
+              </button>
+
+              {profileOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 z-50 w-64 rounded-[1.5rem] p-3 shadow-2xl border border-slate-100 dark:border-white/5 bg-white dark:bg-slate-900 overflow-hidden">
+                    <div className="mb-2 px-3 py-2">
+                      <p className="text-sm font-black text-slate-900 dark:text-white">{name}</p>
+                      <p className="text-[10px] text-slate-400 truncate font-bold uppercase tracking-widest mt-0.5">{role || 'Dispatcher'}</p>
+                    </div>
+                    
+                    <div className="h-[1px] bg-slate-100 dark:bg-white/5 my-2 mx-1" />
+
+                    <div className="grid gap-1">
+                      <Link
+                        href={orgRoute(orgSlug, "/settings")}
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center group-hover:text-primary transition-colors">
+                          <Settings className="h-4 w-4" />
+                        </div>
+                        Settings
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          void logout();
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center transition-colors">
+                          <LogOut className="h-4 w-4" />
+                        </div>
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
-            <Button size="sm" onClick={() => void redirectToSSO(undefined, orgSlug)}>
-              <LogIn className="size-4" />
-              <span className="hidden sm:inline">Sign in</span>
+            <Button size="sm" onClick={() => void redirectToSSO(undefined, orgSlug)} className="rounded-xl px-6">
+              <LogIn className="size-4 mr-2" />
+              <span>Sign in</span>
             </Button>
           )}
         </div>
-      </div>
     </header>
   );
 }

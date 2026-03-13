@@ -1,45 +1,20 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { Moon, Sun, Monitor } from "lucide-react";
-import { useTheme } from "next-themes";
-import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/base';
+import { Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 export function ThemeToggle() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+    const { theme, setTheme } = useTheme();
 
-  useEffect(() => setMounted(true), []);
-
-  const current = theme === "system" ? resolvedTheme : theme;
-
-  if (!mounted) {
-    return <div className="flex items-center gap-1 rounded-full border border-border bg-card/60 p-1 opacity-0" aria-hidden />;
-  }
-
-  const items = [
-    { key: "light", Icon: Sun, label: "Light theme", active: current === "light" },
-    { key: "dark", Icon: Moon, label: "Dark theme", active: current === "dark" },
-    { key: "system", Icon: Monitor, label: "System theme", active: theme === "system" },
-  ] as const;
-
-  return (
-    <div className="flex items-center gap-1 rounded-full border border-border bg-card/80 p-1 shadow-sm backdrop-blur">
-      {items.map(({ key, Icon, label, active }) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => setTheme(key)}
-          aria-pressed={active}
-          aria-label={label}
-          className={cn(
-            "inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground",
-            active && "bg-secondary text-foreground",
-          )}
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="relative w-10 h-10 rounded-xl bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200/50 dark:border-slate-800"
         >
-          <Icon className="size-4" />
-        </button>
-      ))}
-    </div>
-  );
+            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-amber-500" />
+            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-blue-400" />
+            <span className="sr-only">Toggle theme</span>
+        </Button>
+    );
 }
