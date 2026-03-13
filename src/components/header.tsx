@@ -8,6 +8,11 @@ import { LogIn, LogOut, Menu, Truck, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+function displayName(user: { fullName?: string; name?: string; firstName?: string; email?: string } | null): string {
+  if (!user) return "Account";
+  return (user as { fullName?: string }).fullName ?? (user as { name?: string }).name ?? user.firstName ?? user.email?.split("@")[0] ?? "Account";
+}
+
 interface HeaderProps {
   onMenuClick?: () => void;
 }
@@ -18,6 +23,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const redirectToSSO = useAuthStore((s) => s.redirectToSSO);
+  const name = displayName(user);
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -45,7 +51,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           {user ? (
             <div className="flex items-center gap-1">
               <span className="hidden text-sm text-muted-foreground md:inline">
-                {user.firstName}
+                {name}
               </span>
               <Button variant="ghost" size="icon" asChild>
                 <Link href={orgRoute(orgSlug, "/settings")}>
