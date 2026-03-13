@@ -1,5 +1,3 @@
-"use client";
-
 import { useMe } from "@/hooks/useMe";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
@@ -13,9 +11,12 @@ import {
   Shield,
   Server,
   X,
+  Truck,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
+import { useBranding } from "@/providers/branding-provider";
 
 interface SidebarProps {
   open?: boolean;
@@ -58,7 +59,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const params = useParams();
   const orgSlug = (params.orgSlug as string) || "codevertex";
   const session = useAuthStore((s) => s.session);
-  const { data: me, hasRole, hasPermission } = useMe(!!session);
+  const logout = useAuthStore((s) => s.logout);
+  const { hasRole, hasPermission } = useMe(!!session);
+  const { tenant } = useBranding();
   const isPlatformOwner = orgSlug === 'codevertex';
   const visibleMainNav = mainNav.filter((item) => canSeeNavItem(item, hasRole, hasPermission));
 
@@ -68,12 +71,106 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     return pathname.startsWith(full.split("?")[0]);
   };
 
+  const content = (
+    <div className="space-y-4 py-4 flex flex-col h-full bg-brand-dark text-brand-light border-r border-white/10 min-w-[260px]">
+        <div className="px-6 py-4 flex-1">
+            <div className="flex items-center justify-between mb-12">
+                <Link href={`/${orgSlug}`} onClick={onClose} className="flex items-center">
+                    {tenant?.logoUrl ? (
+                        <img src={tenant.logoUrl} alt={tenant.name} className="h-10 w-auto object-contain" />
+                    ) : (
+                        <div className="w-10 h-10 bg-brand-orange rounded-xl flex items-center justify-center shadow-glow-orange">
+                            <Truck className="text-white h-6 w-6" />
+                        </div>
+                    )}
+                </Link>
+                <button onClick={onClose} className="md:hidden opacity-80 hover:opacity-100 p-2">
+                    <X className="h-6 w-6" />
+                </button>
+            </div>
+
+            <div className="space-y-2">
+                <div className="px-6 pb-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-beige opacity-50">
+                        Operations
+                    </p>
+                </div>
+                {visibleMainNav.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
+                    return (
+                        <Link
+                            key={item.id}
+                            href={orgRoute(orgSlug, item.href)}
+                            onClick={onClose}
+                            className={cn(
+                                "group flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300",
+                                active 
+                                    ? "bg-brand-orange text-white shadow-glow-orange" 
+                                    : "opacity-70 hover:opacity-100 hover:bg-white/5"
+                            )}
+                        >
+                            <Icon className={cn("h-5 w-5", active ? "text-white" : "text-brand-beige")} />
+                            <span className="font-bold tracking-tight">{item.label}</span>
+                        </Link>
+                    );
+                })}
+
+                {isPlatformOwner && (
+                    <div className="mt-8 pt-8 border-t border-white/10">
+                        <div className="px-6 mb-4 text-[10px] text-brand-beige uppercase tracking-[0.2em] font-black opacity-50">
+                            Platform
+                        </div>
+                        <div className="space-y-2">
+                            {platformNav.map((item) => {
+                                const Icon = item.icon;
+                                const active = isActive(item.href);
+                                return (
+                                    <Link
+                                        key={item.id}
+                                        href={orgRoute(orgSlug, item.href)}
+                                        onClick={onClose}
+                                        className={cn(
+                                            "group flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300",
+                                            active 
+                                                ? "bg-brand-orange text-white shadow-glow-orange" 
+                                                : "opacity-70 hover:opacity-100 hover:bg-white/5"
+                                        )}
+                                    >
+                                        <Icon className={cn("h-5 w-5", active ? "text-white" : "text-brand-beige")} />
+                                        <span className="font-bold tracking-tight">{item.label}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+
+        <div className="px-6 py-6 border-t border-white/10 mt-auto">
+            <div className="flex items-center gap-4 px-6 py-4 opacity-70">
+                <div className="w-8 h-8 rounded-xl bg-brand-orange/20 flex items-center justify-center text-xs font-black text-brand-orange uppercase">
+                    {tenant?.name?.[0] || orgSlug?.[0]}
+                </div>
+                <span className="font-bold tracking-tight truncate flex-1 uppercase text-xs opacity-70">{tenant?.name || orgSlug}</span>
+                <button
+                    onClick={() => logout()}
+                    className="p-2 rounded-xl hover:bg-white/5 transition-colors text-brand-beige hover:text-red-400"
+                    title="Sign out"
+                >
+                    <LogOut className="h-5 w-5" />
+                </button>
+            </div>
+        </div>
+    </div>
+  );
+
   return (
     <>
-      {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={onClose}
           aria-hidden
         />
@@ -81,80 +178,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-background transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full",
+          "fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
-        {/* Mobile close */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-4 lg:hidden">
-          <span className="text-sm font-bold text-foreground">Menu</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Close menu"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto py-4">
-          <div className="px-3 pb-2">
-            <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Operations
-            </p>
-          </div>
-          {visibleMainNav.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.id}
-                href={orgRoute(orgSlug, item.href)}
-                onClick={onClose}
-                className={cn(
-                  "mx-2 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <Icon className="size-5 shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-
-          {isPlatformOwner && (
-            <>
-              <div className="px-3 pb-2 pt-6">
-                <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Platform
-                </p>
-              </div>
-              {platformNav.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.id}
-                    href={orgRoute(orgSlug, item.href)}
-                    onClick={onClose}
-                    className={cn(
-                      "mx-2 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="size-5 shrink-0" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </>
-          )}
-        </nav>
+        <div className="flex-1 overflow-y-auto">{content}</div>
       </aside>
     </>
   );

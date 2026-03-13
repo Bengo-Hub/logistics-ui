@@ -1,13 +1,8 @@
 "use client";
 
-import { Bike, MapPin, Navigation, Radio } from "lucide-react";
-import {
-  Badge,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/base";
+import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/base";
+import { Bike, Navigation, Radio } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 const liveRiders = [
   { id: "1", name: "John K.", status: "delivering", task: "TSK-1042", lastSeen: "Just now" },
@@ -16,6 +11,10 @@ const liveRiders = [
 ];
 
 export default function TrackingPage() {
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get("orderId");
+  const waybill = searchParams.get("waybill");
+
   return (
     <div className="space-y-6">
       <div>
@@ -24,6 +23,31 @@ export default function TrackingPage() {
           Monitor rider locations and delivery progress in real time.
         </p>
       </div>
+
+      {(orderId || waybill) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tracking search</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm text-muted-foreground">
+            {orderId && (
+              <p>
+                Tracking by <span className="font-medium text-foreground">order ID</span>:{" "}
+                <span className="font-mono text-foreground">{orderId}</span>
+              </p>
+            )}
+            {waybill && (
+              <p>
+                Tracking by <span className="font-medium text-foreground">waybill</span>:{" "}
+                <span className="font-mono text-foreground">{waybill}</span>
+              </p>
+            )}
+            <p className="text-xs">
+              Backend integration should resolve the task and rider positions for the given order or waybill.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Map */}

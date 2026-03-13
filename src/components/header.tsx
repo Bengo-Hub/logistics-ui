@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/auth";
 import { LogIn, LogOut, Menu, Truck, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useBranding } from "@/providers/branding-provider";
 
 function displayName(user: { fullName?: string; name?: string; firstName?: string; email?: string } | null): string {
   if (!user) return "Account";
@@ -23,10 +24,11 @@ export function Header({ onMenuClick }: HeaderProps) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const redirectToSSO = useAuthStore((s) => s.redirectToSSO);
+  const { getServiceTitle } = useBranding();
   const name = displayName(user);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-30 border-b border-border bg-card/50 backdrop-blur-xl">
       <div className="flex h-16 items-center justify-between gap-4 px-4 lg:px-6">
         <div className="flex items-center gap-3">
           <button
@@ -37,13 +39,12 @@ export function Header({ onMenuClick }: HeaderProps) {
           >
             <Menu className="size-5" />
           </button>
-          <Link
-            href={orgRoute(orgSlug, "")}
-            className="flex items-center gap-2 text-base font-bold text-foreground"
-          >
-            <Truck className="size-6 text-primary" />
-            <span className="hidden sm:inline">BengoBox Logistics</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Truck className="size-6 text-primary lg:hidden" />
+            <h1 className="text-lg font-black tracking-tight text-foreground uppercase bg-gradient-to-r from-brand-orange to-brand-gold bg-clip-text text-transparent">
+                {getServiceTitle('Logistics')}
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
