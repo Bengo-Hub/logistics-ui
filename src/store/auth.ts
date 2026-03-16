@@ -35,6 +35,10 @@ interface AuthState {
 }
 
 function applyAuthResponse(set: (value: Partial<AuthState>) => void, response: AuthResponse) {
+  if (typeof window !== "undefined") {
+    if (response.user.tenantId) localStorage.setItem("tenantId", response.user.tenantId);
+    if (response.user.tenantSlug) localStorage.setItem("tenantSlug", response.user.tenantSlug);
+  }
   const newState = {
     status: "authenticated" as const,
     session: response.session,
@@ -124,7 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  handleSSOCallback: async (code: string, callbackUrl: string) => {
+  handleSSOCallback: async (code: string, callbackUrl: string, tenantSlug?: string) => {
     set({ status: "syncing", error: null });
 
     const verifier = consumeVerifier();
@@ -136,6 +140,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     try {
+      if (tenantSlug && typeof window !== "undefined") {
+        localStorage.setItem("tenantSlug", tenantSlug);
+      }
       const tokens = await exchangeCodeForTokens({
         code,
         codeVerifier: verifier,
@@ -182,6 +189,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("tenantId");
+      localStorage.removeItem("tenantSlug");
+    }
     clearAuthState();
     set({ status: "idle", user: null, session: null, error: null });
     if (typeof window !== "undefined") {
