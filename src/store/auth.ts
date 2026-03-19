@@ -8,6 +8,7 @@ import {
     exchangeCodeForTokens,
     fetchProfile,
 } from "@/lib/auth/api";
+import { checkSubscription } from "@/lib/auth/subscription";
 import {
     consumeState,
     consumeVerifier,
@@ -20,7 +21,7 @@ import {
 import { clearAuthState, loadAuthState, persistAuthState } from "@/lib/auth/session";
 import type { AuthResponse, SessionTokens, UserProfile } from "@/lib/auth/types";
 
-type AuthStatus = "idle" | "loading" | "authenticated" | "syncing" | "error";
+type AuthStatus = "idle" | "loading" | "authenticated" | "syncing" | "error" | "subscription_required";
 
 interface AuthState {
   status: AuthStatus;
@@ -165,9 +166,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       while (syncAttempts < maxAttempts) {
         try {
           const response = await fetchProfile();
+          const u = response.user;
+          if (u.tenantSlug !== 'codevertex' && u.tenantId) {
+            const active = await checkSubscription(u.tenantId, u.tenantSlug ?? '', session.accessToken);
+            if (!active) {
+              set({ status: 'subscription_required' });
+              return;
+            }
+          }
           applyAuthResponse(set, {
             session: { ...session, sessionId: response.session?.sessionId ?? "" },
-            user: response.user,
+            user: u,
           });
           return;
         } catch (err) {

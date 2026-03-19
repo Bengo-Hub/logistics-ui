@@ -16,18 +16,26 @@ export default function AuthCallbackPage() {
   const error = useAuthStore((s) => s.error);
 
   useEffect(() => {
+    if (status === 'subscription_required') {
+      const subsUrl = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL || 'https://pricing.codevertexitsolutions.com';
+      window.location.href = `${subsUrl}/subscribe`;
+    }
+    if (status === 'authenticated') {
+      const returnTo = sessionStorage.getItem("sso_return_to") || `/${orgSlug}`;
+      sessionStorage.removeItem("sso_return_to");
+      router.replace(returnTo);
+    }
+  }, [status, orgSlug, router]);
+
+  useEffect(() => {
     if (handled.current) return;
     const code = searchParams.get("code");
     if (!code) return;
 
     handled.current = true;
     const callbackUrl = `${window.location.origin}/${orgSlug}/auth/callback`;
-    handleSSOCallback(code, callbackUrl, orgSlug).then(() => {
-      const returnTo = sessionStorage.getItem("sso_return_to") || `/${orgSlug}`;
-      sessionStorage.removeItem("sso_return_to");
-      router.replace(returnTo);
-    });
-  }, [searchParams, orgSlug, handleSSOCallback, router]);
+    handleSSOCallback(code, callbackUrl, orgSlug);
+  }, [searchParams, orgSlug, handleSSOCallback]);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
