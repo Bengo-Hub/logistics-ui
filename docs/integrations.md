@@ -118,9 +118,12 @@ GET /api/v1/{tenant}/tracking/rider/{riderId}/location  (every 5s)
 
 ---
 
-## Map integration (Leaflet)
+## Map integration (@bengo-hub/maps + TileServer-GL)
 
-**Tile provider**: OpenStreetMap (default), Mapbox (post-MVP)
+**Tile provider**: Self-hosted TileServer-GL at `https://tiles.codevertexitsolutions.com` (internal: `http://tileserver.logistics.svc.cluster.local:8080`)
+**Frontend library**: `@bengo-hub/maps` (MapLibre GL JS wrapper, shared NPM package)
+**Routing engine**: Self-hosted Valhalla at `https://routing.codevertexitsolutions.com` (internal: `http://valhalla.logistics.svc.cluster.local:8002`)
+**Data source**: OpenStreetMap Kenya extract from Geofabrik, auto-refreshed weekly
 
 ### Components
 
