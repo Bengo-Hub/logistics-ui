@@ -171,6 +171,81 @@ export function useAssignTask() {
   });
 }
 
+// ─── Zones ────────────────────────────────────────────────────────
+
+export interface GeoFence {
+  id: string;
+  tenant_id: string;
+  name: string;
+  zone_type: string;
+  status: string;
+  boundary: number[][];
+  color: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useZones() {
+  const tenantSlug = useTenantSlug();
+  return useQuery<GeoFence[]>({
+    queryKey: ["zones", tenantSlug],
+    queryFn: async () => {
+      const { data } = await api.get(`${tenantSlug}/zones`);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!tenantSlug,
+  });
+}
+
+export function useCreateZone() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      name: string;
+      zone_type?: string;
+      status?: string;
+      boundary: number[][];
+      color?: string;
+    }) => {
+      const { data } = await api.post(`${tenantSlug}/zones`, body);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["zones"] }),
+  });
+}
+
+export function useUpdateZone() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ zoneId, ...body }: {
+      zoneId: string;
+      name?: string;
+      zone_type?: string;
+      status?: string;
+      boundary?: number[][];
+      color?: string;
+    }) => {
+      const { data } = await api.patch(`${tenantSlug}/zones/${zoneId}`, body);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["zones"] }),
+  });
+}
+
+export function useDeleteZone() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (zoneId: string) => {
+      await api.delete(`${tenantSlug}/zones/${zoneId}`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["zones"] }),
+  });
+}
+
 // ─── Public Tracking ──────────────────────────────────────────────
 
 export function usePublicTracking(trackingCode: string) {
