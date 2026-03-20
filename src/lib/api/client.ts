@@ -22,13 +22,16 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   if (typeof window !== "undefined") {
-    const tenantId = localStorage.getItem("tenantId");
-    if (tenantId) {
-      config.headers["X-Tenant-ID"] = tenantId;
-    }
-    const tenantSlug = localStorage.getItem("tenantSlug");
-    if (tenantSlug) {
-      config.headers["X-Tenant-Slug"] = tenantSlug;
+    const isPlatformOwner = localStorage.getItem("is_platform_owner") === "true";
+    if (!isPlatformOwner) {
+      const tenantId = localStorage.getItem("tenantId");
+      if (tenantId) {
+        config.headers["X-Tenant-ID"] = tenantId;
+      }
+      const tenantSlug = localStorage.getItem("tenantSlug");
+      if (tenantSlug) {
+        config.headers["X-Tenant-Slug"] = tenantSlug;
+      }
     }
   }
   return config;
