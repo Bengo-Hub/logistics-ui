@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Search, UserPlus } from "lucide-react";
+import { Loader2, Search, UserPlus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -14,50 +14,29 @@ import {
   Input,
 } from "@/components/ui/base";
 import { orgRoute } from "@/lib/utils";
+import { useFleetMembers } from "@/hooks/use-logistics";
+import type { FleetMemberStatus } from "@/types/logistics";
 
-type RiderStatus = "online" | "offline" | "busy";
-type KycStatus = "verified" | "pending" | "rejected";
-
-interface Rider {
-  id: string;
-  name: string;
-  phone: string;
-  status: RiderStatus;
-  kycStatus: KycStatus;
-  rating: number;
-  completedTasks: number;
-}
-
-const statusColor: Record<RiderStatus, "success" | "secondary" | "warning"> = {
-  online: "success",
-  offline: "secondary",
-  busy: "warning",
-};
-
-const kycColor: Record<KycStatus, "success" | "warning" | "destructive"> = {
-  verified: "success",
+const statusColor: Record<FleetMemberStatus, "success" | "secondary" | "warning" | "destructive"> = {
+  active: "success",
   pending: "warning",
-  rejected: "destructive",
+  suspended: "destructive",
+  rejected: "secondary",
 };
-
-const mockRiders: Rider[] = [
-  { id: "1", name: "John Kamau", phone: "+254712345678", status: "online", kycStatus: "verified", rating: 4.8, completedTasks: 245 },
-  { id: "2", name: "Jane Wanjiku", phone: "+254723456789", status: "busy", kycStatus: "verified", rating: 4.9, completedTasks: 312 },
-  { id: "3", name: "Peter Ochieng", phone: "+254734567890", status: "offline", kycStatus: "pending", rating: 4.5, completedTasks: 89 },
-  { id: "4", name: "Mary Akinyi", phone: "+254745678901", status: "online", kycStatus: "verified", rating: 4.7, completedTasks: 178 },
-  { id: "5", name: "David Mwangi", phone: "+254756789012", status: "offline", kycStatus: "rejected", rating: 3.2, completedTasks: 12 },
-];
 
 export default function RidersPage() {
   const params = useParams();
   const orgSlug = params.orgSlug as string;
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<RiderStatus | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<FleetMemberStatus | "all">("all");
 
-  const filtered = mockRiders.filter((r) => {
-    const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = filterStatus === "all" || r.status === filterStatus;
-    return matchesSearch && matchesStatus;
+  const { data: members = [], isLoading, error } = useFleetMembers(
+    filterStatus !== "all" ? filterStatus : undefined
+  );
+
+  const filtered = members.filter((m) => {
+    const fullName = `${m.first_name} ${m.last_name}`.toLowerCase();
+    return fullName.includes(search.toLowerCase());
   });
 
   return (
@@ -67,10 +46,12 @@ export default function RidersPage() {
           <h1 className="text-2xl font-bold tracking-tight">Riders</h1>
           <p className="text-muted-foreground">Manage your fleet members and their status.</p>
         </div>
-        <Button>
-          <UserPlus className="size-4" />
-          Add Rider
-        </Button>
+        <Link href={orgRoute(orgSlug, "/riders/invite")}>
+          <Button>
+            <UserPlus className="size-4" />
+            Add Rider
+          </Button>
+        </Link>
       </div>
 
       {/* Filters */}
@@ -85,7 +66,7 @@ export default function RidersPage() {
           />
         </div>
         <div className="flex gap-2">
-          {(["all", "online", "offline", "busy"] as const).map((s) => (
+          {(["all", "active", "pending", "suspended"] as const).map((s) => (
             <Button
               key={s}
               variant={filterStatus === s ? "default" : "outline"}
@@ -98,43 +79,62 @@ export default function RidersPage() {
         </div>
       </div>
 
-      {/* Riders List */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((rider) => (
-          <Link key={rider.id} href={orgRoute(orgSlug, `/riders/${rider.id}`)}>
-            <Card className="transition-shadow hover:shadow-md">
-              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-                <div>
-                  <CardTitle className="text-base">{rider.name}</CardTitle>
-                  <p className="text-xs text-muted-foreground">{rider.phone}</p>
-                </div>
-                <Badge variant={statusColor[rider.status]}>{rider.status}</Badge>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">KYC:</span>
-                    <Badge variant={kycColor[rider.kycStatus]} className="text-xs">
-                      {rider.kycStatus}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-yellow-500">★</span>
-                    <span className="font-medium">{rider.rating}</span>
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {rider.completedTasks} tasks completed
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Loading riders...</span>
+        </div>
+      )}
 
-      {filtered.length === 0 && (
+      {/* Error state */}
+      {error && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">
+            Failed to load riders. Please check your connection and try again.
+          </p>
+        </div>
+      )}
+
+      {/* Riders List */}
+      {!isLoading && !error && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((member) => (
+            <Link key={member.id} href={orgRoute(orgSlug, `/riders/${member.id}`)}>
+              <Card className="transition-shadow hover:shadow-md">
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                  <div>
+                    <CardTitle className="text-base">
+                      {member.first_name} {member.last_name}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">{member.phone || member.email}</p>
+                  </div>
+                  <Badge variant={statusColor[member.status]}>{member.status}</Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Role:</span>
+                      <span className="text-xs font-medium">{member.role || "rider"}</span>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Joined {new Date(member.created_at).toLocaleDateString()}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && !error && filtered.length === 0 && (
         <div className="py-12 text-center">
-          <p className="text-muted-foreground">No riders match your filters.</p>
+          <p className="text-muted-foreground">
+            {members.length === 0
+              ? "No riders yet. Invite your first rider to get started."
+              : "No riders match your filters."}
+          </p>
         </div>
       )}
     </div>

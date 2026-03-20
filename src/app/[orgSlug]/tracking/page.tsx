@@ -1,19 +1,80 @@
 "use client";
 
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/base";
-import { Bike, Navigation, Radio } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { Bike, Loader2, Navigation, Radio, Search } from "lucide-react";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+} from "@/components/ui/base";
+import { api } from "@/lib/api/client";
 
-const liveRiders = [
-  { id: "1", name: "John K.", status: "delivering", task: "TSK-1042", lastSeen: "Just now" },
-  { id: "2", name: "Jane W.", status: "delivering", task: "TSK-1041", lastSeen: "1 min ago" },
-  { id: "3", name: "Mary A.", status: "idle", task: null, lastSeen: "3 min ago" },
-];
+interface LiveRider {
+  rider_id: string;
+  name: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  speed: number | null;
+  heading: number | null;
+  active_task_id: string | null;
+  updated_at: string;
+}
+
+interface TrackingStats {
+  riders_online: number;
+  active_deliveries: number;
+}
 
 export default function TrackingPage() {
+  const params = useParams();
+  const tenantSlug = params.orgSlug as string;
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   const waybill = searchParams.get("waybill");
+
+  const [riders, setRiders] = useState<LiveRider[]>([]);
+  const [stats, setStats] = useState<TrackingStats>({ riders_online: 0, active_deliveries: 0 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchCode, setSearchCode] = useState(waybill || orderId || "");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Fetch fleet tracking data via REST polling
+  useEffect(() => {
+    async function fetchFleet() {
+      try {
+        const { data } = await api.get(`${tenantSlug}/tracking/fleet`);
+        const riderList: LiveRider[] = data.riders ?? [];
+        setRiders(riderList);
+        setStats({
+          riders_online: riderList.length,
+          active_deliveries: riderList.filter((r: LiveRider) => r.active_task_id).length,
+        });
+      } catch {
+        // Silently handle - fleet endpoint may not be implemented yet
+        setRiders([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchFleet();
+    pollRef.current = setInterval(fetchFleet, 10_000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [tenantSlug]);
+
+  function handleTrackSearch() {
+    if (!searchCode.trim()) return;
+    window.open(`/track/${searchCode.trim()}`, "_blank");
+  }
 
   return (
     <div className="space-y-6">
@@ -24,30 +85,24 @@ export default function TrackingPage() {
         </p>
       </div>
 
-      {(orderId || waybill) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Tracking search</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm text-muted-foreground">
-            {orderId && (
-              <p>
-                Tracking by <span className="font-medium text-foreground">order ID</span>:{" "}
-                <span className="font-mono text-foreground">{orderId}</span>
-              </p>
-            )}
-            {waybill && (
-              <p>
-                Tracking by <span className="font-medium text-foreground">waybill</span>:{" "}
-                <span className="font-mono text-foreground">{waybill}</span>
-              </p>
-            )}
-            <p className="text-xs">
-              Backend integration should resolve the task and rider positions for the given order or waybill.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Track by code search */}
+      <Card>
+        <CardContent className="flex gap-3 p-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Enter tracking code or order ID..."
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleTrackSearch()}
+              className="pl-10"
+            />
+          </div>
+          <Button onClick={handleTrackSearch} disabled={!searchCode.trim()}>
+            Track
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Map */}
@@ -63,10 +118,10 @@ export default function TrackingPage() {
               <div className="text-center">
                 <Radio className="mx-auto size-12 text-primary/40 animate-pulse" />
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Real-time delivery tracking map
+                  Live fleet map will render here after @bengo-hub/maps integration
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground/70">
-                  Integrate Leaflet or Mapbox with WebSocket for live rider positions
+                  {riders.length} rider{riders.length !== 1 ? "s" : ""} reporting location
                 </p>
               </div>
             </div>
@@ -83,24 +138,43 @@ export default function TrackingPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {liveRiders.map((rider) => (
+              {isLoading && (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+
+              {!isLoading && riders.length === 0 && (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  No riders currently online.
+                </p>
+              )}
+
+              {riders.map((rider) => (
                 <div
-                  key={rider.id}
+                  key={rider.rider_id}
                   className="flex items-center justify-between rounded-md border border-border p-3 transition-colors hover:bg-muted/50"
                 >
                   <div>
-                    <p className="text-sm font-medium">{rider.name}</p>
-                    {rider.task ? (
-                      <p className="text-xs text-muted-foreground">Task: {rider.task}</p>
+                    <p className="text-sm font-medium">{rider.name || `Rider ${rider.rider_id.slice(0, 6)}`}</p>
+                    {rider.active_task_id ? (
+                      <p className="text-xs text-muted-foreground">
+                        Task: {rider.active_task_id.slice(0, 8)}
+                      </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">Idle</p>
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <Badge variant={rider.status === "delivering" ? "default" : "secondary"} className="text-xs">
-                      {rider.status}
+                    <Badge
+                      variant={rider.active_task_id ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {rider.active_task_id ? "delivering" : "idle"}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">{rider.lastSeen}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {rider.speed ? `${Math.round(rider.speed * 3.6)} km/h` : "—"}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -114,19 +188,11 @@ export default function TrackingPage() {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Riders Online</span>
-                <span className="font-semibold">3</span>
+                <span className="font-semibold">{stats.riders_online}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Active Deliveries</span>
-                <span className="font-semibold">2</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Avg. Speed</span>
-                <span className="font-semibold">28 km/h</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">GPS Coverage</span>
-                <span className="font-semibold text-success">100%</span>
+                <span className="font-semibold">{stats.active_deliveries}</span>
               </div>
             </CardContent>
           </Card>

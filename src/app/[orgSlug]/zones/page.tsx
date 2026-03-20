@@ -2,21 +2,12 @@
 
 import { Hexagon, MapPin, Plus } from "lucide-react";
 import {
-  Badge,
   Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/base";
-
-const mockZones = [
-  { id: "1", name: "CBD & Downtown", riders: 8, activeTasks: 12, status: "active" as const },
-  { id: "2", name: "Westlands", riders: 5, activeTasks: 7, status: "active" as const },
-  { id: "3", name: "Karen & Langata", riders: 3, activeTasks: 4, status: "active" as const },
-  { id: "4", name: "Kilimani & Lavington", riders: 4, activeTasks: 6, status: "active" as const },
-  { id: "5", name: "Eastlands", riders: 2, activeTasks: 3, status: "inactive" as const },
-];
 
 export default function ZonesPage() {
   return (
@@ -28,7 +19,7 @@ export default function ZonesPage() {
             Configure delivery zones and their boundaries.
           </p>
         </div>
-        <Button>
+        <Button disabled>
           <Plus className="size-4" />
           Create Zone
         </Button>
@@ -44,40 +35,32 @@ export default function ZonesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex h-[500px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/30">
+            <div className="flex h-125 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30">
               <div className="text-center">
                 <MapPin className="mx-auto size-12 text-muted-foreground/50" />
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Interactive map for zone boundary configuration
+                  Zone editor will be available after @bengo-hub/maps integration
                 </p>
                 <p className="text-xs text-muted-foreground/70">
-                  Draw polygon boundaries with Leaflet / Mapbox
+                  Draw polygon boundaries to define delivery zones
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Zone List */}
+        {/* Empty state */}
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">Configured Zones</h2>
-          {mockZones.map((zone) => (
-            <Card key={zone.id} className="cursor-pointer transition-shadow hover:shadow-md">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{zone.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {zone.riders} riders &middot; {zone.activeTasks} active tasks
-                    </p>
-                  </div>
-                  <Badge variant={zone.status === "active" ? "success" : "secondary"} className="text-xs">
-                    {zone.status}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Hexagon className="size-10 text-muted-foreground/30" />
+              <p className="mt-3 text-sm text-muted-foreground">No zones configured yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground/70">
+                Zone management requires PostGIS geo-fence tables (Sprint 3).
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
