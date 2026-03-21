@@ -13,6 +13,7 @@ import {
   CardTitle,
   Input,
 } from "@/components/ui/base";
+import { Pagination } from "@/components/ui/pagination";
 import { orgRoute } from "@/lib/utils";
 import { useFleetMembers } from "@/hooks/use-logistics";
 import type { FleetMemberStatus } from "@/types/logistics";
@@ -29,6 +30,7 @@ export default function RidersPage() {
   const orgSlug = params.orgSlug as string;
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FleetMemberStatus | "all">("all");
+  const [page, setPage] = useState(1);
 
   const { data: members = [], isLoading, error } = useFleetMembers(
     filterStatus !== "all" ? filterStatus : undefined
@@ -38,6 +40,11 @@ export default function RidersPage() {
     const fullName = `${m.first_name} ${m.last_name}`.toLowerCase();
     return fullName.includes(search.toLowerCase());
   });
+
+  const perPage = 12;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * perPage, safePage * perPage);
 
   return (
     <div className="space-y-6">
@@ -99,7 +106,7 @@ export default function RidersPage() {
       {/* Riders List */}
       {!isLoading && !error && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((member) => (
+          {paginated.map((member) => (
             <Link key={member.id} href={orgRoute(orgSlug, `/riders/${member.id}`)}>
               <Card className="transition-shadow hover:shadow-md">
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
@@ -127,6 +134,13 @@ export default function RidersPage() {
           ))}
         </div>
       )}
+
+      <Pagination
+        page={safePage}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        className="mt-6"
+      />
 
       {!isLoading && !error && filtered.length === 0 && (
         <div className="py-12 text-center">
