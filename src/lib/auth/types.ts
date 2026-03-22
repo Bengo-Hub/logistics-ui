@@ -1,3 +1,122 @@
+export type UserRole = "staff" | "admin" | "superuser";
+
+export type Permission =
+  // Tasks
+  | "logistics.tasks.add"
+  | "logistics.tasks.read"
+  | "logistics.tasks.read_own"
+  | "logistics.tasks.change"
+  | "logistics.tasks.change_own"
+  | "logistics.tasks.delete"
+  | "logistics.tasks.manage"
+  | "logistics.tasks.manage_own"
+  | "logistics.tasks.refund"
+  // Riders
+  | "logistics.riders.add"
+  | "logistics.riders.read"
+  | "logistics.riders.read_own"
+  | "logistics.riders.change"
+  | "logistics.riders.change_own"
+  | "logistics.riders.delete"
+  | "logistics.riders.manage"
+  | "logistics.riders.manage_own"
+  | "logistics.riders.refund"
+  // Zones
+  | "logistics.zones.add"
+  | "logistics.zones.read"
+  | "logistics.zones.read_own"
+  | "logistics.zones.change"
+  | "logistics.zones.change_own"
+  | "logistics.zones.delete"
+  | "logistics.zones.manage"
+  | "logistics.zones.manage_own"
+  | "logistics.zones.refund"
+  // Tracking
+  | "logistics.tracking.add"
+  | "logistics.tracking.read"
+  | "logistics.tracking.read_own"
+  | "logistics.tracking.change"
+  | "logistics.tracking.change_own"
+  | "logistics.tracking.delete"
+  | "logistics.tracking.manage"
+  | "logistics.tracking.manage_own"
+  | "logistics.tracking.refund"
+  // Routes
+  | "logistics.routes.add"
+  | "logistics.routes.read"
+  | "logistics.routes.read_own"
+  | "logistics.routes.change"
+  | "logistics.routes.change_own"
+  | "logistics.routes.delete"
+  | "logistics.routes.manage"
+  | "logistics.routes.manage_own"
+  | "logistics.routes.refund"
+  // Vehicles
+  | "logistics.vehicles.add"
+  | "logistics.vehicles.read"
+  | "logistics.vehicles.read_own"
+  | "logistics.vehicles.change"
+  | "logistics.vehicles.change_own"
+  | "logistics.vehicles.delete"
+  | "logistics.vehicles.manage"
+  | "logistics.vehicles.manage_own"
+  | "logistics.vehicles.refund"
+  // Settings
+  | "logistics.settings.add"
+  | "logistics.settings.read"
+  | "logistics.settings.read_own"
+  | "logistics.settings.change"
+  | "logistics.settings.change_own"
+  | "logistics.settings.delete"
+  | "logistics.settings.manage"
+  | "logistics.settings.manage_own"
+  | "logistics.settings.refund"
+  // Reports
+  | "logistics.reports.add"
+  | "logistics.reports.read"
+  | "logistics.reports.read_own"
+  | "logistics.reports.change"
+  | "logistics.reports.change_own"
+  | "logistics.reports.delete"
+  | "logistics.reports.manage"
+  | "logistics.reports.manage_own"
+  | "logistics.reports.refund"
+  // Platform
+  | "logistics.platform.add"
+  | "logistics.platform.read"
+  | "logistics.platform.read_own"
+  | "logistics.platform.change"
+  | "logistics.platform.change_own"
+  | "logistics.platform.delete"
+  | "logistics.platform.manage"
+  | "logistics.platform.manage_own"
+  | "logistics.platform.refund"
+  // Dispatching
+  | "logistics.dispatching.add"
+  | "logistics.dispatching.read"
+  | "logistics.dispatching.read_own"
+  | "logistics.dispatching.change"
+  | "logistics.dispatching.change_own"
+  | "logistics.dispatching.delete"
+  | "logistics.dispatching.manage"
+  | "logistics.dispatching.manage_own"
+  | "logistics.dispatching.refund"
+  // Notifications
+  | "logistics.notifications.add"
+  | "logistics.notifications.read"
+  | "logistics.notifications.read_own"
+  | "logistics.notifications.change"
+  | "logistics.notifications.change_own"
+  | "logistics.notifications.delete"
+  | "logistics.notifications.manage"
+  | "logistics.notifications.manage_own"
+  | "logistics.notifications.refund"
+  // Config
+  | "logistics.config.view"
+  | "logistics.config.manage"
+  // Users
+  | "logistics.users.manage";
+
 export interface SessionTokens {
   accessToken: string;
   refreshToken: string;
@@ -12,9 +131,12 @@ export interface UserProfile {
   lastName: string;
   avatarUrl?: string;
   role: string;
-  permissions: string[];
+  roles: UserRole[];
+  permissions: Permission[];
   tenantId: string;
   tenantSlug: string;
+  isPlatformOwner?: boolean;
+  isSuperUser?: boolean;
 }
 
 export interface AuthResponse {

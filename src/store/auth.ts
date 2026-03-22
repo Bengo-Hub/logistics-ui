@@ -19,7 +19,7 @@ import {
     storeVerifier,
 } from "@/lib/auth/pkce";
 import { clearAuthState, loadAuthState, persistAuthState } from "@/lib/auth/session";
-import type { AuthResponse, SessionTokens, UserProfile } from "@/lib/auth/types";
+import type { AuthResponse, SessionTokens, UserProfile, UserRole } from "@/lib/auth/types";
 
 type AuthStatus = "idle" | "loading" | "authenticated" | "syncing" | "error" | "subscription_required";
 

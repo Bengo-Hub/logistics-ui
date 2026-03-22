@@ -69,5 +69,14 @@ export async function exchangeCodeForTokens(params: {
 
 export async function fetchProfile(): Promise<AuthResponse> {
   const { data } = await api.get<AuthResponse>("auth/me");
-  return data;
+  // Ensure roles array and permission array are always present
+  const user = data.user ?? {} as AuthResponse["user"];
+  if (!Array.isArray(user.roles)) {
+    user.roles = user.role ? [user.role as any] : [];
+  }
+  if (!Array.isArray(user.permissions)) {
+    user.permissions = [];
+  }
+  user.isSuperUser = user.isSuperUser || (user.roles as string[]).includes("superuser");
+  return { ...data, user };
 }
