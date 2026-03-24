@@ -8,6 +8,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
 
 import { useMe } from "@/hooks/useMe";
+import { setOn401 } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth";
 
 function makeQueryClient() {
@@ -77,10 +78,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [queryClient] = useState(() => makeQueryClient());
   const showDevtools = process.env.NODE_ENV !== "production";
   const initializeAuth = useAuthStore((state) => state.initialize);
+  const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // Register 401 handler: clear all caches and redirect to SSO
+  useEffect(() => {
+    setOn401(() => {
+      queryClient.clear();
+      void logout();
+    });
+    return () => setOn401(null);
+  }, [queryClient, logout]);
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

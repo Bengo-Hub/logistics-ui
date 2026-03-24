@@ -40,3 +40,20 @@ api.interceptors.request.use((config) => {
 export function attachAuthTokenGetter(getter: () => string | null) {
   accessTokenGetter = getter;
 }
+
+let on401Callback: (() => void) | null = null;
+
+/** Register a callback to run when any API response is 401 (e.g. clear session / redirect to auth). */
+export function setOn401(callback: (() => void) | null) {
+  on401Callback = callback;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && on401Callback) {
+      on401Callback();
+    }
+    return Promise.reject(error);
+  },
+);

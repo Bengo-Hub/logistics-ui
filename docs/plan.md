@@ -29,7 +29,7 @@ The Logistics UI is a specialized microservice frontend dedicated to rider manag
 - **PWA Support**: Enhanced mobile experience with offline capabilities and install prompts for riders.
 
 ### ❌ Customer Ordering → **ordering-service**
-- **Redirects To**: `https://ordering.codevertexitsolutions.com`
+- **Redirects To**: `https://ordersapp.codevertexitsolutions.com`
 - **Why**: Ordering logic, menus, and customer carts are owned by the ordering service.
 
 ### ❌ Staff/Admin Portal → **cafe-website**
