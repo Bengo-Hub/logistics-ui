@@ -56,3 +56,11 @@ coverage/
 /cypress/fixtures/
 /cypress/plugins/
 /cypress/support/
+
+# Security hardening
+.env.*
+!.env.example
+*.pem
+*-key.pem
+KubeSecrets/
+kubeSecrets/
