@@ -196,14 +196,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("tenantId");
-      localStorage.removeItem("tenantSlug");
-    }
     clearAuthState();
-    set({ status: "idle", user: null, session: null, error: null });
+    set({ status: "idle", user: null, session: null, error: null, subscriptionInfo: undefined });
     if (typeof window !== "undefined") {
-      window.location.href = buildLogoutUrl(window.location.origin);
+      try { localStorage.removeItem("tenantId"); } catch { /* no-op */ }
+      try { localStorage.removeItem("tenantSlug"); } catch { /* no-op */ }
+      try { localStorage.removeItem("is_platform_owner"); } catch { /* no-op */ }
+      try { sessionStorage.clear(); } catch { /* no-op */ }
+      window.location.href = buildLogoutUrl("https://accounts.codevertexitsolutions.com");
     }
   },
 }));
