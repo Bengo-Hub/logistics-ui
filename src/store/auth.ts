@@ -8,7 +8,6 @@ import {
     exchangeCodeForTokens,
     fetchProfile,
 } from "@/lib/auth/api";
-import { checkSubscription } from "@/lib/auth/subscription";
 import {
     consumeState,
     consumeVerifier,
@@ -29,6 +28,10 @@ interface AuthState {
   session: SessionTokens | null;
   user: UserProfile | null;
   initialize: () => Promise<void>;
+  /** Subscription info fetched lazily after login (undefined = not started, null = loading). */
+  subscriptionInfo: Record<string, unknown> | null | undefined;
+  setSubscriptionInfo: (info: Record<string, unknown> | null) => void;
+
   /** returnTo = URL to resume after login; tenant = slug when in tenant context (e.g. from path). */
   redirectToSSO: (returnTo?: string, tenant?: string) => Promise<void>;
   handleSSOCallback: (code: string, callbackUrl: string, tenantSlug?: string) => Promise<void>;
@@ -63,6 +66,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   ...loadAuthState(),
   status: "idle",
   error: null,
+  subscriptionInfo: undefined,
+  setSubscriptionInfo: (info: Record<string, unknown> | null) => set({ subscriptionInfo: info }),
 
   initialize: async () => {
     const { session, user } = get();
@@ -167,13 +172,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
           const response = await fetchProfile();
           const u = response.user;
-          if (u.tenantSlug !== 'codevertex' && u.tenantId) {
-            const active = await checkSubscription(u.tenantId, u.tenantSlug ?? '', session.accessToken);
-            if (!active) {
-              set({ status: 'subscription_required' });
-              return;
-            }
-          }
           applyAuthResponse(set, {
             session: { ...session, sessionId: response.session?.sessionId ?? "" },
             user: u,
