@@ -67,16 +67,38 @@ export async function exchangeCodeForTokens(params: {
   return response.json();
 }
 
-export async function fetchProfile(): Promise<AuthResponse> {
-  const { data } = await api.get<AuthResponse>("auth/me");
-  // Ensure roles array and permission array are always present
-  const user = data.user ?? {} as AuthResponse["user"];
-  if (!Array.isArray(user.roles)) {
-    user.roles = user.role ? [user.role as any] : [];
+/**
+ * Fetch user profile from SSO auth-api (not backend — avoids JIT sync delay).
+ * SSO always has the user immediately after login.
+ */
+export async function fetchProfile(accessToken?: string): Promise<AuthResponse> {
+  const token = accessToken ?? (typeof window !== "undefined" ? localStorage.getItem("accessToken") : null)
+    ?? (typeof window !== "undefined" ? (() => { try { const s = JSON.parse(localStorage.getItem("logistics-auth-state") ?? "{}"); return s.session?.accessToken; } catch { return null; } })() : null);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${SSO_BASE_URL}/api/v1/auth/me`, { headers });
+  if (!res.ok) {
+    const err: any = new Error(res.status === 401 ? "Unauthorized" : "SSO /me failed");
+    err.response = { status: res.status };
+    throw err;
   }
-  if (!Array.isArray(user.permissions)) {
-    user.permissions = [];
-  }
-  user.isSuperUser = user.isSuperUser || (user.roles as string[]).includes("superuser");
-  return { ...data, user };
+  const data = await res.json();
+  const roles = Array.isArray(data.roles) ? data.roles : data.role ? [data.role] : [];
+  const user = {
+    id: data.id ?? "",
+    email: data.email ?? "",
+    fullName: data.fullName ?? data.full_name ?? data.email ?? "",
+    firstName: data.profile?.first_name as string ?? "",
+    lastName: data.profile?.last_name as string ?? "",
+    roles,
+    role: roles[0] ?? "",
+    permissions: Array.isArray(data.permissions) ? data.permissions : [],
+    tenantId: data.tenant_id ?? "",
+    tenantSlug: data.tenant_slug ?? "",
+    isPlatformOwner: data.is_platform_owner === true,
+    isSuperUser: roles.includes("superuser"),
+    phone: data.profile?.phone as string ?? "",
+  };
+  return { user, session: { accessToken: token ?? "", refreshToken: "", expiresAt: "", sessionId: "" } } as AuthResponse;
 }
