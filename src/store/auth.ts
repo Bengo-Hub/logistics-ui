@@ -27,6 +27,7 @@ interface AuthState {
   error: string | null;
   session: SessionTokens | null;
   user: UserProfile | null;
+  lastAuthenticatedAt: number | null;
   initialize: () => Promise<void>;
   /** Subscription info fetched lazily after login (undefined = not started, null = loading). */
   subscriptionInfo: Record<string, unknown> | null | undefined;
@@ -48,6 +49,7 @@ function applyAuthResponse(set: (value: Partial<AuthState>) => void, response: A
     session: response.session,
     user: response.user,
     error: null,
+    lastAuthenticatedAt: Date.now(),
   };
   persistAuthState(newState);
   set(newState);
@@ -66,6 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   ...loadAuthState(),
   status: "idle",
   error: null,
+  lastAuthenticatedAt: null,
   subscriptionInfo: undefined,
   setSubscriptionInfo: (info: Record<string, unknown> | null) => set({ subscriptionInfo: info }),
 
@@ -197,7 +200,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     clearAuthState();
-    set({ status: "idle", user: null, session: null, error: null, subscriptionInfo: undefined });
+    set({ status: "idle", user: null, session: null, error: null, subscriptionInfo: undefined, lastAuthenticatedAt: null });
     if (typeof window !== "undefined") {
       try { localStorage.removeItem("tenantId"); } catch { /* no-op */ }
       try { localStorage.removeItem("tenantSlug"); } catch { /* no-op */ }
