@@ -32,10 +32,10 @@ const mainNav: Array<{
   role?: string;
 }> = [
   { id: "dashboard", label: "Dashboard", href: "", icon: LayoutDashboard },
-  { id: "riders", label: "Riders", href: "/riders", icon: Users, permission: "riders:read" },
-  { id: "tasks", label: "Tasks", href: "/tasks", icon: ClipboardList, permission: "tasks:read" },
-  { id: "tracking", label: "Tracking", href: "/tracking", icon: MapPin, permission: "tracking:read" },
-  { id: "zones", label: "Zones", href: "/zones", icon: Hexagon, permission: "zones:read" },
+  { id: "riders", label: "Riders", href: "/riders", icon: Users, permission: "logistics.fleet.view" },
+  { id: "tasks", label: "Tasks", href: "/tasks", icon: ClipboardList, permission: "logistics.tasks.view" },
+  { id: "tracking", label: "Tracking", href: "/tracking", icon: MapPin, permission: "logistics.telemetry.view" },
+  { id: "zones", label: "Zones", href: "/zones", icon: Hexagon, permission: "logistics.zones.view" },
   { id: "settings", label: "Settings", href: "/settings", icon: Settings },
 ];
 
