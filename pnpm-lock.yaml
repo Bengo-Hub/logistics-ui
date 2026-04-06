@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@bengo-hub/maps':
-        specifier: github:Bengo-Hub/maps#v0.2.4
-        version: https://codeload.github.com/Bengo-Hub/maps/tar.gz/acec4a17c8b7f0b89d9826d1a3550171785b147d(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: github:Bengo-Hub/maps#v0.2.6
+        version: https://codeload.github.com/Bengo-Hub/maps/tar.gz/13e38cca552ea0e31f7f65ec278bf96b82dfe8c4(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -628,9 +628,9 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@bengo-hub/maps@https://codeload.github.com/Bengo-Hub/maps/tar.gz/acec4a17c8b7f0b89d9826d1a3550171785b147d':
-    resolution: {tarball: https://codeload.github.com/Bengo-Hub/maps/tar.gz/acec4a17c8b7f0b89d9826d1a3550171785b147d}
-    version: 0.2.4
+  '@bengo-hub/maps@https://codeload.github.com/Bengo-Hub/maps/tar.gz/13e38cca552ea0e31f7f65ec278bf96b82dfe8c4':
+    resolution: {tarball: https://codeload.github.com/Bengo-Hub/maps/tar.gz/13e38cca552ea0e31f7f65ec278bf96b82dfe8c4}
+    version: 0.2.6
     peerDependencies:
       maplibre-gl: '>=4.0.0'
       react: '>=18.0.0'
@@ -4352,7 +4352,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@bengo-hub/maps@https://codeload.github.com/Bengo-Hub/maps/tar.gz/acec4a17c8b7f0b89d9826d1a3550171785b147d(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@bengo-hub/maps@https://codeload.github.com/Bengo-Hub/maps/tar.gz/13e38cca552ea0e31f7f65ec278bf96b82dfe8c4(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       maplibre-gl: 5.21.0
       react: 19.2.3
