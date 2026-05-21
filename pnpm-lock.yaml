@@ -11,6 +11,9 @@ importers:
       '@bengo-hub/maps':
         specifier: github:Bengo-Hub/maps#v0.2.6
         version: https://codeload.github.com/Bengo-Hub/maps/tar.gz/13e38cca552ea0e31f7f65ec278bf96b82dfe8c4(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@bengo-hub/shared-ui-lib':
+        specifier: github:Bengo-Hub/shared-ui-lib#v0.1.8
+        version: https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/38616907437868a5397217049da06b631f93ee45(lucide-react@0.452.0(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -635,6 +638,17 @@ packages:
       maplibre-gl: '>=4.0.0'
       react: '>=18.0.0'
       react-dom: '>=18.0.0'
+
+  '@bengo-hub/shared-ui-lib@https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/38616907437868a5397217049da06b631f93ee45':
+    resolution: {tarball: https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/38616907437868a5397217049da06b631f93ee45}
+    version: 0.1.8
+    peerDependencies:
+      lucide-react: '>=0.400.0'
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+    peerDependenciesMeta:
+      lucide-react:
+        optional: true
 
   '@ducanh2912/next-pwa@10.2.9':
     resolution: {integrity: sha512-Wtu823+0Ga1owqSu1I4HqKgeRYarduCCKwsh1EJmJiJqgbt+gvVf5cFwFH8NigxYyyEvriAro4hzm0pMSrXdRQ==}
@@ -4357,6 +4371,13 @@ snapshots:
       maplibre-gl: 5.21.0
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
+
+  '@bengo-hub/shared-ui-lib@https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/38616907437868a5397217049da06b631f93ee45(lucide-react@0.452.0(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+    optionalDependencies:
+      lucide-react: 0.452.0(react@19.2.3)
 
   '@ducanh2912/next-pwa@10.2.9(next@16.1.6(@babel/core@7.29.0)(@playwright/test@1.58.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(webpack@5.105.4)':
     dependencies:
