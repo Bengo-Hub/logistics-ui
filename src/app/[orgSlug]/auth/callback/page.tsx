@@ -1,6 +1,8 @@
 "use client";
 
 import { useAuthStore } from "@/store/auth";
+import { useOutletFilterStore } from "@/store/outlet-filter";
+import { LOGISTICS_SELECTED_OUTLET_KEY } from "@/app/[orgSlug]/auth/select-outlet/page";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 
@@ -19,7 +21,36 @@ export default function AuthCallbackPage() {
     if (status === 'authenticated') {
       const returnTo = sessionStorage.getItem("sso_return_to") || `/${orgSlug}`;
       sessionStorage.removeItem("sso_return_to");
-      router.replace(returnTo);
+
+      const storedOutlet = typeof window !== 'undefined'
+        ? localStorage.getItem(LOGISTICS_SELECTED_OUTLET_KEY)
+        : null;
+
+      if (storedOutlet) {
+        router.replace(returnTo);
+        return;
+      }
+
+      // Auto-preselect outlet from JWT claims for non-HQ users.
+      const authUser = useAuthStore.getState().user;
+      const jwtOutletId = (authUser as any)?.outlet_id || (authUser as any)?.outletId;
+      const isHqUser = (authUser as any)?.is_hq_user || (authUser as any)?.isHqUser;
+
+      if (jwtOutletId && !isHqUser) {
+        useOutletFilterStore.getState().selectOutlet({
+          id: jwtOutletId,
+          code: (authUser as any)?.outlet_code ?? '',
+          name: (authUser as any)?.outlet_code ?? '',
+          useCase: (authUser as any)?.outlet_use_case,
+        });
+        localStorage.setItem(LOGISTICS_SELECTED_OUTLET_KEY, jwtOutletId);
+        router.replace(returnTo);
+        return;
+      }
+
+      // HQ user or no JWT outlet — show selector
+      const next = returnTo !== `/${orgSlug}` ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
+      router.replace(`/${orgSlug}/auth/select-outlet${next}`);
     }
   }, [status, orgSlug, router]);
 

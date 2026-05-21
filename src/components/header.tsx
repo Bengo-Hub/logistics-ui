@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { OutletFilter } from "@/components/outlet-filter";
 import { Button } from "@/components/ui/base";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
@@ -50,6 +51,9 @@ export function Header({ onMenuClick }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-3">
+          {/* Outlet filter for HQ/admin users */}
+          <OutletFilter className="hidden md:flex" />
+
           <button className="relative group p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
             <Bell className="h-5 w-5 text-slate-500 group-hover:text-primary transition-colors" />
             <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-950" />

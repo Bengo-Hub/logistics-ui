@@ -8,8 +8,9 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
 
 import { useMe } from "@/hooks/useMe";
-import { setOn401 } from "@/lib/api/client";
+import { attachOutletIdGetter, setOn401 } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth";
+import { useOutletFilterStore } from "@/store/outlet-filter";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -86,6 +87,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // Attach outlet ID getter so the API interceptor always sends X-Outlet-ID
+  useEffect(() => {
+    attachOutletIdGetter(() => useOutletFilterStore.getState().outletIdHeader());
+  }, []);
+
+  // Rehydrate outlet from localStorage on mount (for page refreshes)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem('logistics-selected-outlet-id');
+    if (stored && !useOutletFilterStore.getState().selectedOutlet) {
+      useOutletFilterStore.getState().selectOutlet({
+        id: stored,
+        code: '',
+        name: '',
+      });
+    }
+  }, []);
 
   // Register 401 handler: clear all caches and redirect to SSO.
   // Skip during syncing/loading to avoid clearing session during JIT sync.

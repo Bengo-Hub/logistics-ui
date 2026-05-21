@@ -7,6 +7,12 @@ const NORMALISED_BASE_URL = DEFAULT_BASE_URL.endsWith("/")
   : `${DEFAULT_BASE_URL}/`;
 
 let accessTokenGetter: () => string | null = () => null;
+let outletIdGetter: () => string | null = () => null;
+
+/** Register a getter that returns the current outlet ID (e.g. from outlet-filter store). */
+export function attachOutletIdGetter(getter: () => string | null) {
+  outletIdGetter = getter;
+}
 
 export const api = axios.create({
   baseURL: NORMALISED_BASE_URL,
@@ -32,6 +38,11 @@ api.interceptors.request.use((config) => {
       if (tenantSlug) {
         config.headers["X-Tenant-Slug"] = tenantSlug;
       }
+    }
+    // Attach outlet ID if set (for outlet-scoped requests)
+    const outletId = outletIdGetter() || localStorage.getItem("logistics-selected-outlet-id");
+    if (outletId) {
+      config.headers["X-Outlet-ID"] = outletId;
     }
   }
   return config;

@@ -1,7 +1,8 @@
 "use client";
 
-import { Globe, Save, Settings, Zap } from "lucide-react";
+import { Globe, Link2, Loader2, Save, Settings, Zap } from "lucide-react";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import {
   Button,
   Card,
@@ -141,6 +142,113 @@ export default function SettingsPage() {
           Save Settings
         </Button>
       </div>
+
+      <IntegrationsSection />
+    </div>
+  );
+}
+
+// ── Integrations Section ──────────────────────────────────────────────────────
+
+const AUTH_API_URL_DEFAULT = process.env.NEXT_PUBLIC_AUTH_API_URL || 'https://sso.codevertexitsolutions.com';
+const LOGISTICS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://logisticsapi.codevertexitsolutions.com';
+
+function IntegrationsSection() {
+  const [authApiUrl, setAuthApiUrl] = useState(AUTH_API_URL_DEFAULT);
+  const [allowedOrigins, setAllowedOrigins] = useState('');
+  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
+  const [saving, setSaving] = useState(false);
+
+  const testAuthConnection = async () => {
+    setTestStatus('loading');
+    try {
+      const res = await fetch(`${authApiUrl}/healthz`);
+      setTestStatus(res.ok ? 'ok' : 'fail');
+    } catch {
+      setTestStatus('fail');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!allowedOrigins.trim()) return;
+    setSaving(true);
+    try {
+      const { api } = await import('@/lib/api/client');
+      await api.put('/api/v1/admin/config/allowed_origins', {
+        config_value: allowedOrigins,
+        config_type: 'string',
+      });
+    } catch {
+      // best-effort
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold">Integrations</h2>
+        <p className="text-muted-foreground text-sm mt-1">S2S auth, service URLs, and CORS configuration.</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="size-5 text-primary" />
+            S2S Auth
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Auth-API URL</label>
+            <div className="flex gap-3">
+              <Input
+                value={authApiUrl}
+                onChange={(e) => setAuthApiUrl(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                onClick={testAuthConnection}
+                disabled={testStatus === 'loading'}
+              >
+                {testStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Test'}
+              </Button>
+            </div>
+            {testStatus === 'ok' && <p className="text-xs text-green-600">Connection successful</p>}
+            {testStatus === 'fail' && <p className="text-xs text-red-600">Connection failed</p>}
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Logistics API URL (this service)</label>
+            <Input value={LOGISTICS_API_URL} readOnly className="opacity-60 cursor-not-allowed" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="size-5 text-primary" />
+            CORS
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Allowed Origins</label>
+            <Input
+              placeholder="https://app.example.com, https://admin.example.com"
+              value={allowedOrigins}
+              onChange={(e) => setAllowedOrigins(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Comma-separated list of allowed CORS origins.</p>
+          </div>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            {saving ? 'Saving...' : 'Save Integrations'}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
