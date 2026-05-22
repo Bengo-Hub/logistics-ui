@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { AuthProvider } from "@/providers/auth-provider";
 import { BrandingProvider } from "@/providers/branding-provider";
 import { Header } from "@/components/header";
@@ -11,12 +12,32 @@ import { PWAUpdateBanner } from "@/components/pwa-update-banner";
 import { Footer } from "@/components/footer";
 import { SubscriptionBanner } from "@/components/subscription/subscription-banner";
 
+function ManifestInjector() {
+  const params = useParams();
+  const orgSlug = params?.orgSlug as string | undefined;
+  useEffect(() => {
+    if (!orgSlug) return;
+    const href = `/${orgSlug}/manifest.webmanifest`;
+    let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'manifest';
+      document.head.appendChild(link);
+    }
+    if (link.href !== new URL(href, window.location.href).href) {
+      link.href = href;
+    }
+  }, [orgSlug]);
+  return null;
+}
+
 export default function OrgLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <AuthProvider>
       <BrandingProvider>
+        <ManifestInjector />
         <PWAUpdateBanner />
         <PwaRegistration />
         <div className="flex min-h-dvh flex-col">
