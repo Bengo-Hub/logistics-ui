@@ -37,6 +37,7 @@ interface AuthState {
   redirectToSSO: (returnTo?: string, tenant?: string) => Promise<void>;
   handleSSOCallback: (code: string, callbackUrl: string, tenantSlug?: string) => Promise<void>;
   logout: () => Promise<void>;
+  hydrateFromWebAuthn: (tokens: { accessToken: string; refreshToken: string; expiresIn: number }, tenantSlug?: string) => Promise<void>;
 }
 
 function applyAuthResponse(set: (value: Partial<AuthState>) => void, response: AuthResponse) {
@@ -175,6 +176,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
           const response = await fetchProfile();
           const u = response.user;
+          if (typeof window !== "undefined" && u.email) {
+            localStorage.setItem("sso_last_email", u.email);
+          }
           applyAuthResponse(set, {
             session: { ...session, sessionId: response.session?.sessionId ?? "" },
             user: u,
@@ -194,6 +198,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ status: "authenticated", session, error: null });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Sign-in failed";
+      set({ status: "error", error: message });
+    }
+  },
+
+  hydrateFromWebAuthn: async (tokens, tenantSlug) => {
+    set({ status: "loading", error: null });
+    try {
+      if (tenantSlug && typeof window !== "undefined") {
+        localStorage.setItem("tenantSlug", tenantSlug);
+      }
+      const session: SessionTokens = {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken ?? "",
+        expiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
+        sessionId: "",
+      };
+      persistAuthState({ session, user: null });
+      set({ session });
+      const response = await fetchProfile();
+      const u = response.user;
+      if (typeof window !== "undefined" && u.email) {
+        localStorage.setItem("sso_last_email", u.email);
+      }
+      applyAuthResponse(set, {
+        session: { ...session, sessionId: response.session?.sessionId ?? "" },
+        user: u,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Biometric login failed";
       set({ status: "error", error: message });
     }
   },
