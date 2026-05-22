@@ -21,27 +21,25 @@ export interface EarningStatement {
 export interface BillingEvent {
   id: string;
   tenant_id: string;
-  fleet_member_id: string;
   task_id: string;
   event_type: string;
   amount: number;
   currency: string;
-  description: string;
-  created_at: string;
+  occurred_at: string;
+  metadata: Record<string, unknown>;
 }
 
 export interface PricingRule {
   id: string;
   tenant_id: string;
   name: string;
-  rule_type: "flat" | "distance" | "surge";
-  base_fare: number;
-  per_km_rate: number;
-  per_minute_rate: number;
-  surge_multiplier: number;
-  min_fare: number;
-  currency: string;
-  active: boolean;
+  rule_type: "flat" | "distance" | "surge" | "weight" | "time_of_day";
+  base_fee: number;
+  per_km_rate?: number;
+  per_kg_rate?: number;
+  surge_multiplier?: number;
+  priority: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }

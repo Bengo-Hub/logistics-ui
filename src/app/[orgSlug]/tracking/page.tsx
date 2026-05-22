@@ -14,16 +14,13 @@ import {
 } from "@/components/ui/base";
 import { api } from "@/lib/api/client";
 
-interface LiveRider {
-  rider_id: string;
-  name: string;
+interface TelemetryStream {
+  id: string;
+  fleet_member_id: string;
   status: string;
-  latitude: number;
-  longitude: number;
-  speed: number | null;
-  heading: number | null;
-  active_task_id: string | null;
-  updated_at: string;
+  started_at: string;
+  device_id?: string;
+  metadata: Record<string, unknown>;
 }
 
 interface TrackingStats {
@@ -38,7 +35,7 @@ export default function TrackingPage() {
   const orderId = searchParams.get("orderId");
   const waybill = searchParams.get("waybill");
 
-  const [riders, setRiders] = useState<LiveRider[]>([]);
+  const [riders, setRiders] = useState<TelemetryStream[]>([]);
   const [stats, setStats] = useState<TrackingStats>({ riders_online: 0, active_deliveries: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [searchCode, setSearchCode] = useState(waybill || orderId || "");
@@ -48,15 +45,14 @@ export default function TrackingPage() {
   useEffect(() => {
     async function fetchFleet() {
       try {
-        const { data } = await api.get(`${tenantSlug}/tracking/fleet`);
-        const riderList: LiveRider[] = data.riders ?? [];
-        setRiders(riderList);
+        const { data } = await api.get(`${tenantSlug}/telemetry/streams?status=active`);
+        const streamList: TelemetryStream[] = Array.isArray(data) ? data : [];
+        setRiders(streamList);
         setStats({
-          riders_online: riderList.length,
-          active_deliveries: riderList.filter((r: LiveRider) => r.active_task_id).length,
+          riders_online: streamList.length,
+          active_deliveries: streamList.length,
         });
       } catch {
-        // Silently handle - fleet endpoint may not be implemented yet
         setRiders([]);
       } finally {
         setIsLoading(false);
@@ -150,32 +146,22 @@ export default function TrackingPage() {
                 </p>
               )}
 
-              {riders.map((rider) => (
+              {riders.map((stream) => (
                 <div
-                  key={rider.rider_id}
+                  key={stream.id}
                   className="flex items-center justify-between rounded-md border border-border p-3 transition-colors hover:bg-muted/50"
                 >
                   <div>
-                    <p className="text-sm font-medium">{rider.name || `Rider ${rider.rider_id.slice(0, 6)}`}</p>
-                    {rider.active_task_id ? (
-                      <p className="text-xs text-muted-foreground">
-                        Task: {rider.active_task_id.slice(0, 8)}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Idle</p>
-                    )}
+                    <p className="text-sm font-medium">
+                      Rider {stream.fleet_member_id.slice(0, 8)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Since {new Date(stream.started_at).toLocaleTimeString()}
+                    </p>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge
-                      variant={rider.active_task_id ? "default" : "secondary"}
-                      className="text-xs"
-                    >
-                      {rider.active_task_id ? "delivering" : "idle"}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {rider.speed ? `${Math.round(rider.speed * 3.6)} km/h` : "—"}
-                    </span>
-                  </div>
+                  <Badge variant="default" className="text-xs">
+                    online
+                  </Badge>
                 </div>
               ))}
             </CardContent>

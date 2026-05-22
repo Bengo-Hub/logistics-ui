@@ -45,13 +45,11 @@ function formatDate(dateStr: string) {
 const EMPTY_RULE: Omit<PricingRule, "id" | "tenant_id" | "created_at" | "updated_at"> = {
   name: "",
   rule_type: "distance",
-  base_fare: 0,
+  base_fee: 0,
   per_km_rate: 0,
-  per_minute_rate: 0,
   surge_multiplier: 1,
-  min_fare: 0,
-  currency: "KES",
-  active: true,
+  priority: 0,
+  is_active: true,
 };
 
 export default function EarningsPage() {
@@ -201,8 +199,8 @@ export default function EarningsPage() {
                         <Badge variant="secondary" className="text-xs capitalize mt-0.5">{rule.rule_type}</Badge>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={rule.active ? "success" : "secondary"} className="text-xs">
-                          {rule.active ? "Active" : "Inactive"}
+                        <Badge variant={rule.is_active ? "success" : "secondary"} className="text-xs">
+                          {rule.is_active ? "Active" : "Inactive"}
                         </Badge>
                         <button
                           onClick={() => {
@@ -214,18 +212,14 @@ export default function EarningsPage() {
                         </button>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <p className="text-muted-foreground">Base Fare</p>
-                        <p className="font-medium">{rule.currency} {rule.base_fare.toFixed(2)}</p>
+                        <p className="text-muted-foreground">Base Fee</p>
+                        <p className="font-medium">KES {rule.base_fee.toFixed(2)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Per km</p>
-                        <p className="font-medium">{rule.currency} {rule.per_km_rate.toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Min Fare</p>
-                        <p className="font-medium">{rule.currency} {rule.min_fare.toFixed(2)}</p>
+                        <p className="font-medium">{rule.per_km_rate != null ? `KES ${rule.per_km_rate.toFixed(2)}` : "—"}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -254,7 +248,6 @@ export default function EarningsPage() {
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="pb-3 font-medium">Event</th>
-                      <th className="pb-3 font-medium">Description</th>
                       <th className="pb-3 font-medium">Amount</th>
                       <th className="pb-3 font-medium">Date</th>
                     </tr>
@@ -263,9 +256,8 @@ export default function EarningsPage() {
                     {events.map((ev) => (
                       <tr key={ev.id}>
                         <td className="py-3 capitalize">{ev.event_type.replace(/_/g, " ")}</td>
-                        <td className="py-3 text-muted-foreground max-w-xs truncate">{ev.description || "—"}</td>
                         <td className="py-3 font-medium text-green-600">+{formatKES(ev.amount)}</td>
-                        <td className="py-3 text-muted-foreground">{formatDate(ev.created_at)}</td>
+                        <td className="py-3 text-muted-foreground">{formatDate(ev.occurred_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -309,10 +301,10 @@ export default function EarningsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { key: "base_fare", label: "Base Fare (KES)" },
+                  { key: "base_fee", label: "Base Fee (KES)" },
                   { key: "per_km_rate", label: "Per km Rate" },
-                  { key: "per_minute_rate", label: "Per min Rate" },
-                  { key: "min_fare", label: "Minimum Fare" },
+                  { key: "surge_multiplier", label: "Surge Multiplier" },
+                  { key: "priority", label: "Priority" },
                 ].map(({ key, label }) => (
                   <div key={key}>
                     <label className="text-xs font-medium text-muted-foreground">{label}</label>
