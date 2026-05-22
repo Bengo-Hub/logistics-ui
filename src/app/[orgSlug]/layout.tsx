@@ -6,6 +6,7 @@ import { BrandingProvider } from "@/providers/branding-provider";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { PwaRegistration } from "@/components/pwa-registration";
+import { PWAUpdateBanner } from "@/components/pwa-update-banner";
 
 import { Footer } from "@/components/footer";
 import { SubscriptionBanner } from "@/components/subscription/subscription-banner";
@@ -16,6 +17,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <BrandingProvider>
+        <PWAUpdateBanner />
         <PwaRegistration />
         <div className="flex min-h-dvh flex-col">
           <Header onMenuClick={() => setSidebarOpen(true)} />
