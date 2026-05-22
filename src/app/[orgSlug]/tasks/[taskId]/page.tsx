@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTaskStream } from "@/hooks/use-task-stream";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -12,6 +14,7 @@ import {
   CheckCircle2,
   Truck,
   Clock,
+  Zap,
 } from "lucide-react";
 import {
   Badge,
@@ -24,6 +27,7 @@ import {
 import {
   useTask,
   useAssignTask,
+  useDispatchTask,
   useFleetMembers,
 } from "@/hooks/use-logistics";
 import type { TaskStatus } from "@/types/logistics";
@@ -64,9 +68,22 @@ export default function TaskDetailPage() {
   const [showAssignPanel, setShowAssignPanel] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState("");
 
+  const qc = useQueryClient();
   const { data: task, isLoading, isError } = useTask(taskId);
   const { data: members = [] } = useFleetMembers("active");
   const assignMutation = useAssignTask();
+  const dispatchMutation = useDispatchTask();
+
+  // Live SSE: auto-invalidate task query on status change
+  const { connected: sseConnected } = useTaskStream({
+    taskId,
+    tenantSlug: orgSlug,
+    enabled: !!task && !["completed", "cancelled", "failed"].includes(task?.status ?? ""),
+    onEvent: () => {
+      qc.invalidateQueries({ queryKey: ["task", orgSlug, taskId] });
+      qc.invalidateQueries({ queryKey: ["tasks", orgSlug] });
+    },
+  });
 
   const handleAssign = () => {
     if (!selectedMemberId) return;
@@ -129,13 +146,33 @@ export default function TaskDetailPage() {
           </div>
           <p className="text-sm text-muted-foreground">
             {task.task_type} · created {formatTime(task.created_at)}
+            {sseConnected && (
+              <span className="ml-2 inline-flex items-center gap-1 text-green-600 text-xs">
+                <span className="size-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
+                Live
+              </span>
+            )}
           </p>
         </div>
         {canAssign && (
-          <Button onClick={() => setShowAssignPanel(true)}>
-            <Truck className="mr-2 size-4" />
-            Assign Rider
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => dispatchMutation.mutate(taskId)}
+              disabled={dispatchMutation.isPending}
+            >
+              {dispatchMutation.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Zap className="mr-2 size-4" />
+              )}
+              Auto-Dispatch
+            </Button>
+            <Button onClick={() => setShowAssignPanel(true)}>
+              <Truck className="mr-2 size-4" />
+              Assign Rider
+            </Button>
+          </div>
         )}
       </div>
 

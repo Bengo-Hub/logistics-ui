@@ -1,12 +1,14 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type PropsWithChildren } from "react";
+import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
+import { Fingerprint, Loader2 } from "lucide-react";
 
+import { useBiometric } from "@/hooks/use-biometric";
 import { useMe } from "@/hooks/useMe";
 import { attachOutletIdGetter, setOn401 } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth";
@@ -32,19 +34,42 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const session = useAuthStore((s) => s.session);
   const status = useAuthStore((s) => s.status);
   const redirectToSSO = useAuthStore((s) => s.redirectToSSO);
+  const hydrateFromWebAuthn = useAuthStore((s) => s.hydrateFromWebAuthn);
   const { isError, error, isLoading: meLoading } = useMe(!!session);
 
   const isAuthCallback = pathname?.includes("/auth/callback");
   const isUnauthorizedPage = pathname?.endsWith("/unauthorized");
-  const orgSlug = pathname?.split("/")[1]; // tenant from path when on /[orgSlug]/...
+  const orgSlug = pathname?.split("/")[1];
+
+  const [storedEmail, setStoredEmail] = useState<string | null>(null);
+  const ssoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { isSupported: biometricSupported, hasRegisteredCredential, authenticate: biometricAuth, isLoading: biometricLoading, error: biometricError } = useBiometric({
+    onAuthSuccess: (tokens) => {
+      if (ssoTimerRef.current) clearTimeout(ssoTimerRef.current);
+      hydrateFromWebAuthn(tokens, orgSlug);
+    },
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") setStoredEmail(localStorage.getItem("sso_last_email"));
+  }, []);
 
   useEffect(() => {
     if (status === "loading" || isAuthCallback) return;
     if (!session && !isAuthCallback) {
-      redirectToSSO(pathname ?? undefined, orgSlug);
-      return;
+      const hasBiometric = biometricSupported && hasRegisteredCredential && !!storedEmail;
+      if (hasBiometric) {
+        // Give 4s for the user to tap the biometric button before auto-redirecting
+        ssoTimerRef.current = setTimeout(() => {
+          redirectToSSO(pathname ?? undefined, orgSlug);
+        }, 4000);
+      } else {
+        redirectToSSO(pathname ?? undefined, orgSlug);
+      }
+      return () => { if (ssoTimerRef.current) clearTimeout(ssoTimerRef.current); };
     }
-  }, [status, session, isAuthCallback, pathname, orgSlug, redirectToSSO]);
+  }, [status, session, isAuthCallback, pathname, orgSlug, redirectToSSO, biometricSupported, hasRegisteredCredential, storedEmail]);
 
   useEffect(() => {
     if (!session || isUnauthorizedPage || meLoading) return;
@@ -68,9 +93,25 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!session && !isAuthCallback) {
+    const hasBiometric = biometricSupported && hasRegisteredCredential && !!storedEmail;
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Redirecting to sign-in...</div>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+        {hasBiometric ? (
+          <>
+            <button
+              onClick={() => { if (ssoTimerRef.current) clearTimeout(ssoTimerRef.current); biometricAuth(storedEmail!, orgSlug); }}
+              disabled={biometricLoading}
+              className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-6 py-3 text-sm font-semibold text-primary hover:bg-primary/20 disabled:opacity-60 transition-colors"
+            >
+              {biometricLoading ? <Loader2 className="size-4 animate-spin" /> : <Fingerprint className="size-4" />}
+              {biometricLoading ? "Verifying…" : "Sign in with fingerprint"}
+            </button>
+            {biometricError && <p className="text-xs text-destructive">{biometricError}</p>}
+            <p className="text-xs text-muted-foreground">or redirecting to sign-in…</p>
+          </>
+        ) : (
+          <div className="animate-pulse text-muted-foreground">Redirecting to sign-in...</div>
+        )}
       </div>
     );
   }

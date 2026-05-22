@@ -171,6 +171,45 @@ export function useAssignTask() {
   });
 }
 
+export function useDispatchTask() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/dispatch`, {});
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task"] });
+    },
+  });
+}
+
+export function useRejectMember() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ memberId, reason }: { memberId: string; reason?: string }) => {
+      const { data } = await api.post(`${tenantSlug}/fleet/members/${memberId}/reject`, { reason });
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet-members"] }),
+  });
+}
+
+export function useBatchInviteMembers() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (members: Array<{ first_name: string; last_name: string; email: string; phone: string }>) => {
+      const { data } = await api.post(`${tenantSlug}/fleet/members/batch`, { members });
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet-members"] }),
+  });
+}
+
 // ─── Zones ────────────────────────────────────────────────────────
 
 export interface GeoFence {

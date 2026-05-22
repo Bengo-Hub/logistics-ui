@@ -10,9 +10,9 @@ import {
   Settings,
   Shield,
   Server,
-  X,
   Truck,
   LogOut,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
@@ -36,6 +36,7 @@ const mainNav: Array<{
   { id: "tasks", label: "Tasks", href: "/tasks", icon: ClipboardList, permission: "logistics.tasks.view" },
   { id: "tracking", label: "Tracking", href: "/tracking", icon: MapPin, permission: "logistics.telemetry.view" },
   { id: "zones", label: "Zones", href: "/zones", icon: Hexagon, permission: "logistics.zones.view" },
+  { id: "earnings", label: "Earnings", href: "/earnings", icon: Wallet, permission: "logistics.earnings.view" },
   { id: "settings", label: "Settings", href: "/settings", icon: Settings },
 ];
 

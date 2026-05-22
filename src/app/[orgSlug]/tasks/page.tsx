@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Clock, Filter, Loader2, MapPin, Package } from "lucide-react";
+import { Clock, Filter, Loader2, MapPin, Package, Plus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/base";
 import { orgRoute } from "@/lib/utils";
-import { useTasks } from "@/hooks/use-logistics";
+import { useTasks, useCreateTask } from "@/hooks/use-logistics";
 import type { TaskStatus } from "@/types/logistics";
 
 const statusVariant: Record<string, "warning" | "default" | "secondary" | "success" | "destructive"> = {
@@ -46,13 +46,50 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+type CreateTaskForm = {
+  external_reference: string;
+  task_type: string;
+  priority: number;
+  pickup_address: string;
+  dropoff_address: string;
+};
+
 export default function TasksPage() {
   const params = useParams();
   const orgSlug = params.orgSlug as string;
   const [activeFilter, setActiveFilter] = useState<TaskStatus | "all">("all");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateTaskForm>({
+    external_reference: "",
+    task_type: "delivery",
+    priority: 1,
+    pickup_address: "",
+    dropoff_address: "",
+  });
 
   const { data: tasks = [], isLoading, error } = useTasks(activeFilter);
+  const createTaskMutation = useCreateTask();
+
+  const handleCreateTask = () => {
+    createTaskMutation.mutate(
+      {
+        external_reference: createForm.external_reference || undefined,
+        task_type: createForm.task_type,
+        priority: createForm.priority,
+        metadata: {
+          pickup_address: createForm.pickup_address,
+          dropoff_address: createForm.dropoff_address,
+        },
+      },
+      {
+        onSuccess: () => {
+          setShowCreateModal(false);
+          setCreateForm({ external_reference: "", task_type: "delivery", priority: 1, pickup_address: "", dropoff_address: "" });
+        },
+      },
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -69,6 +106,9 @@ export default function TasksPage() {
           </Button>
           <Button variant={viewMode === "map" ? "default" : "outline"} size="sm" onClick={() => setViewMode("map")}>
             <MapPin className="size-4" /> Map
+          </Button>
+          <Button size="sm" onClick={() => setShowCreateModal(true)}>
+            <Plus className="size-4" /> New Task
           </Button>
         </div>
       </div>
@@ -181,6 +221,96 @@ export default function TasksPage() {
       {!isLoading && !error && tasks.length === 0 && (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">No tasks match the selected filter.</p>
+        </div>
+      )}
+
+      {/* Create Task Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>New Task</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Task Type</label>
+                <select
+                  value={createForm.task_type}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, task_type: e.target.value }))}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="delivery">Delivery</option>
+                  <option value="pickup">Pickup</option>
+                  <option value="outlet_transfer">Outlet Transfer</option>
+                  <option value="returns">Returns</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Reference (optional)</label>
+                <input
+                  type="text"
+                  value={createForm.external_reference}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, external_reference: e.target.value }))}
+                  placeholder="e.g., ORD-12345"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Pickup Address</label>
+                <input
+                  type="text"
+                  value={createForm.pickup_address}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, pickup_address: e.target.value }))}
+                  placeholder="e.g., Westlands Mall, Nairobi"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Dropoff Address</label>
+                <input
+                  type="text"
+                  value={createForm.dropoff_address}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, dropoff_address: e.target.value }))}
+                  placeholder="e.g., Karen Estate, Nairobi"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Priority</label>
+                <select
+                  value={createForm.priority}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, priority: Number(e.target.value) }))}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value={1}>Normal (1)</option>
+                  <option value={2}>High (2)</option>
+                  <option value={3}>Urgent (3)</option>
+                </select>
+              </div>
+              {createTaskMutation.isError && (
+                <p className="text-sm text-destructive">Failed to create task. Please try again.</p>
+              )}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowCreateModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleCreateTask}
+                  disabled={createTaskMutation.isPending}
+                >
+                  {createTaskMutation.isPending ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : null}
+                  Create Task
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
