@@ -20,7 +20,7 @@ const DEFAULT_BRAND: TenantBrand = {
   logoUrl: '/images/logo/codevertex.png',
   primaryColor: '#5B1C4D',
   secondaryColor: '#ea8022',
-  orgName: 'Codevertex IT Solutions',
+  orgName: 'Codevertex Africa Limited',
 };
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
