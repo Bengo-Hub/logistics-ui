@@ -87,7 +87,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       set({ status: "loading", error: null });
-      const response = await fetchProfile();
+      const response = await fetchProfile(session.accessToken);
       applyAuthResponse(set, response);
     } catch (error) {
       const status = extractStatus(error);
@@ -174,7 +174,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       while (syncAttempts < maxAttempts) {
         try {
-          const response = await fetchProfile();
+          const response = await fetchProfile(session.accessToken);
           const u = response.user;
           if (typeof window !== "undefined" && u.email) {
             localStorage.setItem("sso_last_email", u.email);
@@ -185,12 +185,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
           return;
         } catch (err) {
-          const httpStatus = extractStatus(err);
-          if (httpStatus === 404 || httpStatus === 401) {
+          const httpStatus = extractStatus(err) ?? (err as any)?.response?.status;
+          if (httpStatus === 404) {
+            // User not yet JIT-provisioned — retry
             syncAttempts++;
             await new Promise((r) => setTimeout(r, pollInterval));
             continue;
           }
+          // 401 = invalid token (not a sync delay); surface the error
           throw err;
         }
       }
@@ -216,7 +218,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       };
       persistAuthState({ session, user: null });
       set({ session });
-      const response = await fetchProfile();
+      const response = await fetchProfile(session.accessToken);
       const u = response.user;
       if (typeof window !== "undefined" && u.email) {
         localStorage.setItem("sso_last_email", u.email);
