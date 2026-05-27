@@ -25,16 +25,43 @@ export function useFleet() {
   });
 }
 
-export function useFleetMembers(status?: string) {
+export interface PaginatedFleetMembers {
+  data: FleetMember[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface FleetMembersParams {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+const EMPTY_FLEET_MEMBERS: PaginatedFleetMembers = { data: [], total: 0, page: 1, limit: 20, hasMore: false };
+
+export function useFleetMembers(params?: FleetMembersParams | string) {
   const tenantSlug = useTenantSlug();
-  return useQuery<FleetMember[]>({
-    queryKey: ["fleet-members", tenantSlug, status],
+  const normalizedParams: FleetMembersParams = typeof params === "string" ? { status: params } : (params ?? {});
+  return useQuery<PaginatedFleetMembers>({
+    queryKey: ["fleet-members", tenantSlug, normalizedParams],
     queryFn: async () => {
-      const params = status ? `?status=${status}` : "";
-      const { data } = await api.get(`${tenantSlug}/fleet/members${params}`);
-      return Array.isArray(data) ? data : [];
+      const qs = new URLSearchParams();
+      if (normalizedParams.status) qs.set("status", normalizedParams.status);
+      if (normalizedParams.search) qs.set("search", normalizedParams.search);
+      if (normalizedParams.page) qs.set("page", String(normalizedParams.page));
+      if (normalizedParams.limit) qs.set("limit", String(normalizedParams.limit));
+      const query = qs.toString() ? `?${qs.toString()}` : "";
+      const { data } = await api.get(`${tenantSlug}/fleet/members${query}`);
+      if (Array.isArray(data)) {
+        return { data, total: data.length, page: 1, limit: data.length, hasMore: false };
+      }
+      return data as PaginatedFleetMembers;
     },
     enabled: !!tenantSlug,
+    placeholderData: EMPTY_FLEET_MEMBERS,
   });
 }
 

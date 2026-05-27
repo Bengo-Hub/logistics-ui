@@ -70,7 +70,8 @@ export default function TaskDetailPage() {
 
   const qc = useQueryClient();
   const { data: task, isLoading, isError } = useTask(taskId);
-  const { data: members = [] } = useFleetMembers("active");
+  const { data: membersPage } = useFleetMembers("active");
+  const members = membersPage?.data ?? [];
   const assignMutation = useAssignTask();
   const dispatchMutation = useDispatchTask();
 

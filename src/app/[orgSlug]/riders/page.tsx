@@ -36,9 +36,13 @@ export default function RidersPage() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [batchRows, setBatchRows] = useState([{ ...EMPTY_ROW }]);
 
-  const { data: members = [], isLoading, error } = useFleetMembers(
-    filterStatus !== "all" ? filterStatus : undefined
-  );
+  const perPage = 12;
+  const { data, isLoading, error } = useFleetMembers({
+    status: filterStatus !== "all" ? filterStatus : undefined,
+    search: search || undefined,
+    page,
+    limit: perPage,
+  });
   const batchInvite = useBatchInviteMembers();
 
   const updateRow = (i: number, field: keyof typeof EMPTY_ROW, value: string) => {
@@ -56,15 +60,9 @@ export default function RidersPage() {
     });
   };
 
-  const filtered = members.filter((m) => {
-    const fullName = `${m.first_name} ${m.last_name}`.toLowerCase();
-    return fullName.includes(search.toLowerCase());
-  });
-
-  const perPage = 12;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const paginated = data?.data ?? [];
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / perPage));
   const safePage = Math.min(page, totalPages);
-  const paginated = filtered.slice((safePage - 1) * perPage, safePage * perPage);
 
   return (
     <div className="space-y-6">
@@ -168,10 +166,10 @@ export default function RidersPage() {
         className="mt-6"
       />
 
-      {!isLoading && !error && filtered.length === 0 && (
+      {!isLoading && !error && (data?.total ?? 0) === 0 && (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">
-            {members.length === 0
+            {(data?.total ?? 0) === 0
               ? "No riders yet. Invite your first rider to get started."
               : "No riders match your filters."}
           </p>
