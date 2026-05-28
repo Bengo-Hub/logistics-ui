@@ -1,5 +1,9 @@
 import { api } from "@/lib/api/client";
 import type {
+  AddCustodyEventRequest,
+  ChainOfCustody,
+  CreateShipmentRequest,
+  CreateShiftRequest,
   CreateVehicleRequest,
   EarningsEntry,
   EarningsSummary,
@@ -12,9 +16,11 @@ import type {
   PaginatedResponse,
   PaginationParams,
   ProofOfDelivery,
+  RiderShift,
   RouteResult,
   ServiceAuthMe,
   ServiceConfigMap,
+  Shipment,
   Task,
   TaskStatus,
   TelemetryStats,
@@ -400,5 +406,165 @@ export async function fetchUserAssignments(
 
 export async function fetchAuthMe(tenantSlug: string): Promise<ServiceAuthMe> {
   const { data } = await api.get(`${tenantSlug}/auth/me`);
+  return data;
+}
+
+// ─── Distribution / KEMSA Shipments ─────────────────────────────────────────
+
+export async function fetchShipments(
+  tenantSlug: string,
+  params?: { status?: string; limit?: number }
+): Promise<{ data: Shipment[]; total: number }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const query = qs.toString() ? `?${qs.toString()}` : "";
+  const { data } = await api.get(`${tenantSlug}/shipments${query}`);
+  return data;
+}
+
+export async function fetchShipment(tenantSlug: string, shipmentId: string): Promise<Shipment> {
+  const { data } = await api.get(`${tenantSlug}/shipments/${shipmentId}`);
+  return data;
+}
+
+export async function createShipment(
+  tenantSlug: string,
+  req: CreateShipmentRequest
+): Promise<Shipment> {
+  const { data } = await api.post(`${tenantSlug}/shipments`, req);
+  return data;
+}
+
+export async function dispatchShipment(tenantSlug: string, shipmentId: string): Promise<Shipment> {
+  const { data } = await api.post(`${tenantSlug}/shipments/${shipmentId}/dispatch`, {});
+  return data;
+}
+
+export async function updateShipmentStatus(
+  tenantSlug: string,
+  shipmentId: string,
+  status: string
+): Promise<Shipment> {
+  const { data } = await api.patch(`${tenantSlug}/shipments/${shipmentId}/status`, { status });
+  return data;
+}
+
+export async function fetchCustodyEvents(
+  tenantSlug: string,
+  shipmentId: string
+): Promise<{ data: ChainOfCustody[]; total: number }> {
+  const { data } = await api.get(`${tenantSlug}/shipments/${shipmentId}/custody`);
+  return data;
+}
+
+export async function addCustodyEvent(
+  tenantSlug: string,
+  shipmentId: string,
+  req: AddCustodyEventRequest
+): Promise<ChainOfCustody> {
+  const { data } = await api.post(`${tenantSlug}/shipments/${shipmentId}/custody`, req);
+  return data;
+}
+
+// ─── Module Access ────────────────────────────────────────────────────────────
+
+export interface ModulesConfig {
+  enabled_modules: string[];
+  all_modules: string[];
+  use_case_defaults: Record<string, string[]>;
+}
+
+export async function fetchModulesConfig(tenantSlug: string): Promise<ModulesConfig> {
+  const { data } = await api.get(`${tenantSlug}/settings/modules`);
+  return data;
+}
+
+export async function updateModulesConfig(
+  tenantSlug: string,
+  enabledModules: string[]
+): Promise<{ enabled_modules: string[] }> {
+  const { data } = await api.put(`${tenantSlug}/settings/modules`, {
+    enabled_modules: enabledModules,
+  });
+  return data;
+}
+
+// ─── Rider Shifts ─────────────────────────────────────────────────────────────
+
+export interface ShiftsParams {
+  fleet_member_id?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export async function fetchShifts(
+  tenantSlug: string,
+  params?: ShiftsParams
+): Promise<{ data: RiderShift[]; total: number }> {
+  const qs = new URLSearchParams();
+  if (params?.fleet_member_id) qs.set("fleet_member_id", params.fleet_member_id);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.date_from) qs.set("date_from", params.date_from);
+  if (params?.date_to) qs.set("date_to", params.date_to);
+  const query = qs.toString() ? `?${qs.toString()}` : "";
+  const { data } = await api.get(`${tenantSlug}/shifts${query}`);
+  return Array.isArray(data) ? { data, total: data.length } : data;
+}
+
+export async function createShift(
+  tenantSlug: string,
+  req: CreateShiftRequest
+): Promise<RiderShift> {
+  const { data } = await api.post(`${tenantSlug}/shifts`, req);
+  return data;
+}
+
+export async function updateShiftStatus(
+  tenantSlug: string,
+  shiftId: string,
+  status: string
+): Promise<RiderShift> {
+  const { data } = await api.patch(`${tenantSlug}/shifts/${shiftId}/status`, { status });
+  return data;
+}
+
+export async function startShift(tenantSlug: string, shiftId: string): Promise<RiderShift> {
+  const { data } = await api.post(`${tenantSlug}/shifts/${shiftId}/start`, {});
+  return data;
+}
+
+export async function endShift(tenantSlug: string, shiftId: string): Promise<RiderShift> {
+  const { data } = await api.post(`${tenantSlug}/shifts/${shiftId}/end`, {});
+  return data;
+}
+
+export async function deleteShift(tenantSlug: string, shiftId: string): Promise<void> {
+  await api.delete(`${tenantSlug}/shifts/${shiftId}`);
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export type KPIPeriod = "today" | "7d" | "30d";
+
+export interface KPIResponse {
+  period: KPIPeriod;
+  total_tasks: number;
+  pending_tasks: number;
+  active_tasks: number;
+  completed_tasks: number;
+  failed_tasks: number;
+  cancelled_tasks: number;
+  on_time_percent: number;
+  active_riders: number;
+  total_riders: number;
+  utilization_percent: number;
+  avg_delivery_minutes: number;
+}
+
+export async function fetchKPIs(tenantSlug: string, period?: KPIPeriod): Promise<KPIResponse> {
+  const qs = period ? `?period=${period}` : "";
+  const { data } = await api.get(`${tenantSlug}/analytics/kpis${qs}`);
   return data;
 }

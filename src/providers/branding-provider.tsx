@@ -9,9 +9,9 @@ function hexToRgbTriplet(hex: string): string {
   return `${parseInt(t.slice(0, 2), 16)} ${parseInt(t.slice(2, 4), 16)} ${parseInt(t.slice(4, 6), 16)}`;
 }
 
-function hexToHslTriplet(hex: string): string {
+function hexToHslComponents(hex: string): { h: number; s: number; l: number } {
   const t = hex.replace(/^#/, '').trim();
-  if (!/^[0-9a-fA-F]{6}$/.test(t)) return '28 83% 53%';
+  if (!/^[0-9a-fA-F]{6}$/.test(t)) return { h: 28, s: 83, l: 53 };
   const r = parseInt(t.slice(0, 2), 16) / 255;
   const g = parseInt(t.slice(2, 4), 16) / 255;
   const b = parseInt(t.slice(4, 6), 16) / 255;
@@ -25,7 +25,24 @@ function hexToHslTriplet(hex: string): string {
     else if (max === g) h = ((b - r) / d + 2) / 6;
     else h = ((r - g) / d + 4) / 6;
   }
-  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+function hexToHslTriplet(hex: string): string {
+  const { h, s, l } = hexToHslComponents(hex);
+  return `${h} ${s}% ${l}%`;
+}
+
+function hslToRgbTriplet(h: number, s: number, l: number): string {
+  const sn = s / 100, ln = l / 100;
+  const c = (1 - Math.abs(2 * ln - 1)) * sn;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = ln - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; } else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
+  return `${Math.round((r + m) * 255)} ${Math.round((g + m) * 255)} ${Math.round((b + m) * 255)}`;
 }
 
 interface BrandingContextType {
@@ -78,11 +95,15 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       root.style.setProperty('--tenant-secondary', secondary);
       root.style.setProperty('--tenant-logo-url', `url(${logo})`);
       // Drive Tailwind semantic tokens from tenant brand color
+      const hsl = hexToHslComponents(primary);
       root.style.setProperty('--primary', hexToHslTriplet(primary));
+      root.style.setProperty('--primary-dark', `${hsl.h} 68% 40%`);
       root.style.setProperty('--ring', hexToHslTriplet(primary));
-      // Drive brand RGB triplets for bg-brand-primary / bg-brand-emphasis
+      // Drive brand RGB triplets for bg-brand-primary / bg-brand-emphasis / bg-brand-dark
       root.style.setProperty('--brand-primary', hexToRgbTriplet(primary));
       root.style.setProperty('--brand-emphasis', hexToRgbTriplet(secondary));
+      root.style.setProperty('--brand-dark', hslToRgbTriplet(hsl.h, 38, 7));
+      root.style.setProperty('--brand-light', hslToRgbTriplet(hsl.h, 30, 96));
     }
   }, [effectiveBrand]);
 

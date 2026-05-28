@@ -5,7 +5,6 @@ import { useParams, useSearchParams, useRouter, usePathname } from "next/navigat
 import {
   CheckCircle,
   Loader2,
-  MoreHorizontal,
   Search,
   Truck,
   UserPlus,
@@ -31,6 +30,7 @@ import {
   useInviteMember,
 } from "@/hooks/use-fleet";
 import type { FleetMember, FleetMemberStatus } from "@/types/logistics";
+import { PermissionGate } from "@/components/ui/module-gate";
 import { toast } from "sonner";
 import { orgRoute } from "@/lib/utils";
 import Link from "next/link";
@@ -181,14 +181,16 @@ function RidersContent() {
             {data?.total != null ? `${data.total} riders total` : "Manage your fleet members."}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowBatch(true)}>
-            <Users className="size-4" /> Batch Invite
-          </Button>
-          <Button size="sm" onClick={() => setShowInvite(true)}>
-            <UserPlus className="size-4" /> Add Rider
-          </Button>
-        </div>
+        <PermissionGate permission="logistics.fleet.manage">
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowBatch(true)}>
+              <Users className="size-4" /> Batch Invite
+            </Button>
+            <Button size="sm" onClick={() => setShowInvite(true)}>
+              <UserPlus className="size-4" /> Add Rider
+            </Button>
+          </div>
+        </PermissionGate>
       </div>
 
       {/* Filters */}
@@ -411,48 +413,52 @@ function RidersContent() {
                     </div>
 
                     <div className="pt-3 border-t border-border space-y-2">
-                      {selectedMember.status === "pending" && (
-                        <div className="flex gap-2">
+                      <PermissionGate permission="logistics.fleet.manage">
+                        {selectedMember.status === "pending" && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => setConfirmAction({ type: "approve", member: selectedMember })}
+                            >
+                              <CheckCircle className="size-4" /> Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="flex-1"
+                              onClick={() => setConfirmAction({ type: "reject", member: selectedMember })}
+                            >
+                              <XCircle className="size-4" /> Reject
+                            </Button>
+                          </div>
+                        )}
+                        {selectedMember.status === "active" && (
                           <Button
                             size="sm"
-                            className="flex-1"
-                            onClick={() => setConfirmAction({ type: "approve", member: selectedMember })}
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setConfirmAction({ type: "suspend", member: selectedMember })}
                           >
-                            <CheckCircle className="size-4" /> Approve
+                            <UserX className="size-4" /> Suspend Rider
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="flex-1"
-                            onClick={() => setConfirmAction({ type: "reject", member: selectedMember })}
-                          >
-                            <XCircle className="size-4" /> Reject
-                          </Button>
-                        </div>
-                      )}
-                      {selectedMember.status === "active" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => setConfirmAction({ type: "suspend", member: selectedMember })}
-                        >
-                          <UserX className="size-4" /> Suspend Rider
-                        </Button>
-                      )}
+                        )}
+                      </PermissionGate>
                       <Link href={orgRoute(orgSlug, `/riders/${selectedMember.id}`)}>
                         <Button variant="outline" size="sm" className="w-full">
                           <Eye className="size-4" /> Full Profile
                         </Button>
                       </Link>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="w-full"
-                        onClick={() => setConfirmAction({ type: "delete", member: selectedMember })}
-                      >
-                        <Trash2 className="size-4" /> Remove from Fleet
-                      </Button>
+                      <PermissionGate permission="logistics.fleet.manage">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="w-full"
+                          onClick={() => setConfirmAction({ type: "delete", member: selectedMember })}
+                        >
+                          <Trash2 className="size-4" /> Remove from Fleet
+                        </Button>
+                      </PermissionGate>
                     </div>
                   </TabsContent>
 
@@ -463,13 +469,13 @@ function RidersContent() {
                           <div key={v.id} className="rounded-xl border border-border p-3 text-sm space-y-2">
                             <div className="flex items-center gap-2">
                               <Truck className="size-4 text-primary" />
-                              <span className="font-medium">{v.make} {v.model} ({v.year})</span>
+                              <span className="font-medium">{v.make} {v.model}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                              <span>Plate: {v.registration_number}</span>
-                              <span>Type: {v.vehicle_type}</span>
-                              <span>Capacity: {v.capacity_kg}kg</span>
+                              <span>Plate: {v.license_plate}</span>
+                              <span className="capitalize">Type: {v.vehicle_type}</span>
                               <span className="capitalize">Status: {v.status}</span>
+                              <span className="capitalize">Compliance: {v.compliance_status}</span>
                             </div>
                           </div>
                         ))}

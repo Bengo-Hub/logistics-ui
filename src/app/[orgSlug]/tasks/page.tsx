@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useTasks, useCreateTask, useUpdateTaskStatus, useAssignTask, useDispatchTask } from "@/hooks/use-tasks";
 import { useFleetMembers } from "@/hooks/use-fleet";
 import type { Task, TaskStatus } from "@/types/logistics";
+import { PermissionGate } from "@/components/ui/module-gate";
 import { orgRoute } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -209,9 +210,11 @@ function TasksContent() {
             {data?.total != null ? `${data.total} tasks total` : "Monitor and manage deliveries."}
           </p>
         </div>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
-          <Plus className="size-4" /> New Task
-        </Button>
+        <PermissionGate permission="logistics.tasks.manage">
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="size-4" /> New Task
+          </Button>
+        </PermissionGate>
       </div>
 
       {/* Filters */}
@@ -450,44 +453,46 @@ function TasksContent() {
                 )}
 
                 {/* Assign Rider */}
-                {["pending", "assigned"].includes(selectedTask.status) && (
-                  <div className="border-t border-border pt-4 space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assign Rider</p>
-                    <select
-                      value={assignMemberId}
-                      onChange={(e) => setAssignMemberId(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <option value="">Select rider...</option>
-                      {membersData?.data?.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.first_name} {m.last_name}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      onClick={handleAssign}
-                      disabled={!assignMemberId || assignTask.isPending}
-                    >
-                      {assignTask.isPending ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
-                      Assign Rider
-                    </Button>
-                  </div>
-                )}
+                <PermissionGate permission="logistics.tasks.dispatch">
+                  {["pending", "assigned"].includes(selectedTask.status) && (
+                    <div className="border-t border-border pt-4 space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assign Rider</p>
+                      <select
+                        value={assignMemberId}
+                        onChange={(e) => setAssignMemberId(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Select rider...</option>
+                        {membersData?.data?.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.first_name} {m.last_name}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={handleAssign}
+                        disabled={!assignMemberId || assignTask.isPending}
+                      >
+                        {assignTask.isPending ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
+                        Assign Rider
+                      </Button>
+                    </div>
+                  )}
 
-                {/* Dispatch */}
-                {selectedTask.status === "assigned" && (
-                  <Button
-                    className="w-full"
-                    onClick={handleDispatch}
-                    disabled={dispatchTask.isPending}
-                  >
-                    {dispatchTask.isPending ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
-                    Dispatch Task
-                  </Button>
-                )}
+                  {/* Dispatch */}
+                  {selectedTask.status === "assigned" && (
+                    <Button
+                      className="w-full"
+                      onClick={handleDispatch}
+                      disabled={dispatchTask.isPending}
+                    >
+                      {dispatchTask.isPending ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
+                      Dispatch Task
+                    </Button>
+                  )}
+                </PermissionGate>
 
                 <Link
                   href={orgRoute(orgSlug, `/tasks/${selectedTask.id}`)}

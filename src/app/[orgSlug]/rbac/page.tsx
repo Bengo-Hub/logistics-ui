@@ -26,81 +26,121 @@ import { useRoles, usePermissions, useUserAssignments, useAssignRole, useRevokeR
 import { useFleetMembers } from "@/hooks/use-fleet";
 import type { LogisticsRole, UserRoleAssignment } from "@/types/logistics";
 
+// ─── Permission category helpers ─────────────────────────────────────────────
+
+const CATEGORY_LABELS: Record<string, string> = {
+  tasks: "Tasks",
+  fleet: "Fleet",
+  vehicles: "Vehicles",
+  zones: "Zones",
+  analytics: "Analytics",
+  earnings: "Earnings",
+  distribution: "Distribution",
+  settings: "Settings",
+  rbac: "Access Control",
+  telemetry: "Telemetry",
+  shifts: "Shifts",
+  reporting: "Reporting",
+};
+
+function groupPermissionsByCategory(perms: Array<{ id: string; permission_code: string }>) {
+  const groups: Record<string, typeof perms> = {};
+  for (const p of perms) {
+    const parts = p.permission_code.split(".");
+    const cat = parts.length >= 2 ? parts[1] : "other";
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(p);
+  }
+  return groups;
+}
+
 // ─── Role Card ────────────────────────────────────────────────────────────────
 
 function RoleCard({ role }: { role: LogisticsRole }) {
   const [expanded, setExpanded] = useState(false);
   const permissions = role.edges?.permissions ?? [];
   const assignmentsCount = role.edges?.user_assignments?.length ?? 0;
+  const grouped = groupPermissionsByCategory(permissions);
+  const categoryCount = Object.keys(grouped).length;
 
   return (
     <Card className="border-border">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-lg bg-primary/10 shrink-0">
               {role.is_system ? (
                 <ShieldCheck className="size-4 text-primary" />
               ) : (
                 <Shield className="size-4 text-primary" />
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <CardTitle className="text-sm font-semibold">{role.name}</CardTitle>
                 {role.is_system && (
-                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                    System
-                  </Badge>
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">System</Badge>
                 )}
               </div>
               <p className="text-xs text-muted-foreground font-mono">{role.role_code}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 shrink-0">
+            {permissions.length > 0 && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Shield className="size-2.5" />
+                {permissions.length} perm{permissions.length !== 1 ? "s" : ""}
+                {categoryCount > 0 && `, ${categoryCount} categor${categoryCount !== 1 ? "ies" : "y"}`}
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-xs">
               {assignmentsCount} user{assignmentsCount !== 1 ? "s" : ""}
-            </span>
+            </Badge>
             <Button
               variant="ghost"
               size="icon"
               className="size-7"
               onClick={() => setExpanded((v) => !v)}
+              title={expanded ? "Collapse" : "Expand permissions"}
             >
-              {expanded ? (
-                <ChevronDown className="size-4" />
-              ) : (
-                <ChevronRight className="size-4" />
-              )}
+              {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
             </Button>
           </div>
         </div>
         {role.description && (
-          <p className="text-xs text-muted-foreground mt-1">{role.description}</p>
+          <p className="text-xs text-muted-foreground mt-1 ml-11">{role.description}</p>
         )}
       </CardHeader>
 
-      {expanded && permissions.length > 0 && (
-        <CardContent className="pt-0">
-          <p className="text-xs font-medium text-muted-foreground mb-2">
-            Permissions ({permissions.length})
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {permissions.map((perm) => (
-              <span
-                key={perm.id}
-                className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs font-mono text-muted-foreground"
-              >
-                {perm.permission_code}
-              </span>
-            ))}
-          </div>
-        </CardContent>
-      )}
-
-      {expanded && permissions.length === 0 && (
-        <CardContent className="pt-0">
-          <p className="text-xs text-muted-foreground">No permissions configured.</p>
+      {expanded && (
+        <CardContent className="pt-0 border-t border-border">
+          {permissions.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">No permissions configured.</p>
+          ) : (
+            <div className="space-y-3 pt-3">
+              {Object.entries(grouped).map(([cat, perms]) => (
+                <div key={cat}>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                    {CATEGORY_LABELS[cat] ?? cat}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {perms.map((p) => {
+                      const action = p.permission_code.split(".").slice(2).join(".");
+                      return (
+                        <span
+                          key={p.id}
+                          className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground"
+                          title={p.permission_code}
+                        >
+                          {action || p.permission_code}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       )}
     </Card>

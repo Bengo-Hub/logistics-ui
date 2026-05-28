@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { BarChart3, CheckCircle, Clock, Loader2, Package, TrendingUp } from "lucide-react";
+import { BarChart3, CheckCircle, Clock, Loader2, Package, TrendingUp, Users, Zap } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -25,6 +25,8 @@ import {
   CardTitle,
 } from "@/components/ui/base";
 import { useTelemetry } from "@/hooks/use-telemetry";
+import { useKPIs } from "@/hooks/use-analytics";
+import type { KPIPeriod } from "@/lib/api/logistics";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,12 +93,20 @@ function AnalyticsPageInner() {
 
   const { data: telemetry, isLoading } = useTelemetry({ period });
 
-  const total = telemetry?.total_tasks ?? 0;
-  const completed = telemetry?.completed_tasks ?? 0;
-  const failed = telemetry?.failed_tasks ?? 0;
-  const pending = Math.max(0, total - completed - failed);
-  const successRate = telemetry?.success_rate ? Math.round(telemetry.success_rate * 100) : 0;
-  const avgTime = telemetry?.avg_delivery_time_minutes ?? 0;
+  // Map UI period to KPI API period
+  const kpiPeriod: KPIPeriod = period === "month" ? "30d" : period === "week" ? "7d" : "today";
+  const { data: kpis } = useKPIs(kpiPeriod);
+
+  const total = kpis?.total_tasks ?? telemetry?.total_tasks ?? 0;
+  const completed = kpis?.completed_tasks ?? telemetry?.completed_tasks ?? 0;
+  const failed = kpis?.failed_tasks ?? telemetry?.failed_tasks ?? 0;
+  const pending = kpis?.pending_tasks ?? Math.max(0, total - completed - failed);
+  const successRate = telemetry?.success_rate ? Math.round(telemetry.success_rate * 100) : (total > 0 ? Math.round((completed / total) * 100) : 0);
+  const avgTime = kpis?.avg_delivery_minutes ?? telemetry?.avg_delivery_time_minutes ?? 0;
+  const onTimePct = kpis?.on_time_percent ?? 0;
+  const activeRiders = kpis?.active_riders ?? 0;
+  const totalRiders = kpis?.total_riders ?? 0;
+  const utilizationPct = kpis?.utilization_percent ?? 0;
 
   const dailyData = buildDailyData(period, total, completed, failed);
   const pieData = STATUS_PIE_DATA(completed, failed, pending).filter((d) => d.value > 0);
@@ -117,8 +127,8 @@ function AnalyticsPageInner() {
       bg: "bg-success/10",
     },
     {
-      label: "Success Rate",
-      value: `${successRate}%`,
+      label: "On-Time Rate",
+      value: `${Math.round(onTimePct)}%`,
       icon: TrendingUp,
       color: "text-primary",
       bg: "bg-primary/10",
@@ -129,6 +139,37 @@ function AnalyticsPageInner() {
       icon: Clock,
       color: "text-warning",
       bg: "bg-warning/10",
+    },
+  ];
+
+  const fleetMetrics = [
+    {
+      label: "Active Riders",
+      value: `${activeRiders} / ${totalRiders}`,
+      icon: Users,
+      color: "text-primary",
+      bg: "bg-primary/10",
+    },
+    {
+      label: "Fleet Utilization",
+      value: `${Math.round(utilizationPct)}%`,
+      icon: Zap,
+      color: "text-success",
+      bg: "bg-success/10",
+    },
+    {
+      label: "Success Rate",
+      value: `${successRate}%`,
+      icon: TrendingUp,
+      color: "text-primary",
+      bg: "bg-primary/10",
+    },
+    {
+      label: "Failed / Cancelled",
+      value: `${failed + (kpis?.cancelled_tasks ?? 0)}`,
+      icon: Clock,
+      color: "text-destructive",
+      bg: "bg-destructive/10",
     },
   ];
 
@@ -165,9 +206,29 @@ function AnalyticsPageInner() {
 
       {!isLoading && (
         <>
-          {/* KPI Cards */}
+          {/* Delivery KPI Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {metrics.map((m) => {
+              const Icon = m.icon;
+              return (
+                <Card key={m.label} className="border-border">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className={`p-2 rounded-lg ${m.bg}`}>
+                      <Icon className={`size-4 ${m.color}`} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{m.label}</p>
+                      <p className="text-xl font-bold">{m.value}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Fleet KPI Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {fleetMetrics.map((m) => {
               const Icon = m.icon;
               return (
                 <Card key={m.label} className="border-border">

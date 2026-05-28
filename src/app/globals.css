@@ -26,6 +26,11 @@
   --color-warning-foreground: hsl(var(--warning-foreground));
   --color-ring: hsl(var(--ring));
 
+  /* Sidebar tokens — always dark, logistics brand */
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+
   /* Brand Colors — driven at runtime by branding-provider via RGB triplets */
   --color-brand-primary: rgb(var(--brand-primary));
   --color-brand-emphasis: rgb(var(--brand-emphasis));
@@ -129,6 +134,10 @@
     --warning-foreground: 0 0% 100%;
     --ring: 28 83% 53%;
     --radius: 1rem;
+    /* Sidebar — always dark warm brown, logistics brand identity */
+    --sidebar: 18 52% 9%;
+    --sidebar-foreground: 24 82% 95%;
+    --sidebar-border: 18 32% 18%;
   }
 
   .dark {
@@ -156,6 +165,10 @@
     --warning: 37 91% 45%;
     --warning-foreground: 0 0% 100%;
     --ring: 28 83% 53%;
+    /* Sidebar stays dark in dark mode too */
+    --sidebar: 18 52% 9%;
+    --sidebar-foreground: 24 82% 95%;
+    --sidebar-border: 18 32% 18%;
   }
 
   * {

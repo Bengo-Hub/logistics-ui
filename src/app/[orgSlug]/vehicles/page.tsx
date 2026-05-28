@@ -63,8 +63,6 @@ function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
 
   const [form, setForm] = useState<Partial<CreateVehicleRequest>>({
     vehicle_type: "motorcycle",
-    year: new Date().getFullYear(),
-    capacity_kg: 50,
   });
 
   function set<K extends keyof CreateVehicleRequest>(k: K, v: CreateVehicleRequest[K]) {
@@ -73,7 +71,7 @@ function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.registration_number || !form.make || !form.model || !form.vehicle_type) {
+    if (!form.license_plate || !form.make || !form.model || !form.vehicle_type) {
       toast.error("Fill in all required fields.");
       return;
     }
@@ -97,11 +95,11 @@ function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
       <CardContent>
         <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium">Registration Number *</label>
+            <label className="text-xs font-medium">License Plate *</label>
             <Input
               placeholder="KCA 123A"
-              value={form.registration_number ?? ""}
-              onChange={(e) => set("registration_number", e.target.value)}
+              value={form.license_plate ?? ""}
+              onChange={(e) => set("license_plate", e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -132,26 +130,6 @@ function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
               placeholder="CB125F"
               value={form.model ?? ""}
               onChange={(e) => set("model", e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Year</label>
-            <Input
-              type="number"
-              min={2000}
-              max={new Date().getFullYear() + 1}
-              value={form.year ?? ""}
-              onChange={(e) => set("year", Number(e.target.value))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Capacity (kg)</label>
-            <Input
-              type="number"
-              min={1}
-              max={5000}
-              value={form.capacity_kg ?? ""}
-              onChange={(e) => set("capacity_kg", Number(e.target.value))}
             />
           </div>
           <div className="sm:col-span-2 flex gap-2 pt-2">
@@ -239,13 +217,12 @@ function VehicleCard({ vehicle }: { vehicle: VehicleWithMember }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold font-mono">
-                {vehicle.registration_number}
+                {vehicle.license_plate}
               </p>
               {statusBadge(vehicle.status)}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {vehicle.year} {vehicle.make} {vehicle.model}
-              {vehicle.capacity_kg ? ` · ${vehicle.capacity_kg}kg` : ""}
+              {vehicle.make} {vehicle.model}
             </p>
             {vehicle.edges?.fleet_member && (
               <p className="text-xs text-primary mt-1 font-medium">
@@ -295,7 +272,7 @@ export default function VehiclesPage() {
     )
     .filter(
       (v) =>
-        v.registration_number.toLowerCase().includes(search.toLowerCase()) ||
+        v.license_plate.toLowerCase().includes(search.toLowerCase()) ||
         v.make.toLowerCase().includes(search.toLowerCase()) ||
         v.model.toLowerCase().includes(search.toLowerCase())
     );

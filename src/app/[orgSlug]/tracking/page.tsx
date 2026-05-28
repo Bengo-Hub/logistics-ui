@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Activity,
   Bike,
@@ -12,19 +13,33 @@ import {
   MapPin,
   Navigation,
   Package,
-  Radio,
   Search,
   Signal,
   X,
 } from "lucide-react";
+
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui/base";
 import { useFleetMembers } from "@/hooks/use-fleet";
 import { useTasks } from "@/hooks/use-tasks";
 import { useTelemetry } from "@/hooks/use-telemetry";
 import { useTaskStream } from "@/hooks/use-task-stream";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "@/store/auth";
 import { orgRoute } from "@/lib/utils";
 import type { Task } from "@/types/logistics";
+import type { FleetRider } from "@bengo-hub/maps";
+
+const FleetMap = dynamic(
+  () => import("@/components/fleet-map").then((m) => ({ default: m.FleetMap })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full w-full flex items-center justify-center animate-pulse bg-muted/30 rounded-xl">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  }
+);
 
 const ACTIVE_STATUSES = ["assigned", "accepted", "en_route", "en_route_pickup", "arrived_pickup", "picked_up", "en_route_dropoff", "arrived_dropoff"] as const;
 
@@ -187,10 +202,13 @@ function TrackingPageInner() {
   const orgSlug = params.orgSlug as string;
   const searchParams = useSearchParams();
   const router = useRouter();
+  const session = useAuthStore((s) => s.session);
+  const authToken = session?.accessToken ?? undefined;
 
   const initialCode = searchParams.get("waybill") || searchParams.get("orderId") || "";
   const [searchCode, setSearchCode] = useState(initialCode);
   const [streamTaskId, setStreamTaskId] = useState<string | null>(null);
+  const [selectedRider, setSelectedRider] = useState<FleetRider | null>(null);
 
   const { data: membersData, isLoading: membersLoading } = useFleetMembers({
     status: "active",
@@ -324,21 +342,28 @@ function TrackingPageInner() {
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex h-125 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20">
-              <div className="text-center space-y-2">
-                <Radio className="mx-auto size-12 text-primary/40 animate-pulse" />
-                <p className="text-sm font-medium text-muted-foreground">Live map coming soon</p>
-                <p className="text-xs text-muted-foreground/60">
-                  Real-time rider GPS via @bengo-hub/maps
-                </p>
-                {activeRiders.length > 0 && (
-                  <p className="text-xs text-success font-medium">
-                    {activeRiders.length} rider{activeRiders.length !== 1 ? "s" : ""} active
-                  </p>
-                )}
-              </div>
+          <CardContent className="p-0 overflow-hidden rounded-b-[calc(var(--radius)-1px)]">
+            <div className="h-125 w-full">
+              <FleetMap
+                tenantSlug={orgSlug}
+                authToken={authToken}
+                className="h-full w-full"
+                onRiderClick={(rider) => setSelectedRider(rider)}
+              />
             </div>
+            {selectedRider && (
+              <div className="flex items-center gap-3 px-4 py-3 border-t border-border bg-muted/30 text-sm">
+                <div className="size-2 rounded-full bg-success shrink-0" />
+                <span className="font-medium">{selectedRider.name}</span>
+                <Badge variant="outline" className="text-xs capitalize">{selectedRider.status}</Badge>
+                <button
+                  onClick={() => setSelectedRider(null)}
+                  className="ml-auto p-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

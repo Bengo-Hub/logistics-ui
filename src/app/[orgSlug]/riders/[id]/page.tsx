@@ -253,7 +253,7 @@ export default function RiderDetailPage() {
             {vehicle ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{vehicle.registration_number}</span>
+                  <span className="text-sm font-medium">{vehicle.license_plate}</span>
                   <Badge variant="secondary" className="text-xs capitalize">{vehicle.vehicle_type}</Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -262,23 +262,19 @@ export default function RiderDetailPage() {
                     <p className="font-medium">{vehicle.make} {vehicle.model}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Year</p>
-                    <p className="font-medium">{vehicle.year || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Capacity</p>
-                    <p className="font-medium">{vehicle.capacity_kg ? `${vehicle.capacity_kg} kg` : "—"}</p>
+                    <p className="text-xs text-muted-foreground">Compliance</p>
+                    <p className="font-medium capitalize">{vehicle.compliance_status || "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Status</p>
                     <p className="font-medium capitalize">{vehicle.status}</p>
                   </div>
                 </div>
-                {vehicle.license_plate_image && (
+                {vehicle.image_license_plate && (
                   <div className="mt-2">
                     <p className="mb-1 text-xs text-muted-foreground">License Plate Photo</p>
                     <img
-                      src={vehicle.license_plate_image}
+                      src={vehicle.image_license_plate}
                       alt="License plate"
                       className="h-24 w-full rounded-lg object-cover border border-border"
                     />

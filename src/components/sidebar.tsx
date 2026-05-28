@@ -1,19 +1,23 @@
 "use client";
 
 import { useMe } from "@/hooks/useMe";
+import { useModuleAccess } from "@/hooks/use-module-access";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import {
   BarChart3,
   ChevronDown,
   ClipboardList,
+  FileText,
   Hexagon,
   LayoutDashboard,
   LogOut,
   MapPin,
+  Package,
   Server,
   Settings,
   Shield,
+  Timer,
   Truck,
   Users,
   Wallet,
@@ -34,10 +38,12 @@ interface NavItem {
   href: string;
   icon: typeof LayoutDashboard;
   permission?: string;
+  moduleKey?: string;
 }
 
 interface NavGroup {
   label: string;
+  moduleKey?: string;
   items: NavItem[];
 }
 
@@ -46,14 +52,16 @@ const navGroups: NavGroup[] = [
     label: "Overview",
     items: [
       { id: "dashboard", label: "Dashboard", href: "", icon: LayoutDashboard },
-      { id: "analytics", label: "Analytics", href: "/analytics", icon: BarChart3 },
+      { id: "analytics", label: "Analytics", href: "/analytics", icon: BarChart3, moduleKey: "analytics" },
     ],
   },
   {
     label: "Fleet",
+    moduleKey: "fleet",
     items: [
       { id: "riders", label: "Riders", href: "/riders", icon: Users, permission: "logistics.fleet.view" },
-      { id: "vehicles", label: "Vehicles", href: "/vehicles", icon: Truck },
+      { id: "vehicles", label: "Vehicles", href: "/vehicles", icon: Truck, moduleKey: "vehicles" },
+      { id: "shifts", label: "Shifts", href: "/shifts", icon: Timer, moduleKey: "shifts" },
       { id: "zones", label: "Zones", href: "/zones", icon: Hexagon, permission: "logistics.zones.view" },
     ],
   },
@@ -65,29 +73,38 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Distribution",
+    moduleKey: "distribution",
+    items: [
+      { id: "distribution", label: "Shipments", href: "/distribution", icon: Package, moduleKey: "distribution" },
+    ],
+  },
+  {
     label: "Finance",
     items: [
-      { id: "earnings", label: "Earnings", href: "/earnings", icon: Wallet, permission: "logistics.earnings.view" },
+      { id: "earnings", label: "Earnings", href: "/earnings", icon: Wallet, permission: "logistics.earnings.view", moduleKey: "earnings" },
+      { id: "reporting", label: "Reports", href: "/reporting", icon: FileText, moduleKey: "reporting" },
     ],
   },
   {
     label: "Admin",
     items: [
-      { id: "rbac", label: "Roles & Perms", href: "/rbac", icon: Shield },
-      { id: "settings", label: "Settings", href: "/settings", icon: Settings },
+      { id: "rbac", label: "Roles & Perms", href: "/rbac", icon: Shield, moduleKey: "rbac" },
+      { id: "settings", label: "Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
     ],
   },
 ];
 
 const platformNav: NavItem[] = [
-  { id: "platform", label: "Map Providers", href: "/platform", icon: Server },
-  { id: "system-config", label: "System Config", href: "/platform?tab=config", icon: Shield },
+  { id: "system-config", label: "System Config", href: "/platform", icon: Server },
 ];
 
 function canSeeNavItem(
   item: NavItem,
-  hasPermission: (p: string) => boolean
+  hasPermission: (p: string) => boolean,
+  hasModule: (k: string) => boolean
 ): boolean {
+  if (item.moduleKey && !hasModule(item.moduleKey)) return false;
   if (item.permission && !hasPermission(item.permission)) return false;
   return true;
 }
@@ -99,6 +116,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const session = useAuthStore((s) => s.session);
   const logout = useAuthStore((s) => s.logout);
   const { hasPermission, hasRole } = useMe(!!session);
+  const { hasModule } = useModuleAccess();
   const { tenant } = useBranding();
   const isPlatformOwner = hasRole("superuser") || hasRole("platform_owner");
 
@@ -115,22 +133,22 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   };
 
   const content = (
-    <div className="flex flex-col h-full bg-slate-900 text-white border-r border-white/5">
-      {/* Logo band — 88px */}
-      <div className="h-[88px] flex items-center justify-center px-4 border-b border-white/5 shrink-0">
+    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+      {/* Logo band */}
+      <div className="h-22 flex items-center justify-center px-4 border-b border-sidebar-border shrink-0">
         <Link href={`/${orgSlug}`} onClick={onClose} className="flex items-center gap-3">
           {tenant?.logoUrl ? (
             <img
               src={tenant.logoUrl}
               alt={tenant.name}
-              className="h-10 w-auto object-contain"
+              className="h-10 w-auto max-w-full object-contain"
             />
           ) : (
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
               <Truck className="text-white h-5 w-5" />
             </div>
           )}
-          <span className="font-black text-sm tracking-tight truncate max-w-[120px]">
+          <span className="font-black text-sm tracking-tight truncate max-w-30 text-sidebar-foreground">
             {tenant?.name || orgSlug}
           </span>
         </Link>
@@ -139,8 +157,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {/* Nav */}
       <div className="flex-1 overflow-y-auto py-4 space-y-1 px-3">
         {navGroups.map((group) => {
+          // Hide entire group if it has a moduleKey and module is not enabled
+          if (group.moduleKey && !hasModule(group.moduleKey)) return null;
+
           const visibleItems = group.items.filter((item) =>
-            canSeeNavItem(item, hasPermission)
+            canSeeNavItem(item, hasPermission, hasModule)
           );
           if (visibleItems.length === 0) return null;
           const isOpen = !collapsed[group.label];
@@ -149,7 +170,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <div key={group.label} className="mb-1">
               <button
                 onClick={() => toggleGroup(group.label)}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-white/30 hover:text-white/50 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/30 hover:text-sidebar-foreground/55 transition-colors"
               >
                 <span>{group.label}</span>
                 <ChevronDown
@@ -173,14 +194,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                         className={cn(
                           "group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm",
                           active
-                            ? "bg-primary/15 text-primary font-semibold"
-                            : "text-white/50 hover:bg-white/5 hover:text-white"
+                            ? "bg-primary/15 text-primary font-semibold shadow-sm"
+                            : "text-sidebar-foreground/55 hover:bg-sidebar-foreground/8 hover:text-sidebar-foreground"
                         )}
                       >
                         <Icon
                           className={cn(
                             "h-4 w-4 shrink-0",
-                            active ? "text-primary" : "text-white/40 group-hover:text-white"
+                            active ? "text-primary" : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground"
                           )}
                         />
                         <span>{item.label}</span>
@@ -197,8 +218,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         })}
 
         {isPlatformOwner && (
-          <div className="mt-4 pt-4 border-t border-white/5">
-            <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-white/30">
+          <div className="mt-4 pt-4 border-t border-sidebar-border">
+            <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/30">
               Platform
             </p>
             <div className="space-y-0.5 mt-0.5">
@@ -213,14 +234,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                     className={cn(
                       "group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm",
                       active
-                        ? "bg-primary/15 text-primary font-semibold"
-                        : "text-white/50 hover:bg-white/5 hover:text-white"
+                        ? "bg-primary/15 text-primary font-semibold shadow-sm"
+                        : "text-sidebar-foreground/55 hover:bg-sidebar-foreground/8 hover:text-sidebar-foreground"
                     )}
                   >
                     <Icon
                       className={cn(
                         "h-4 w-4 shrink-0",
-                        active ? "text-primary" : "text-white/40 group-hover:text-white"
+                        active ? "text-primary" : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground"
                       )}
                     />
                     <span>{item.label}</span>
@@ -233,23 +254,27 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-white/5 shrink-0">
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5">
+      <div className="p-3 border-t border-sidebar-border shrink-0">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-sidebar-foreground/5">
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-xs font-bold text-primary uppercase shrink-0">
             {tenant?.name?.[0] || orgSlug?.[0]}
           </div>
           <div className="flex flex-col min-w-0 flex-1">
-            <span className="font-semibold text-xs text-white truncate">{tenant?.name || orgSlug}</span>
-            <span className="text-[10px] text-white/40">Logistics</span>
+            <span className="font-semibold text-xs text-sidebar-foreground truncate">{tenant?.name || orgSlug}</span>
+            <span className="text-[10px] text-sidebar-foreground/40">Logistics</span>
           </div>
           <button
             onClick={() => logout()}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/40 hover:text-rose-400 shrink-0"
+            className="p-1.5 rounded-lg hover:bg-sidebar-foreground/10 transition-colors text-sidebar-foreground/40 hover:text-rose-400 shrink-0"
             title="Sign out"
           >
             <LogOut className="h-4 w-4" />
           </button>
         </div>
+        {/* Powered by */}
+        <p className="mt-2 text-center text-[10px] text-sidebar-foreground/25">
+          Powered by Codevertex
+        </p>
       </div>
     </div>
   );

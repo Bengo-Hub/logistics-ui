@@ -10,18 +10,24 @@ export interface FleetMember {
   phone: string;
   status: FleetMemberStatus;
   role: string;
-  id_passport_number: string;
-  id_passport_attachment: string;
-  rider_photo: string;
-  emergency_contact_name: string;
-  emergency_contact_phone: string;
+  driver_code?: string;
+  id_passport_number?: string;
+  id_passport_attachment?: string;
+  rider_photo?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  average_rating: number;
+  total_ratings: number;
+  specialization_tags?: string[];
+  has_cold_storage?: boolean;
+  max_weight_capacity_kg?: number | null;
   metadata: Record<string, unknown>;
+  joined_at: string;
   created_at: string;
   updated_at: string;
   edges?: {
     fleet?: Fleet;
     vehicles?: Vehicle[];
-    fleet_memberships?: FleetMembership[];
   };
 }
 
@@ -55,23 +61,24 @@ export interface Fleet {
 /** Vehicle entity */
 export interface Vehicle {
   id: string;
+  tenant_id: string;
   fleet_id: string;
-  fleet_member_id?: string;
-  registration_number: string;
+  vehicle_type: VehicleType;
   make: string;
   model: string;
-  year: number;
-  vehicle_type: VehicleType;
-  capacity_kg: number;
+  license_plate: string;
+  capacity_json?: Record<string, unknown>;
   status: VehicleStatus;
-  license_plate_image: string;
-  front_view_image: string;
-  side_view_image: string;
+  compliance_status: string;
+  image_license_plate?: string;
+  image_side_view?: string;
+  insurance_expiry?: string | null;
+  inspection_expiry?: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   edges?: {
-    fleet_member?: FleetMember;
+    members?: FleetMember[];
   };
 }
 
@@ -79,12 +86,10 @@ export type VehicleType = "motorcycle" | "bicycle" | "car" | "van" | "truck" | "
 export type VehicleStatus = "active" | "inactive" | "maintenance";
 
 export interface CreateVehicleRequest {
-  registration_number: string;
+  vehicle_type: VehicleType;
   make: string;
   model: string;
-  year: number;
-  vehicle_type: VehicleType;
-  capacity_kg?: number;
+  license_plate: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -360,6 +365,9 @@ export interface ServiceAuthMe {
   tenant_id: string;
   tenant_slug: string;
   is_platform_owner: boolean;
+  use_case: string;
+  /** Null/undefined means all modules (platform owner). Non-null array is the explicit allowlist. */
+  enabled_modules: string[] | null;
 }
 
 /** Pagination */
@@ -374,6 +382,112 @@ export interface PaginatedResponse<T> {
 export interface PaginationParams {
   page?: number;
   limit?: number;
+}
+
+// ─── Distribution / KEMSA ─────────────────────────────────────────────────────
+
+export type ShipmentStatus = "planned" | "in_transit" | "partially_delivered" | "completed" | "cancelled";
+export type ShipmentType = "warehouse_transfer" | "hospital_delivery" | "recall";
+export type CustodyEventType = "released" | "received" | "sealed" | "unsealed" | "temperature_breach" | "damaged" | "partial";
+
+export interface Shipment {
+  id: string;
+  tenant_id: string;
+  shipment_code: string;
+  shipment_type: ShipmentType;
+  status: ShipmentStatus;
+  fleet_type: string;
+  source_facility_id?: string | null;
+  source_facility_name?: string;
+  dest_facility_id?: string | null;
+  dest_facility_name?: string;
+  temperature_min_celsius?: number | null;
+  temperature_max_celsius?: number | null;
+  special_handling?: string[];
+  seal_number?: string;
+  planned_dispatch_at?: string | null;
+  dispatched_at?: string | null;
+  completed_at?: string | null;
+  external_reference?: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  edges?: {
+    chain_of_custody?: ChainOfCustody[];
+  };
+}
+
+export interface ChainOfCustody {
+  id: string;
+  shipment_id: string;
+  task_id?: string | null;
+  actor_id: string;
+  actor_name: string;
+  event_type: CustodyEventType;
+  location_name?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  notes?: string;
+  photo_url?: string;
+  signature_url?: string;
+  temperature_reading?: number | null;
+  received_quantity?: number | null;
+  receiving_staff_name?: string;
+  occurred_at: string;
+}
+
+export interface CreateShipmentRequest {
+  shipment_type?: ShipmentType;
+  source_facility_id?: string;
+  source_facility_name: string;
+  dest_facility_id?: string;
+  dest_facility_name: string;
+  temperature_min_celsius?: number;
+  temperature_max_celsius?: number;
+  special_handling?: string[];
+  seal_number?: string;
+  planned_dispatch_at?: string;
+  external_reference?: string;
+}
+
+export interface AddCustodyEventRequest {
+  actor_name: string;
+  event_type: CustodyEventType;
+  location_name?: string;
+  latitude?: number;
+  longitude?: number;
+  notes?: string;
+  photo_url?: string;
+  signature_url?: string;
+  temperature_reading?: number;
+  received_quantity?: number;
+  receiving_staff_name?: string;
+  task_id?: string;
+}
+
+/** Rider Shifts */
+export type ShiftStatus = "scheduled" | "active" | "completed" | "cancelled";
+
+export interface RiderShift {
+  id: string;
+  tenant_id: string;
+  fleet_member_id: string;
+  shift_start: string;
+  shift_end: string;
+  status: ShiftStatus;
+  zone_ids?: string[];
+  created_at: string;
+  updated_at: string;
+  edges?: {
+    fleet_member?: FleetMember;
+  };
+}
+
+export interface CreateShiftRequest {
+  fleet_member_id: string;
+  shift_start: string;
+  shift_end: string;
+  zone_ids?: string[];
 }
 
 /** Routing */
