@@ -27,18 +27,41 @@ function makeQueryClient() {
   });
 }
 
-/** Redirect unauthenticated to SSO; redirect 403 from /me to unauthorized. */
-function AuthGuard({ children }: { children: React.ReactNode }) {
+/**
+ * AuthSync silently keeps the auth store in sync with fresh SSO /me data.
+ * It does NOT block rendering — useMe loads in the background.
+ * Pattern adapted from ordering-frontend/src/providers/app-providers.tsx.
+ */
+function AuthSync() {
+  const session = useAuthStore((s) => s.session);
+  const { isError, error } = useMe(!!session?.accessToken);
   const pathname = usePathname();
   const router = useRouter();
+  const isUnauthorizedPage = pathname?.endsWith("/unauthorized");
+
+  useEffect(() => {
+    if (!session || isUnauthorizedPage || !isError) return;
+    const statusCode = (error as { response?: { status?: number } })?.response?.status;
+    if (statusCode === 403) {
+      const data = (error as any)?.response?.data;
+      if (data?.code === 'subscription_inactive' || data?.upgrade === true) return;
+      const base = pathname?.split("/").slice(0, 2).join("/") || "";
+      router.replace(base ? `${base}/unauthorized` : "/unauthorized");
+    }
+  }, [session, isError, error, isUnauthorizedPage, pathname, router]);
+
+  return null;
+}
+
+/** Redirect unauthenticated to SSO; show loading only during initialize(). */
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const session = useAuthStore((s) => s.session);
   const status = useAuthStore((s) => s.status);
   const redirectToSSO = useAuthStore((s) => s.redirectToSSO);
   const hydrateFromWebAuthn = useAuthStore((s) => s.hydrateFromWebAuthn);
-  const { isError, error, isLoading: meLoading } = useMe(!!session);
 
   const isAuthCallback = pathname?.includes("/auth/callback");
-  const isUnauthorizedPage = pathname?.endsWith("/unauthorized");
   const orgSlug = pathname?.split("/")[1];
 
   const [storedEmail, setStoredEmail] = useState<string | null>(null);
@@ -60,7 +83,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!session && !isAuthCallback) {
       const hasBiometric = biometricSupported && hasRegisteredCredential && !!storedEmail;
       if (hasBiometric) {
-        // Give 4s for the user to tap the biometric button before auto-redirecting
         ssoTimerRef.current = setTimeout(() => {
           redirectToSSO(pathname ?? undefined, orgSlug);
         }, 4000);
@@ -71,19 +93,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [status, session, isAuthCallback, pathname, orgSlug, redirectToSSO, biometricSupported, hasRegisteredCredential, storedEmail]);
 
-  useEffect(() => {
-    if (!session || isUnauthorizedPage || meLoading) return;
-    const statusCode = (error as { response?: { status?: number } })?.response?.status;
-    if (isError && statusCode === 403) {
-      // Skip redirect for subscription 403 — let SubscriptionBanner handle it
-      const data = (error as any)?.response?.data;
-      if (data?.code === 'subscription_inactive' || data?.upgrade === true) return;
-      const base = pathname?.split("/").slice(0, 2).join("/") || "";
-      router.replace(base ? `${base}/unauthorized` : "/unauthorized");
-    }
-  }, [session, isError, error, isUnauthorizedPage, meLoading, pathname, router]);
-
-  const loading = status === "loading" || (!!session && meLoading);
+  // Only block rendering during active initialize() — not while background SSO sync loads.
+  const loading = status === "loading";
   if (loading && !isAuthCallback) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -166,6 +177,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
+        <AuthSync />
         <AuthGuard>
           {children}
         </AuthGuard>

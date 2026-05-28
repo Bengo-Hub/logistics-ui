@@ -13,7 +13,7 @@ RUN npm install -g pnpm@10
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ARG NEXT_PUBLIC_API_URL=https://logisticsapi.codevertexitsolutions.com
+ARG NEXT_PUBLIC_API_URL=https://logisticsapi.codevertexitsolutions.com/api/v1
 ARG NEXT_PUBLIC_SSO_URL=https://sso.codevertexitsolutions.com
 ARG NEXT_PUBLIC_NOTIFICATIONS_URL=https://notifications.codevertexitsolutions.com
 ARG NEXT_PUBLIC_AUTH_API_URL=

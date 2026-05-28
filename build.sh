@@ -44,7 +44,7 @@ fi
 KUBE_CONFIG=${KUBE_CONFIG:-${KUBE_CONFIG_B64:-}}
 
 # Build-time env (can be overridden via GitHub Secrets)
-NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-"https://logisticsapi.codevertexitsolutions.com"}
+NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-"https://logisticsapi.codevertexitsolutions.com/api/v1"}
 NEXT_PUBLIC_SSO_URL=${NEXT_PUBLIC_SSO_URL:-"https://sso.codevertexitsolutions.com"}
 NEXT_PUBLIC_NOTIFICATIONS_URL=${NEXT_PUBLIC_NOTIFICATIONS_URL:-"https://notifications.codevertexitsolutions.com"}
 NEXT_PUBLIC_AUTH_API_URL=${NEXT_PUBLIC_AUTH_API_URL:-"${NEXT_PUBLIC_SSO_URL}"}

@@ -1,10 +1,12 @@
 import axios from "axios";
 
-const DEFAULT_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://logisticsapi.codevertexitsolutions.com/api/v1/";
-const NORMALISED_BASE_URL = DEFAULT_BASE_URL.endsWith("/")
-  ? DEFAULT_BASE_URL
-  : `${DEFAULT_BASE_URL}/`;
+// Normalize base URL: always ensure /api/v1 is present regardless of what the env var contains.
+// This is resilient to the common misconfiguration of omitting /api/v1 from NEXT_PUBLIC_API_URL.
+const _rawBase = (process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexitsolutions.com")
+  .replace(/\/+$/, ""); // strip trailing slashes
+const NORMALISED_BASE_URL = _rawBase.includes("/api/v1")
+  ? `${_rawBase}/`
+  : `${_rawBase}/api/v1/`;
 
 let accessTokenGetter: () => string | null = () => null;
 let outletIdGetter: () => string | null = () => null;

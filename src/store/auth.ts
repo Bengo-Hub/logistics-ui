@@ -65,10 +65,24 @@ function extractStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+/**
+ * Determine the initial auth status from persisted storage.
+ * Sets "authenticated" immediately if both session + user exist and token hasn't expired.
+ * This prevents the brief "Initializing session..." flash on page load when the user
+ * has a valid cached session.
+ */
+function getInitialAuthState(): Pick<AuthState, "session" | "user" | "status" | "error"> {
+  const loaded = loadAuthState();
+  if (loaded.session && loaded.user) {
+    const expiresAt = loaded.session.expiresAt ? new Date(loaded.session.expiresAt).getTime() : 0;
+    const isValid = !expiresAt || Date.now() < expiresAt - 60_000;
+    return { ...loaded, status: isValid ? "authenticated" : "idle", error: null };
+  }
+  return { ...loaded, status: "idle", error: null };
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  ...loadAuthState(),
-  status: "idle",
-  error: null,
+  ...getInitialAuthState(),
   lastAuthenticatedAt: null,
   subscriptionInfo: undefined,
   setSubscriptionInfo: (info: Record<string, unknown> | null) => set({ subscriptionInfo: info }),
@@ -80,21 +94,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
+    // If we have a valid cached session with a non-expired token, skip the SSO round-trip.
     if (user && session) {
-      set({ status: "authenticated" });
-      return;
+      const expiresAt = session.expiresAt ? new Date(session.expiresAt).getTime() : 0;
+      if (!expiresAt || Date.now() < expiresAt - 60_000) {
+        set({ status: "authenticated" });
+        return;
+      }
     }
 
+    // Token is expired (or no user in store) — re-validate with SSO.
     try {
       set({ status: "loading", error: null });
       const response = await fetchProfile(session.accessToken);
       applyAuthResponse(set, response);
     } catch (error) {
       const status = extractStatus(error);
-      if (status === 401 || status === 403) {
+      if (status === 401) {
         clearAuthState();
         set({ status: "idle", user: null, session: null, error: null });
-      } else if (user && session) {
+        return;
+      }
+      // 403 = authenticated but lacking permission/subscription — do NOT clear session
+      if (status === 403) {
+        if (user) set({ status: "authenticated" });
+        return;
+      }
+      // Network error / SSO down — use cached user if available
+      if (user && session) {
         set({ status: "authenticated" });
       } else {
         set({ status: "error", error: "Connection failed" });
