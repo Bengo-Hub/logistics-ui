@@ -21,10 +21,19 @@ export interface FleetMember {
   edges?: {
     fleet?: Fleet;
     vehicles?: Vehicle[];
+    fleet_memberships?: FleetMembership[];
   };
 }
 
 export type FleetMemberStatus = "pending" | "active" | "suspended" | "rejected";
+
+export interface FleetMembership {
+  id: string;
+  status: FleetMemberStatus;
+  edges?: {
+    vehicle?: Vehicle;
+  };
+}
 
 /** Fleet entity */
 export interface Fleet {
@@ -52,14 +61,31 @@ export interface Vehicle {
   make: string;
   model: string;
   year: number;
-  vehicle_type: string;
+  vehicle_type: VehicleType;
   capacity_kg: number;
-  status: string;
+  status: VehicleStatus;
   license_plate_image: string;
   front_view_image: string;
   side_view_image: string;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  edges?: {
+    fleet_member?: FleetMember;
+  };
+}
+
+export type VehicleType = "motorcycle" | "bicycle" | "car" | "van" | "truck" | "other";
+export type VehicleStatus = "active" | "inactive" | "maintenance";
+
+export interface CreateVehicleRequest {
+  registration_number: string;
+  make: string;
+  model: string;
+  year: number;
+  vehicle_type: VehicleType;
+  capacity_kg?: number;
+  metadata?: Record<string, unknown>;
 }
 
 /** Delivery task from logistics-api */
@@ -137,6 +163,9 @@ export interface TaskAssignment {
   accepted_at: string | null;
   declined_at: string | null;
   completed_at: string | null;
+  edges?: {
+    fleet_member?: FleetMember;
+  };
 }
 
 /** Proof of delivery */
@@ -147,8 +176,20 @@ export interface ProofOfDelivery {
   signature_url: string;
   photo_url: string;
   otp_code: string;
+  notes: string;
   metadata: Record<string, unknown>;
   created_at: string;
+}
+
+/** SSE event types from /{tenant}/tasks/{taskId}/stream */
+export type SSEEventType = "connected" | "status_changed" | "eta_updated" | "heartbeat";
+
+export interface SSEEvent {
+  type: SSEEventType;
+  task_id?: string;
+  status?: TaskStatus;
+  eta?: string;
+  at?: string;
 }
 
 /** Tracking info from public endpoint */
@@ -171,4 +212,181 @@ export interface StatusHistoryEntry {
   status: string;
   at: string;
   label: string;
+}
+
+/** Geo-fence zone */
+export interface GeoFence {
+  id: string;
+  tenant_id: string;
+  name: string;
+  zone_type: string;
+  status: string;
+  boundary: number[][];
+  color: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Telemetry (GPS) data point */
+export interface TelemetryPoint {
+  id: string;
+  fleet_member_id: string;
+  lat: number;
+  lng: number;
+  speed: number;
+  heading: number;
+  accuracy: number;
+  battery_level: number;
+  recorded_at: string;
+}
+
+export interface TelemetryStats {
+  period: string;
+  total_tasks: number;
+  completed_tasks: number;
+  failed_tasks: number;
+  success_rate: number;
+  avg_delivery_time_minutes: number;
+  active_riders: number;
+}
+
+/** Earnings */
+export interface EarningsEntry {
+  id: string;
+  tenant_id: string;
+  fleet_member_id: string;
+  task_id: string;
+  amount: string;
+  currency: string;
+  status: EarningsStatus;
+  period_start: string;
+  period_end: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  edges?: {
+    fleet_member?: FleetMember;
+    task?: Task;
+  };
+}
+
+export type EarningsStatus = "pending" | "approved" | "paid" | "disputed";
+
+export interface EarningsSummary {
+  total: string;
+  pending: string;
+  approved: string;
+  paid: string;
+  currency: string;
+  period: string;
+}
+
+/** Service config */
+export interface ServiceConfig {
+  id: string;
+  tenant_id: string;
+  key: string;
+  value: unknown;
+  description: string;
+  category: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceConfigMap {
+  [key: string]: unknown;
+  auto_dispatch_enabled?: boolean;
+  sla_hours?: number;
+  max_riders_per_zone?: number;
+  pod_required?: boolean;
+  rating_required?: boolean;
+  base_delivery_fee?: string;
+  per_km_rate?: string;
+  currency?: string;
+  notify_on_dispatch?: boolean;
+  notify_on_delivery?: boolean;
+}
+
+/** RBAC types */
+export interface LogisticsRole {
+  id: string;
+  tenant_id: string;
+  role_code: string;
+  name: string;
+  description: string;
+  is_system: boolean;
+  created_at: string;
+  updated_at: string;
+  edges?: {
+    permissions?: LogisticsPermission[];
+    user_assignments?: UserRoleAssignment[];
+  };
+}
+
+export interface LogisticsPermission {
+  id: string;
+  permission_code: string;
+  name: string;
+  description: string;
+  module: string;
+  created_at: string;
+}
+
+export interface UserRoleAssignment {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  role_id: string;
+  assigned_by: string;
+  created_at: string;
+  edges?: {
+    role?: LogisticsRole;
+    user?: FleetMember;
+  };
+}
+
+/** Auth/me response (Trinity Layer 3) */
+export interface ServiceAuthMe {
+  id: string;
+  email: string;
+  global_roles: string[];
+  service_role: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  permissions: string[];
+  tenant_id: string;
+  tenant_slug: string;
+  is_platform_owner: boolean;
+}
+
+/** Pagination */
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  has_more: boolean;
+}
+
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+}
+
+/** Routing */
+export interface RouteResult {
+  distance_meters: number;
+  duration_seconds: number;
+  geometry: unknown;
+  waypoints: Array<{ lat: number; lng: number; name?: string }>;
+}
+
+export interface ETAResult {
+  eta_seconds: number;
+  distance_meters: number;
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number };
 }

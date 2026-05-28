@@ -1,35 +1,36 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-dark: var(--primary-dark);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-ring: var(--ring);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-dark: hsl(var(--primary-dark));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-ring: hsl(var(--ring));
 
-  /* Brand Colors */
-  --color-brand-orange: #ea8022;
-  --color-brand-gold: #ae6221;
-  --color-brand-dark: #2c1a02;
-  --color-brand-light: #f5f1ec;
+  /* Brand Colors — driven at runtime by branding-provider via RGB triplets */
+  --color-brand-primary: rgb(var(--brand-primary));
+  --color-brand-emphasis: rgb(var(--brand-emphasis));
+  --color-brand-dark: rgb(var(--brand-dark));
+  --color-brand-light: rgb(var(--brand-light));
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
@@ -52,12 +53,12 @@
   border-radius: 1rem;
   background-color: color-mix(in srgb, var(--color-brand-light), transparent 90%);
   backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in srgb, var(--color-brand-orange), transparent 80%);
+  border: 1px solid color-mix(in srgb, var(--color-brand-primary), transparent 80%);
   transition: all 0.5s ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--color-brand-orange), transparent 50%);
-    box-shadow: 0 0 30px color-mix(in srgb, var(--color-brand-orange), transparent 70%);
+    border-color: color-mix(in srgb, var(--color-brand-primary), transparent 50%);
+    box-shadow: 0 0 30px color-mix(in srgb, var(--color-brand-primary), transparent 70%);
   }
 }
 
@@ -89,38 +90,74 @@
 @utility glass-morphism {
   backdrop-filter: blur(12px);
   background-color: color-mix(in srgb, var(--color-brand-light), transparent 90%);
-  border: 1px solid color-mix(in srgb, var(--color-brand-orange), transparent 90%);
+  border: 1px solid color-mix(in srgb, var(--color-brand-primary), transparent 90%);
   transition: all 0.5s ease;
 }
 
 :root {
-  --background: #fbfcf9;
-  --foreground: #2c1a02;
-  --muted: #f5f1ec;
-  --muted-foreground: #584c3d;
-  --border: #d1ccc2;
-  --card: #ffffff;
-  --card-foreground: #2c1a02;
-  --popover: #ffffff;
-  --popover-foreground: #2c1a02;
-  --primary: #ea8022;
-  --primary-dark: #ae6221;
-  --primary-foreground: #ffffff;
-  --secondary: #f5f1ec;
-  --secondary-foreground: #2c1a02;
-  --accent: #f5f1ec;
-  --accent-foreground: #2c1a02;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --success: #22c55e;
-  --success-foreground: #ffffff;
-  --warning: #f59e0b;
-  --warning-foreground: #ffffff;
-  --ring: #ea8022;
-  --radius: 1rem;
+  /* Brand RGB triplets — overridden at runtime by branding-provider */
+  --brand-primary: 234 128 34;
+  --brand-emphasis: 174 98 33;
+  --brand-dark: 44 26 2;
+  --brand-light: 245 241 236;
 }
 
 @layer base {
+  :root {
+    --background: 24 60% 98%;
+    --foreground: 30 95% 10%;
+    --muted: 24 40% 94%;
+    --muted-foreground: 30 22% 30%;
+    --border: 24 13% 79%;
+    --input: 24 13% 79%;
+    --card: 0 0% 100%;
+    --card-foreground: 30 95% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 95% 10%;
+    --primary: 28 83% 53%;
+    --primary-dark: 27 68% 40%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 24 40% 94%;
+    --secondary-foreground: 30 95% 10%;
+    --accent: 24 40% 94%;
+    --accent-foreground: 30 95% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --ring: 28 83% 53%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 30 95% 5%;
+    --foreground: 24 60% 98%;
+    --muted: 30 95% 10%;
+    --muted-foreground: 24 13% 79%;
+    --border: 30 22% 30%;
+    --input: 30 22% 30%;
+    --card: 30 95% 5%;
+    --card-foreground: 24 60% 98%;
+    --popover: 30 95% 5%;
+    --popover-foreground: 24 60% 98%;
+    --primary: 28 83% 53%;
+    --primary-dark: 27 68% 40%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 95% 10%;
+    --secondary-foreground: 24 60% 98%;
+    --accent: 30 95% 10%;
+    --accent-foreground: 24 60% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 37 91% 45%;
+    --warning-foreground: 0 0% 100%;
+    --ring: 28 83% 53%;
+  }
+
   * {
     border-color: var(--color-border);
   }
@@ -137,30 +174,4 @@
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
-}
-
-.dark {
-  --background: #1a0f01;
-  --foreground: #fbfcf9;
-  --muted: #2c1a02;
-  --muted-foreground: #d1ccc2;
-  --border: #584c3d;
-  --card: #1a0f01;
-  --card-foreground: #fbfcf9;
-  --popover: #1a0f01;
-  --popover-foreground: #fbfcf9;
-  --primary: #ea8022;
-  --primary-dark: #ae6221;
-  --primary-foreground: #ffffff;
-  --secondary: #2c1a02;
-  --secondary-foreground: #fbfcf9;
-  --accent: #2c1a02;
-  --accent-foreground: #fbfcf9;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --success: #16a34a;
-  --success-foreground: #ffffff;
-  --warning: #d97706;
-  --warning-foreground: #ffffff;
-  --ring: #ea8022;
 }
