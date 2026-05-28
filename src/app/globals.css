@@ -1,21 +1,21 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 @theme {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
   --color-primary: hsl(var(--primary));
-  --color-primary-dark: hsl(var(--primary-dark));
   --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-dark: hsl(var(--primary-dark));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-destructive: hsl(var(--destructive));
@@ -24,12 +24,9 @@
   --color-success-foreground: hsl(var(--success-foreground));
   --color-warning: hsl(var(--warning));
   --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-
-  /* Sidebar tokens — always dark, logistics brand */
-  --color-sidebar: hsl(var(--sidebar));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
 
   /* Brand Colors — driven at runtime by branding-provider via RGB triplets */
   --color-brand-primary: rgb(var(--brand-primary));
@@ -37,19 +34,77 @@
   --color-brand-dark: rgb(var(--brand-dark));
   --color-brand-light: rgb(var(--brand-light));
 
+  /* Sidebar semantic tokens — switch between light/dark mode */
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+
+  /* Typography */
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
+  --font-display: var(--font-outfit), system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
   @keyframes wave-move {
-    0% { background-position: 200% 0; }
+    0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
 
   @keyframes float {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+    50%       { transform: translateY(-10px); }
   }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15%       { transform: translateX(-8px); }
+    30%       { transform: translateX(8px); }
+    45%       { transform: translateX(-6px); }
+    60%       { transform: translateX(6px); }
+    75%       { transform: translateX(-3px); }
+    90%       { transform: translateX(3px); }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes spinner {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1);    opacity: 0.65; }
+    50%       { transform: scale(1.12); opacity: 1;    }
+  }
+
+  @keyframes pulse-ring {
+    0%   { transform: scale(1);   opacity: 0.6; }
+    100% { transform: scale(2.2); opacity: 0;   }
+  }
+}
+
+/* ── Utility classes ─────────────────────────────────────────────────────── */
+
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar { display: none; }
 }
 
 @utility magical-card {
@@ -76,7 +131,7 @@
     inset: -1px;
     border-radius: inherit;
     pointer-events: none;
-    background: linear-gradient(90deg, transparent, #ea8022, #ae6221, #d46c1a, transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), hsl(var(--primary-dark)), hsl(var(--primary)), transparent);
     background-size: 200% 100%;
     animation: wave-move 3s linear infinite;
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -99,7 +154,41 @@
   transition: all 0.5s ease;
 }
 
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.35s ease-out both;
+}
+
+@utility animate-slide-up {
+  animation: slide-up 0.4s ease-out both;
+}
+
+@utility animate-scale-in {
+  animation: scale-in 0.3s ease-out both;
+}
+
+@utility animate-spinner {
+  animation: spinner 0.7s linear infinite;
+}
+
+@utility animate-breathe {
+  animation: breathe 10s ease-in-out infinite;
+}
+
+@utility animate-shake {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* ── CSS variables ───────────────────────────────────────────────────────── */
+
 :root {
+  color-scheme: light dark;
+  font-feature-settings: "liga" 1, "kern" 1;
+  text-rendering: optimizeLegibility;
+
   /* Brand RGB triplets — overridden at runtime by branding-provider */
   --brand-primary: 234 128 34;
   --brand-emphasis: 174 98 33;
@@ -107,84 +196,139 @@
   --brand-light: 245 241 236;
 }
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  min-height: 100%;
+}
+
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: none;
+  ring: 2px;
+}
+
+::selection {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+/* ── Light / Dark theme ──────────────────────────────────────────────────── */
+
 @layer base {
   :root {
-    --background: 24 60% 98%;
-    --foreground: 30 95% 10%;
-    --muted: 24 40% 94%;
-    --muted-foreground: 30 22% 30%;
-    --border: 24 13% 79%;
-    --input: 24 13% 79%;
-    --card: 0 0% 100%;
-    --card-foreground: 30 95% 10%;
+    /* Light mode — warm cream background, logistics brand orange */
+    --background: 24 62% 94%;
+    --foreground: 18 36% 18%;
+    --card: 24 62% 97%;
+    --card-foreground: 18 36% 18%;
     --popover: 0 0% 100%;
-    --popover-foreground: 30 95% 10%;
+    --popover-foreground: 18 36% 18%;
     --primary: 28 83% 53%;
     --primary-dark: 27 68% 40%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 24 40% 94%;
-    --secondary-foreground: 30 95% 10%;
-    --accent: 24 40% 94%;
-    --accent-foreground: 30 95% 10%;
-    --destructive: 0 84% 60%;
+    --secondary: 24 40% 88%;
+    --secondary-foreground: 18 36% 18%;
+    --muted: 24 40% 90%;
+    --muted-foreground: 18 20% 40%;
+    --accent: 24 40% 92%;
+    --accent-foreground: 18 36% 18%;
+    --destructive: 4 84% 48%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+    --border: 24 35% 82%;
+    --input: 24 35% 82%;
     --ring: 28 83% 53%;
-    --radius: 1rem;
-    /* Sidebar — always dark warm brown, logistics brand identity */
-    --sidebar: 18 52% 9%;
-    --sidebar-foreground: 24 82% 95%;
-    --sidebar-border: 18 32% 18%;
+    --radius: 0.75rem;
+
+    /* Sidebar — light mode uses a warm tone that's readable */
+    --sidebar: 24 30% 96%;
+    --sidebar-foreground: 18 36% 18%;
+    --sidebar-border: 24 35% 88%;
   }
 
   .dark {
-    --background: 30 95% 5%;
-    --foreground: 24 60% 98%;
-    --muted: 30 95% 10%;
-    --muted-foreground: 24 13% 79%;
-    --border: 30 22% 30%;
-    --input: 30 22% 30%;
-    --card: 30 95% 5%;
-    --card-foreground: 24 60% 98%;
-    --popover: 30 95% 5%;
-    --popover-foreground: 24 60% 98%;
-    --primary: 28 83% 53%;
-    --primary-dark: 27 68% 40%;
+    /* Dark mode — rich warm dark background */
+    --background: 18 42% 10%;
+    --foreground: 24 82% 95%;
+    --card: 18 38% 14%;
+    --card-foreground: 24 82% 95%;
+    --popover: 18 38% 14%;
+    --popover-foreground: 24 82% 95%;
+    --primary: 28 83% 60%;
+    --primary-dark: 27 68% 48%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 30 95% 10%;
-    --secondary-foreground: 24 60% 98%;
-    --accent: 30 95% 10%;
-    --accent-foreground: 24 60% 98%;
-    --destructive: 0 72% 51%;
+    --secondary: 18 34% 22%;
+    --secondary-foreground: 24 82% 95%;
+    --muted: 18 28% 26%;
+    --muted-foreground: 24 46% 72%;
+    --accent: 18 32% 22%;
+    --accent-foreground: 24 82% 95%;
+    --destructive: 3 68% 46%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
     --warning: 37 91% 45%;
     --warning-foreground: 0 0% 100%;
-    --ring: 28 83% 53%;
-    /* Sidebar stays dark in dark mode too */
+    --border: 18 32% 30%;
+    --input: 18 32% 30%;
+    --ring: 28 83% 60%;
+
+    /* Sidebar — dark mode uses brand-dark warm brown, text is light cream */
     --sidebar: 18 52% 9%;
     --sidebar-foreground: 24 82% 95%;
     --sidebar-border: 18 32% 18%;
   }
 
   * {
-    border-color: var(--color-border);
+    border-color: hsl(var(--border));
+    outline-color: hsl(var(--ring) / 50%);
   }
 
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-synthesis: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-family: system-ui, sans-serif;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+    min-height: 100vh;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out;
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+}
+
+/* ── Print ───────────────────────────────────────────────────────────────── */
+
+@media print {
+  body > * { display: none !important; }
+  #receipt-print-content {
+    display: block !important;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    background: white;
+    color: black;
   }
 }

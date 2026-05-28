@@ -1,27 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-
+import { DM_Sans, Outfit } from "next/font/google";
 import "@/app/globals.css";
 
-const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
+const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
 
 export const metadata: Metadata = {
   title: {
-    default: "BengoBox Logistics",
-    template: "%s | BengoBox Logistics",
+    default: "Codevertex Logistics",
+    template: "%s | Codevertex Logistics",
   },
-  description: "Fleet management, delivery tracking, and logistics operations for BengoBox.",
+  description: "Fleet management, delivery tracking, and logistics operations.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "BengoBox Logistics",
+    title: "Codevertex Logistics",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#3b82f6",
+  themeColor: "#ea8022",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -35,7 +34,7 @@ import { Toaster } from "sonner";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${dmSans.variable} ${outfit.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

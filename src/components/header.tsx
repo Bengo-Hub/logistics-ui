@@ -2,19 +2,142 @@
 
 import { useRef, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { OutletFilter } from "@/components/outlet-filter";
 import { Button } from "@/components/ui/base";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
-import { Bell, ChevronDown, LogIn, LogOut, Menu, Settings, UserIcon } from "lucide-react";
+import { useOutletFilterStore } from "@/store/outlet-filter";
+import {
+  Bell,
+  Building2,
+  Check,
+  ChevronDown,
+  ExternalLink,
+  Globe,
+  LogIn,
+  LogOut,
+  MapPin,
+  Menu,
+  Search,
+  Settings,
+  Tag,
+  UserIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useBranding } from "@/providers/branding-provider";
 
-function displayName(user: { fullName?: string; name?: string; firstName?: string; email?: string } | null): string {
+const SSO_URL = process.env.NEXT_PUBLIC_SSO_URL ?? "https://sso.codevertexitsolutions.com";
+const PRICING_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL ?? "https://pricing.codevertexitsolutions.com";
+
+const SERVICES = [
+  { label: "Account Portal", href: (slug: string) => `${SSO_URL}/${slug}`, Icon: Globe },
+  { label: "Subscriptions", href: (slug: string) => `${PRICING_URL}/${slug}`, Icon: Tag },
+] as const;
+
+function displayName(
+  user: { fullName?: string; name?: string; firstName?: string; email?: string } | null,
+): string {
   if (!user) return "Account";
-  return (user as { fullName?: string }).fullName ?? (user as { name?: string }).name ?? user.firstName ?? user.email?.split("@")[0] ?? "Account";
+  return (
+    (user as any).fullName ??
+    (user as any).full_name ??
+    (user as any).name ??
+    (user as any).firstName ??
+    user.email?.split("@")[0] ??
+    "Account"
+  );
 }
+
+// ── Outlet context chip shown in the header (read-only when can't switch) ─────
+
+function HeaderOutletChip() {
+  const { selectedOutlet, outlets, selectOutlet } = useOutletFilterStore();
+  const user = useAuthStore((s) => s.user);
+  const [open, setOpen] = useState(false);
+
+  const canSwitch = !!(
+    (user as any)?.isPlatformOwner ||
+    (user as any)?.isSuperUser ||
+    user?.roles?.some((r: string) =>
+      ["admin", "superuser", "manager", "super_admin", "fleet_manager", "dispatcher"].includes(r),
+    )
+  );
+
+  // Only render when an outlet is actually selected (context chip, not full picker)
+  if (!selectedOutlet && outlets.length === 0) return null;
+
+  const activeName = selectedOutlet?.name ?? "All Branches";
+  const chipBase =
+    "hidden lg:flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-1.5 text-sm font-medium text-muted-foreground shrink-0";
+
+  if (!canSwitch) {
+    return (
+      <div className={chipBase}>
+        <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="truncate max-w-[7.5rem]">{activeName}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative hidden lg:block shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(chipBase, "hover:bg-muted hover:text-foreground transition-colors cursor-pointer")}
+        title="Switch branch"
+      >
+        <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="truncate max-w-[7.5rem]">{activeName}</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform shrink-0", open && "rotate-180")} />
+      </button>
+
+      {open && outlets.length > 0 && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
+          <div className="absolute left-0 top-full mt-1 z-50 w-64 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
+            <div className="px-3 py-2 border-b border-border">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Switch Branch</p>
+            </div>
+            <div className="max-h-56 overflow-y-auto py-1">
+              <button
+                type="button"
+                onClick={() => { selectOutlet(null); setOpen(false); }}
+                className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors text-left", !selectedOutlet && "bg-primary/5 text-primary")}
+              >
+                <Building2 className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">All Branches</span>
+                {!selectedOutlet && <Check className="h-3.5 w-3.5 shrink-0" />}
+              </button>
+              {outlets.map((o) => {
+                const isActive = selectedOutlet?.id === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => { selectOutlet(o); setOpen(false); }}
+                    className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors text-left", isActive && "bg-primary/5")}
+                  >
+                    <span className={cn("h-6 w-6 rounded-lg flex items-center justify-center shrink-0 text-[9px] font-bold", isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground")}>
+                      {o.code?.slice(0, 2).toUpperCase() ?? "??"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{o.name}</p>
+                      {o.useCase && <p className="text-[10px] text-muted-foreground">{o.useCase.replace("_", " ")}</p>}
+                    </div>
+                    {isActive && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -30,12 +153,12 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const name = displayName(user);
-  const role = (user as any)?.roles?.[0] || (user as any)?.role;
+  const role = (user?.roles ?? [])[0];
 
   return (
-    <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 flex items-center justify-between gap-4">
-      {/* Left: menu button + page title */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+    <header className="h-20 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center gap-4 shrink-0">
+      {/* Left: hamburger + title + search + outlet chip */}
+      <div className="flex items-center gap-4 flex-1 min-w-0 overflow-hidden">
         <button
           type="button"
           onClick={onMenuClick}
@@ -44,15 +167,42 @@ export function Header({ onMenuClick }: HeaderProps) {
         >
           <Menu className="h-5 w-5 text-muted-foreground" />
         </button>
-        <h1 className="text-base font-black tracking-tight text-foreground uppercase truncate hidden sm:block">
-          {getServiceTitle("Logistics")}
-        </h1>
+
+        <div className="flex items-center gap-6 min-w-0">
+          <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground uppercase truncate max-w-[150px] sm:max-w-none shrink-0">
+            {getServiceTitle("Logistics")}
+          </h1>
+
+          {/* Search — desktop only */}
+          <div className="hidden lg:flex relative w-64 max-w-full group shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <input
+              placeholder="Search tasks, riders..."
+              className="w-full h-10 bg-muted/50 border-none rounded-xl py-1.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary/30 transition-all outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Outlet context chip */}
+        <HeaderOutletChip />
       </div>
 
-      {/* Right: outlet filter, bells, theme, profile */}
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        <OutletFilter className="hidden md:flex" />
+      {/* Right: logout + bell + theme + profile */}
+      <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+        {/* Logout shortcut — rose pill, matches POS */}
+        {user && (
+          <button
+            type="button"
+            onClick={() => void logout()}
+            title="Logout"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all text-xs font-bold"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+        )}
 
+        {/* Notification bell */}
         <button className="relative group p-2.5 rounded-xl hover:bg-muted transition-all">
           <Bell className="h-4.5 w-4.5 text-muted-foreground group-hover:text-primary transition-colors" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-background" />
@@ -60,58 +210,85 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         <ThemeToggle />
 
-        <div className="h-7 w-px bg-border mx-1 hidden sm:block" />
+        <div className="h-8 w-px bg-border mx-1 hidden sm:block" />
 
         {user ? (
           <div className="relative" ref={profileRef}>
             <button
               type="button"
               onClick={() => setProfileOpen((v) => !v)}
-              className="flex items-center gap-2.5 rounded-2xl hover:bg-muted p-1 pr-2 transition-all group"
+              className="flex items-center gap-3 rounded-2xl hover:bg-muted p-1 pr-2 transition-all group"
+              aria-expanded={profileOpen}
             >
-              <div className="w-8 h-8 rounded-xl bg-linear-to-br from-primary to-primary-dark flex items-center justify-center text-primary-foreground font-bold text-xs shadow-md shadow-primary/20 shrink-0 transition-transform group-hover:scale-105">
-                {name[0]?.toUpperCase() ?? <UserIcon className="h-4 w-4" />}
+              {/* Gradient avatar — matches POS */}
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-primary/20 shrink-0 transition-transform group-hover:scale-105">
+                {name[0]?.toUpperCase() ?? <UserIcon className="h-5 w-5" />}
               </div>
-              <div className="hidden md:block text-left">
-                <p className="text-xs font-bold text-foreground truncate max-w-27.5 leading-tight">{name}</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest leading-tight">{role || "Dispatcher"}</p>
+              <div className="hidden md:block text-left mr-1">
+                <p className="text-xs font-black text-foreground truncate max-w-[120px]">{name}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{role || "Dispatcher"}</p>
               </div>
-              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-300 hidden md:block", profileOpen && "rotate-180")} />
+              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", profileOpen && "rotate-180")} />
             </button>
 
             {profileOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 z-50 w-60 rounded-2xl p-2 shadow-xl border border-border bg-popover overflow-hidden">
-                  <div className="mb-1 px-3 py-2.5">
-                    <p className="text-sm font-bold text-popover-foreground">{name}</p>
-                    <p className="text-[10px] text-muted-foreground truncate uppercase tracking-widest mt-0.5">{role || "Dispatcher"}</p>
+                <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} aria-hidden />
+                <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-[1.5rem] p-3 shadow-2xl border border-border bg-popover overflow-hidden">
+                  <div className="mb-2 px-3 py-2">
+                    <p className="text-sm font-black text-popover-foreground">{name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate font-bold uppercase tracking-widest mt-0.5">{role || "Dispatcher"}</p>
                   </div>
 
-                  <div className="h-px bg-border mx-2 my-1" />
+                  <div className="h-px bg-border mx-1 my-2" />
 
-                  <div className="grid gap-0.5">
+                  <div className="grid gap-1">
                     <Link
                       href={orgRoute(orgSlug, "/settings")}
                       onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-muted transition-all group"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-popover-foreground hover:bg-muted transition-all group"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center group-hover:text-primary transition-colors shrink-0">
-                        <Settings className="h-3.5 w-3.5" />
+                      <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:text-primary transition-colors shrink-0">
+                        <Settings className="h-4 w-4" />
                       </div>
                       Settings
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => { setProfileOpen(false); void logout(); }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-all group"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-                        <LogOut className="h-3.5 w-3.5" />
-                      </div>
-                      Logout
-                    </button>
                   </div>
+
+                  <div className="h-px bg-border mx-1 my-2" />
+
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-3 mb-1.5">Services</p>
+                  <div className="grid gap-1">
+                    {SERVICES.map(({ label, href, Icon }) => (
+                      <a
+                        key={label}
+                        href={href(orgSlug)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-popover-foreground hover:bg-muted transition-all group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:text-primary transition-colors shrink-0">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <span className="flex-1">{label}</span>
+                        <ExternalLink className="h-3 w-3 text-muted-foreground opacity-60" />
+                      </a>
+                    ))}
+                  </div>
+
+                  <div className="h-px bg-border mx-1 my-2" />
+
+                  <button
+                    type="button"
+                    onClick={() => { setProfileOpen(false); void logout(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center shrink-0">
+                      <LogOut className="h-4 w-4" />
+                    </div>
+                    Logout
+                  </button>
                 </div>
               </>
             )}
