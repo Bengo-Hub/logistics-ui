@@ -342,7 +342,7 @@ export async function fetchEarningsSummary(
 // ─── Service Config ───────────────────────────────────────────────────────────
 
 export async function fetchServiceConfig(tenantSlug: string): Promise<ServiceConfigMap> {
-  const { data } = await api.get(`${tenantSlug}/service-config`);
+  const { data } = await api.get(`${tenantSlug}/settings`);
   return data;
 }
 
@@ -350,7 +350,7 @@ export async function updateServiceConfig(
   tenantSlug: string,
   body: Partial<ServiceConfigMap>
 ): Promise<ServiceConfigMap> {
-  const { data } = await api.patch(`${tenantSlug}/service-config`, body);
+  const { data } = await api.patch(`${tenantSlug}/settings`, body);
   return data;
 }
 
