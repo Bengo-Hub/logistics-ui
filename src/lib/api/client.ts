@@ -67,6 +67,9 @@ export function setOnSubscription403(callback: ((data: any) => void) | null) {
   onSubscription403Callback = callback;
 }
 
+// Throttle for metered-limit toasts (polling can trigger 429/402 repeatedly).
+let lastLimitToastAt = 0;
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -92,6 +95,25 @@ api.interceptors.response.use(
       const data = error.response?.data;
       if (data?.code === 'subscription_inactive' || data?.upgrade === true) {
         onSubscription403Callback(data);
+      }
+    }
+    // 429/402 = a metered limit (live tracking / routing requests) was reached. These are
+    // hit by automated polling, so throttle the toast to once per 60s to avoid spamming.
+    const ls = error.response?.status;
+    if (ls === 429 || ls === 402) {
+      const data = error.response?.data;
+      if (data?.code === 'usage_limit_exceeded' || data?.metric) {
+        const now = Date.now();
+        if (now - lastLimitToastAt > 60_000) {
+          lastLimitToastAt = now;
+          void (async () => {
+            const { toast } = await import('sonner');
+            toast.warning('Plan usage limit reached', {
+              description: data?.message || `Daily ${String(data?.metric ?? 'usage')} limit reached. Upgrade or enable extra usage in Settings.`,
+              duration: 8000,
+            });
+          })();
+        }
       }
     }
     return Promise.reject(error);
