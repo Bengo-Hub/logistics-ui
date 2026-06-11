@@ -58,7 +58,9 @@ export async function GET(
 
   const manifest = {
     name: `${name} Logistics`,
-    short_name: name,
+    // Home-screen label = tenant first word + service, e.g. "Urban Logistics",
+    // so a tenant's several installed Bengo apps stay distinguishable.
+    short_name: `${name.trim().split(/\s+/)[0] || 'Bengo'} Logistics`,
     description: 'Manage deliveries, routes and logistics operations.',
     start_url: `/${orgSlug}/`,
     scope: `/${orgSlug}/`,

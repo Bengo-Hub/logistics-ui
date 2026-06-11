@@ -57,8 +57,11 @@ export function PwaRegistration() {
     }
   }, [orgSlug]);
 
-  const appName = tenant?.orgName
-    ? `${tenant.orgName} Logistics`
+  // App name = tenant's first word + service, e.g. "Urban Logistics". Keeps
+  // installed apps distinguishable when several Bengo apps run for one tenant.
+  const tenantFirstWord = tenant?.orgName?.trim().split(/\s+/)[0];
+  const appName = tenantFirstWord
+    ? `${tenantFirstWord} Logistics`
     : "BengoBox Logistics";
   const logoUrl = tenant?.logoUrl;
 
@@ -111,29 +114,35 @@ export function PwaRegistration() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-50 w-[min(22rem,calc(100vw-2rem))]"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 animate-slide-up sm:inset-x-auto sm:right-4 sm:justify-end"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
     >
-      <div className="bg-card border border-border rounded-2xl shadow-2xl shadow-black/10 overflow-hidden">
-        <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-          <div className="h-11 w-11 rounded-xl overflow-hidden border border-border shrink-0 flex items-center justify-center bg-primary/10">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={appName}
-                className="h-full w-full object-contain p-1"
-              />
-            ) : ios ? (
-              <Share className="h-5 w-5 text-primary" />
-            ) : (
-              <Download className="h-5 w-5 text-primary" />
-            )}
+      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border/60 bg-card/95 shadow-2xl shadow-black/25 ring-1 ring-black/5 backdrop-blur-xl">
+        {/* Brand accent strip */}
+        <div className="h-1 w-full bg-gradient-to-r from-primary/70 via-primary to-primary/70" />
+
+        <div className="flex items-start gap-3.5 px-4 pt-4 pb-3">
+          <div className="relative shrink-0">
+            <div className="absolute inset-0 -z-10 rounded-2xl bg-primary/25 blur-md" aria-hidden />
+            <div className="h-12 w-12 rounded-2xl overflow-hidden ring-1 ring-border bg-white shadow-sm flex items-center justify-center">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={appName}
+                  className="h-full w-full object-contain p-1"
+                />
+              ) : ios ? (
+                <Share className="h-5 w-5 text-primary" />
+              ) : (
+                <Download className="h-5 w-5 text-primary" />
+              )}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm leading-tight">
+          <div className="flex-1 min-w-0 pt-0.5">
+            <p className="font-semibold text-[0.95rem] leading-tight tracking-tight">
               Install {appName}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+            <p className="text-xs text-muted-foreground mt-1 leading-snug">
               {ios
                 ? "Add to Home Screen for offline access."
                 : "Track deliveries offline — syncs automatically."}
@@ -141,10 +150,10 @@ export function PwaRegistration() {
           </div>
           <button
             onClick={dismiss}
-            className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-accent shrink-0 transition-colors -mt-1 -mr-1"
+            className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-accent shrink-0 transition-colors -mt-0.5 -mr-1 text-muted-foreground"
             aria-label="Dismiss"
           >
-            <X className="h-4 w-4 text-muted-foreground" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -181,9 +190,10 @@ export function PwaRegistration() {
               Later
             </button>
             <button
-              className="flex-1 text-sm bg-primary text-primary-foreground py-2 px-3 rounded-xl hover:bg-primary/90 transition-colors font-semibold shadow-md"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 text-sm bg-gradient-to-b from-primary to-primary/90 text-primary-foreground py-2 px-3 rounded-xl hover:opacity-95 transition-opacity font-semibold shadow-lg shadow-primary/25"
               onClick={install}
             >
+              <Download className="h-4 w-4" />
               Install
             </button>
           </div>
