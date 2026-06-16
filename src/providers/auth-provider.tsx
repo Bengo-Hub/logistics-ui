@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
+import { OfflineBar } from "@bengo-hub/shared-ui-lib/offline";
 import { Fingerprint, Loader2 } from "lucide-react";
 
 import { useBiometric } from "@/hooks/use-biometric";
@@ -178,6 +179,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
         <AuthSync />
+        <OfflineBar availableOffline={["View cached tasks/riders"]} disabledOffline={["Edits", "Dispatch", "Live tracking"]} />
         <AuthGuard>
           {children}
         </AuthGuard>
