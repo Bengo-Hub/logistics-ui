@@ -7,6 +7,7 @@ import {
     buildLogoutUrl,
     exchangeCodeForTokens,
     fetchProfile,
+    revokeServerSession,
 } from "@/lib/auth/api";
 import {
     consumeState,
@@ -261,6 +262,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    const token = get().session?.accessToken;
+    await revokeServerSession(token);
     clearAuthState();
     set({ status: "idle", user: null, session: null, error: null, subscriptionInfo: undefined, lastAuthenticatedAt: null });
     if (typeof window !== "undefined") {
@@ -268,7 +271,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try { localStorage.removeItem("tenantSlug"); } catch { /* no-op */ }
       try { localStorage.removeItem("is_platform_owner"); } catch { /* no-op */ }
       try { sessionStorage.clear(); } catch { /* no-op */ }
-      window.location.href = buildLogoutUrl("https://accounts.codevertexitsolutions.com");
+      const returnTo = encodeURIComponent(window.location.origin);
+      window.location.href = buildLogoutUrl(`https://accounts.codevertexitsolutions.com/login?return_to=${returnTo}`);
     }
   },
 }));
