@@ -8,6 +8,7 @@ import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { PwaRegistration } from "@/components/pwa-registration";
 import { PWAUpdateBanner } from "@/components/pwa-update-banner";
+import { PlatformScopeGuard } from "@/components/platform-scope-guard";
 
 import { Footer } from "@/components/footer";
 import { SubscriptionBanner } from "@/components/subscription/subscription-banner";
@@ -44,6 +45,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
     <AuthProvider>
       <BrandingProvider>
         <ManifestInjector />
+        <PlatformScopeGuard />
         <PWAUpdateBanner />
         <PwaRegistration />
         <div className="flex h-screen overflow-hidden bg-background">
