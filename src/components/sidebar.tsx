@@ -2,6 +2,7 @@
 
 import { useMe } from "@/hooks/useMe";
 import { useModuleAccess } from "@/hooks/use-module-access";
+import { useSubscription } from "@/hooks/use-subscription";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import {
@@ -42,6 +43,8 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   permission?: string;
   moduleKey?: string;
+  /** Subscription feature code required to see this item (exempt tenants always pass). */
+  feature?: string;
 }
 
 interface NavGroup {
@@ -56,7 +59,7 @@ const navGroups: NavGroup[] = [
     label: "Overview",
     items: [
       { id: "dashboard", label: "Dashboard", href: "", icon: LayoutDashboard },
-      { id: "analytics", label: "Analytics", href: "/analytics", icon: BarChart3, moduleKey: "analytics" },
+      { id: "analytics", label: "Analytics", href: "/analytics", icon: BarChart3, moduleKey: "analytics", feature: "driver_analytics" },
     ],
   },
   {
@@ -73,7 +76,7 @@ const navGroups: NavGroup[] = [
     label: "Delivery",
     items: [
       { id: "tasks", label: "Tasks", href: "/tasks", icon: ClipboardList, permission: "logistics.tasks.view" },
-      { id: "tracking", label: "Tracking", href: "/tracking", icon: MapPin, permission: "logistics.telemetry.view" },
+      { id: "tracking", label: "Tracking", href: "/tracking", icon: MapPin, permission: "logistics.telemetry.view", feature: "live_tracking" },
     ],
   },
   {
@@ -88,7 +91,7 @@ const navGroups: NavGroup[] = [
     defaultCollapsed: true,
     items: [
       { id: "earnings", label: "Earnings", href: "/earnings", icon: Wallet, permission: "logistics.earnings.view", moduleKey: "earnings" },
-      { id: "reporting", label: "Reports", href: "/reporting", icon: FileText, moduleKey: "reporting" },
+      { id: "reporting", label: "Reports", href: "/reporting", icon: FileText, moduleKey: "reporting", feature: "performance_reports" },
     ],
   },
   {
@@ -110,9 +113,13 @@ function canSeeNavItem(
   item: NavItem,
   hasPermission: (p: string) => boolean,
   hasModule: (k: string) => boolean,
+  hasFeature: (code: string) => boolean,
 ): boolean {
   if (item.moduleKey && !hasModule(item.moduleKey)) return false;
   if (item.permission && !hasPermission(item.permission)) return false;
+  // Subscription feature gate — mirrors the logistics-api route gates (live_tracking,
+  // driver_analytics/performance_reports). Exempt tenants pass via hasFeature.
+  if (item.feature && !hasFeature(item.feature)) return false;
   return true;
 }
 
@@ -124,6 +131,7 @@ function NavGroupSection({
   onClose,
   hasPermission,
   hasModule,
+  hasFeature,
   isActive,
 }: {
   group: NavGroup;
@@ -131,10 +139,11 @@ function NavGroupSection({
   onClose?: () => void;
   hasPermission: (p: string) => boolean;
   hasModule: (k: string) => boolean;
+  hasFeature: (code: string) => boolean;
   isActive: (href: string) => boolean;
 }) {
   const visibleItems = group.items.filter((item) =>
-    canSeeNavItem(item, hasPermission, hasModule),
+    canSeeNavItem(item, hasPermission, hasModule, hasFeature),
   );
   if (visibleItems.length === 0) return null;
 
@@ -204,6 +213,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const user = useAuthStore((s) => s.user);
   const { hasPermission, hasRole } = useMe(!!session);
   const { hasModule } = useModuleAccess();
+  const { hasFeature } = useSubscription();
   const { tenant } = useBranding();
   const isPlatformOwner = hasRole("superuser") || hasRole("platform_owner");
 
@@ -270,6 +280,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               onClose={onClose}
               hasPermission={hasPermission}
               hasModule={hasModule}
+              hasFeature={hasFeature}
               isActive={isActive}
             />
           );
