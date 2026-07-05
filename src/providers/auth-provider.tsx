@@ -12,6 +12,7 @@ import { Fingerprint, Loader2 } from "lucide-react";
 import { useBiometric } from "@/hooks/use-biometric";
 import { useMe } from "@/hooks/useMe";
 import { attachOutletIdGetter, setOn401 } from "@/lib/api/client";
+import { SubscriptionEntitlementsProvider } from "@/providers/subscription-entitlements-provider";
 import { useAuthStore } from "@/store/auth";
 import { useOutletFilterStore } from "@/store/outlet-filter";
 
@@ -181,7 +182,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         <AuthSync />
         <OfflineBar availableOffline={["View cached tasks/riders"]} disabledOffline={["Edits", "Dispatch", "Live tracking"]} />
         <AuthGuard>
-          {children}
+          <SubscriptionEntitlementsProvider>
+            {children}
+          </SubscriptionEntitlementsProvider>
         </AuthGuard>
         {showDevtools ? (
           <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />

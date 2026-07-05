@@ -2,7 +2,7 @@
 
 import { useMe } from "@/hooks/useMe";
 import { useModuleAccess } from "@/hooks/use-module-access";
-import { useSubscription } from "@/hooks/use-subscription";
+import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import {
@@ -43,7 +43,7 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   permission?: string;
   moduleKey?: string;
-  /** Subscription feature code required to see this item (exempt tenants always pass). */
+  /** Subscription feature code that unlocks this item (exempt tenants always pass). */
   feature?: string;
 }
 
@@ -113,14 +113,27 @@ function canSeeNavItem(
   item: NavItem,
   hasPermission: (p: string) => boolean,
   hasModule: (k: string) => boolean,
-  hasFeature: (code: string) => boolean,
 ): boolean {
   if (item.moduleKey && !hasModule(item.moduleKey)) return false;
   if (item.permission && !hasPermission(item.permission)) return false;
-  // Subscription feature gate — mirrors the logistics-api route gates (live_tracking,
-  // driver_analytics/performance_reports). Exempt tenants pass via hasFeature.
-  if (item.feature && !hasFeature(item.feature)) return false;
+  // Subscription features (live_tracking, driver_analytics, performance_reports) do NOT hide
+  // items anymore — show-don't-hide: locked items render wrapped in <FeatureLock mode="badge">
+  // which shows a tier chip and opens the UpgradeDialog on click instead of navigating.
   return true;
+}
+
+/**
+ * Wraps a nav entry in the shared FeatureLock (badge mode) when it carries a subscription
+ * feature code. Unlocked/exempt tenants get the bare children back; locked ones see a tier
+ * chip and a click-capture that opens the UpgradeDialog instead of navigating.
+ */
+function NavFeatureLock({ feature, children }: { feature?: string; children: React.ReactNode }) {
+  if (!feature) return <>{children}</>;
+  return (
+    <FeatureLock feature={feature} mode="badge">
+      {children}
+    </FeatureLock>
+  );
 }
 
 // ── Collapsible group ─────────────────────────────────────────────────────────
@@ -131,7 +144,6 @@ function NavGroupSection({
   onClose,
   hasPermission,
   hasModule,
-  hasFeature,
   isActive,
 }: {
   group: NavGroup;
@@ -139,11 +151,10 @@ function NavGroupSection({
   onClose?: () => void;
   hasPermission: (p: string) => boolean;
   hasModule: (k: string) => boolean;
-  hasFeature: (code: string) => boolean;
   isActive: (href: string) => boolean;
 }) {
   const visibleItems = group.items.filter((item) =>
-    canSeeNavItem(item, hasPermission, hasModule, hasFeature),
+    canSeeNavItem(item, hasPermission, hasModule),
   );
   if (visibleItems.length === 0) return null;
 
@@ -175,25 +186,26 @@ function NavGroupSection({
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
-              <Link
-                key={item.id}
-                href={orgRoute(orgSlug, item.href)}
-                onClick={onClose}
-                className={cn(
-                  "group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm",
-                  active
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 font-semibold"
-                    : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-foreground/8 font-medium",
-                )}
-              >
-                <Icon
+              <NavFeatureLock key={item.id} feature={item.feature}>
+                <Link
+                  href={orgRoute(orgSlug, item.href)}
+                  onClick={onClose}
                   className={cn(
-                    "h-4.5 w-4.5 shrink-0 transition-transform duration-200",
-                    !active && "group-hover:scale-110",
+                    "group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 font-semibold"
+                      : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-foreground/8 font-medium",
                   )}
-                />
-                <span className="truncate">{item.label}</span>
-              </Link>
+                >
+                  <Icon
+                    className={cn(
+                      "h-4.5 w-4.5 shrink-0 transition-transform duration-200",
+                      !active && "group-hover:scale-110",
+                    )}
+                  />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              </NavFeatureLock>
             );
           })}
         </div>
@@ -213,7 +225,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const user = useAuthStore((s) => s.user);
   const { hasPermission, hasRole } = useMe(!!session);
   const { hasModule } = useModuleAccess();
-  const { hasFeature } = useSubscription();
   const { tenant } = useBranding();
   const isPlatformOwner = hasRole("superuser") || hasRole("platform_owner");
 
@@ -280,7 +291,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               onClose={onClose}
               hasPermission={hasPermission}
               hasModule={hasModule}
-              hasFeature={hasFeature}
               isActive={isActive}
             />
           );
