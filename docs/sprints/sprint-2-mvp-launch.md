@@ -1,7 +1,7 @@
 # Sprint 2 -- MVP Launch
 
 **Timeline**: March 3 - March 17, 2026
-**Goal**: Deliver a functional logistics-ui for tenant admins to manage riders, fleets, and tasks; provide live tracking; ship as part of BengoBox MVP.
+**Goal**: Deliver a functional logistics-ui for tenant admins to manage riders, fleets, and tasks; provide live tracking; ship as part of Codevertex MVP.
 
 **Progress (March 7, 2026):** Full Next.js app scaffold complete: SSO/PKCE, [orgSlug] routes, dashboard, riders (list + detail), tasks, tracking, zones, settings, platform admin. devops-k8s values.yaml created (logistics.codevertexitsolutions.com). **RBAC:** Current user (roles + permissions) from auth-api `GET /me` cached with TanStack Query (`useMe`, staleTime 5 min); `hasRole`/`hasPermission` helpers for RBAC; nav/sidebar visibility by permission or role; route protection in AuthGuard (redirect unauthenticated to SSO, 403 from /me to `/[orgSlug]/unauthorized`); 404 not-found and 403 unauthorized pages added. All data fetches use TanStack Query (provider in AuthProvider). **Remaining:** Wire all pages to logisticsapi; deploy. Logistics-api: auth-api is source of truth for roles/permissions; Redis (location tracking), NATS/outbox (events) documented in docs/architecture.md.
 

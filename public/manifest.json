@@ -1,7 +1,7 @@
 {
-  "name": "BengoBox Logistics",
+  "name": "Codevertex Logistics",
   "short_name": "Logistics",
-  "description": "Fleet management, delivery tracking, and logistics operations for BengoBox.",
+  "description": "Fleet management, delivery tracking, and logistics operations for Codevertex.",
   "start_url": "/codevertex",
   "display": "standalone",
   "background_color": "#ffffff",

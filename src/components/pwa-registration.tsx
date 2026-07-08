@@ -62,7 +62,7 @@ export function PwaRegistration() {
   const tenantFirstWord = tenant?.orgName?.trim().split(/\s+/)[0];
   const appName = tenantFirstWord
     ? `${tenantFirstWord} Logistics`
-    : "BengoBox Logistics";
+    : "Codevertex Logistics";
   const logoUrl = tenant?.logoUrl;
 
   useEffect(() => {

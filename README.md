@@ -1,6 +1,6 @@
 # Logistics UI
 
-BengoBox logistics management UI. Riders, tasks, tracking, zones, platform admin.
+Codevertex logistics management UI. Riders, tasks, tracking, zones, platform admin.
 
 ## Dev
 

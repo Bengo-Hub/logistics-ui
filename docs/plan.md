@@ -1,7 +1,7 @@
 # Logistics UI - Implementation Plan
 
 ## Overview
-The Logistics UI is a specialized microservice frontend dedicated to rider management, fleet operations, and delivery logistics. It follows the "Microservice Switching" pattern, acting as the primary destination for all rider-related workflows in the BengoBox ecosystem.
+The Logistics UI is a specialized microservice frontend dedicated to rider management, fleet operations, and delivery logistics. It follows the "Microservice Switching" pattern, acting as the primary destination for all rider-related workflows in the Codevertex ecosystem.
 
 ## Technology Stack
 
