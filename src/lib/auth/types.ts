@@ -132,6 +132,7 @@ export interface UserProfile {
   tenantSlug: string;
   isPlatformOwner?: boolean;
   isSuperUser?: boolean;
+  email_verification?: import('@bengo-hub/shared-ui-lib/auth').EmailVerificationState;
 }
 
 export interface AuthResponse {

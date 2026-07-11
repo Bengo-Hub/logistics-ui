@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { VerifyEmailPrompt } from '@/components/auth/VerifyEmailPrompt';
 import { useParams } from "next/navigation";
 import { AuthProvider } from "@/providers/auth-provider";
 import { BrandingProvider } from "@/providers/branding-provider";
@@ -53,6 +54,7 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <Header onMenuClick={() => setSidebarOpen(true)} />
             <SubscriptionBanner />
+              <VerifyEmailPrompt />
             <main className="flex-1 overflow-y-auto">
               {children}
             </main>
