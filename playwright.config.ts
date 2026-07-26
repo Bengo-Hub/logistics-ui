@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const defaultOrgSlug = process.env.E2E_ORG_SLUG || 'urban-loft';
-const base = process.env.BASE_URL || 'https://logistics.codevertexitsolutions.com';
+const base = process.env.BASE_URL || 'https://logistics.codevertexafrica.com';
 
 /**
  * Playwright E2E config for logistics-ui (tenant-scoped).

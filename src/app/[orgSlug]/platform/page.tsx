@@ -95,7 +95,7 @@ export default function PlatformPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Tile Server URL</label>
-                <Input defaultValue="https://tiles.codevertexitsolutions.com" placeholder="https://tiles.example.com" />
+                <Input defaultValue="https://tiles.codevertexafrica.com" placeholder="https://tiles.example.com" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Routing Engine</label>

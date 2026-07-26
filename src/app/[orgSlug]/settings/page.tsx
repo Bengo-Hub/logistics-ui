@@ -28,8 +28,8 @@ import { useServiceConfig, useUpdateServiceConfig } from "@/hooks/use-service-co
 import { useModuleAccess, useModulesConfig, useUpdateModules } from "@/hooks/use-module-access";
 import type { ServiceConfigMap } from "@/types/logistics";
 
-const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL ?? "https://sso.codevertexitsolutions.com";
-const LOGISTICS_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexitsolutions.com";
+const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL ?? "https://sso.codevertexafrica.com";
+const LOGISTICS_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexafrica.com";
 
 // ─── Nav Tabs ─────────────────────────────────────────────────────────────────
 

@@ -3,8 +3,8 @@
 import { MapProvider, LiveFleetMap } from "@bengo-hub/maps";
 import type { FleetRider } from "@bengo-hub/maps";
 
-const TILE_SERVER = "https://tiles.codevertexitsolutions.com";
-const API_BASE = "https://logisticsapi.codevertexitsolutions.com/api/v1";
+const TILE_SERVER = "https://tiles.codevertexafrica.com";
+const API_BASE = "https://logisticsapi.codevertexafrica.com/api/v1";
 
 interface FleetMapProps {
   tenantSlug: string;

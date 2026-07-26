@@ -29,7 +29,7 @@ export function useTaskStream({ taskId, tenantSlug, enabled = true, onEvent }: U
   useEffect(() => {
     if (!enabled || !taskId || !tenantSlug) return;
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexitsolutions.com/api/v1/";
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexafrica.com/api/v1/";
     const base = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase;
 
     const token = typeof window !== "undefined"

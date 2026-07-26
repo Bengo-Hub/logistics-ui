@@ -18,7 +18,7 @@ import {
 import type { TrackingInfo } from "@/types/logistics";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "https://logisticsapi.codevertexitsolutions.com/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "https://logisticsapi.codevertexafrica.com/api/v1";
 
 const STATUS_STEPS = [
   { key: "pending", label: "Task Created", icon: Package },

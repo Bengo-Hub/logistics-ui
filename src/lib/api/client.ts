@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Normalize base URL: always ensure /api/v1 is present regardless of what the env var contains.
 // This is resilient to the common misconfiguration of omitting /api/v1 from NEXT_PUBLIC_API_URL.
-const _rawBase = (process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexitsolutions.com")
+const _rawBase = (process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexafrica.com")
   .replace(/\/+$/, ""); // strip trailing slashes
 const NORMALISED_BASE_URL = _rawBase.includes("/api/v1")
   ? `${_rawBase}/`

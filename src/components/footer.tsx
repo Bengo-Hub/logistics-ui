@@ -19,7 +19,7 @@ export function Footer() {
           </p>
 
           <a
-            href="https://codevertexitsolutions.com"
+            href="https://codevertexafrica.com"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-1 rounded-full bg-foreground text-background text-[10px] font-black tracking-tight uppercase hover:opacity-80 transition-opacity"

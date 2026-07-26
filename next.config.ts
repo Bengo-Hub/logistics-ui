@@ -19,15 +19,15 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "logisticsapi.codevertexitsolutions.com",
+        hostname: "logisticsapi.codevertexafrica.com",
       },
       {
         protocol: "https",
-        hostname: "accounts.codevertexitsolutions.com",
+        hostname: "accounts.codevertexafrica.com",
       },
       {
         protocol: "https",
-        hostname: "sso.codevertexitsolutions.com",
+        hostname: "sso.codevertexafrica.com",
       },
     ],
   },

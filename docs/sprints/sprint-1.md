@@ -32,4 +32,4 @@
 - `lib/api/client.ts`: shared Axios instance with orgSlug-scoped base URL
 - `lib/api/tenant.ts`: tenant resolution helpers
 - TanStack Query provider in AuthProvider (staleTime defaults, devtools)
-- K8s values.yaml created (`logistics.codevertexitsolutions.com`)
+- K8s values.yaml created (`logistics.codevertexafrica.com`)

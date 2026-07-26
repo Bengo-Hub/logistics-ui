@@ -5,7 +5,7 @@
 
 const NOTIFICATIONS_URL =
   process.env.NEXT_PUBLIC_NOTIFICATIONS_URL ||
-  "https://notifications.codevertexitsolutions.com";
+  "https://notifications.codevertexafrica.com";
 
 export interface TenantBranding {
   tenant_id: string;

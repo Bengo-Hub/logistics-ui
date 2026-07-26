@@ -2,13 +2,13 @@
 
 ## Service
 Next.js 15 dispatcher console for fleet/rider management, task operations, and live tracking.  
-**Production**: `https://logistics.codevertexitsolutions.com`  
+**Production**: `https://logistics.codevertexafrica.com`  
 **K8s namespace**: `logistics`
 
 ## Architecture
 - **Framework**: Next.js 15 App Router, TypeScript, Tailwind CSS, Shadcn UI
 - **State**: TanStack Query v5 for server state; Zustand for auth/local state
-- **API**: shared Axios client (`lib/api/client.ts`) → `https://logisticsapi.codevertexitsolutions.com/api/v1/{orgSlug}/*`
+- **API**: shared Axios client (`lib/api/client.ts`) → `https://logisticsapi.codevertexafrica.com/api/v1/{orgSlug}/*`
 - **Auth**: SSO PKCE via auth-api; JWT Bearer injected by Axios interceptor
 - **RBAC**: `useMe` → `hasRole`/`hasPermission` helpers from `lib/auth`
 

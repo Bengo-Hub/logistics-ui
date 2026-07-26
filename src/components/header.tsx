@@ -26,8 +26,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useBranding } from "@/providers/branding-provider";
 
-const SSO_URL = process.env.NEXT_PUBLIC_SSO_URL ?? "https://sso.codevertexitsolutions.com";
-const PRICING_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL ?? "https://pricing.codevertexitsolutions.com";
+const SSO_URL = process.env.NEXT_PUBLIC_SSO_URL ?? "https://sso.codevertexafrica.com";
+const PRICING_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL ?? "https://pricing.codevertexafrica.com";
 
 const SERVICES = [
   { label: "Account Portal", href: (slug: string) => `${SSO_URL}/${slug}`, Icon: Globe },
