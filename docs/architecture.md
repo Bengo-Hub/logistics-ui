@@ -38,10 +38,10 @@
 
 | Feature | Target | URL |
 |---------|--------|-----|
-| Customer ordering | ordering-service | ordersapp.codevertexitsolutions.com |
+| Customer ordering | ordering-service | ordering.codevertexafrica.com |
 | Staff portal (general) | cafe-website | theurbanloftcafe.com/staff |
-| SSO login | auth-ui | accounts.codevertexitsolutions.com |
-| Rider self-service | rider-app | riderapp.codevertexitsolutions.com |
+| SSO login | auth-ui | accounts.codevertexafrica.com |
+| Rider self-service | rider-app | riderapp.codevertexafrica.com |
 
 ---
 

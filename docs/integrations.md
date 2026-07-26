@@ -6,7 +6,7 @@
 
 ## Backend API (logistics-api)
 
-**Base URL**: `NEXT_PUBLIC_LOGISTICS_API_URL` (default: `https://logisticsapi.codevertexitsolutions.com/api/v1`)
+**Base URL**: `NEXT_PUBLIC_LOGISTICS_API_URL` (default: `https://logisticsapi.codevertexafrica.com/api/v1`)
 
 ### Request conventions
 
@@ -53,8 +53,8 @@ All list endpoints accept `page` (1-based) and `per_page` (default 20, max 100).
 
 ## Auth service (SSO)
 
-**SSO URL**: `NEXT_PUBLIC_SSO_URL` (default: `https://sso.codevertexitsolutions.com`)
-**Auth UI URL**: `NEXT_PUBLIC_AUTH_UI_URL` (default: `https://accounts.codevertexitsolutions.com`)
+**SSO URL**: `NEXT_PUBLIC_SSO_URL` (default: `https://sso.codevertexafrica.com`)
+**Auth UI URL**: `NEXT_PUBLIC_AUTH_UI_URL` (default: `https://accounts.codevertexafrica.com`)
 **Client ID**: `NEXT_PUBLIC_SSO_CLIENT_ID` (default: `logistics-ui`)
 
 ### Flow
@@ -83,7 +83,7 @@ All list endpoints accept `page` (1-based) and `per_page` (default 20, max 100).
 
 ## WebSocket (real-time tracking)
 
-**URL**: `wss://logisticsapi.codevertexitsolutions.com/ws/tracking`
+**URL**: `wss://logisticsapi.codevertexafrica.com/ws/tracking`
 
 ### Connection
 
@@ -120,9 +120,9 @@ GET /api/v1/{tenant}/tracking/rider/{riderId}/location  (every 5s)
 
 ## Map integration (@bengo-hub/maps + TileServer-GL)
 
-**Tile provider**: Self-hosted TileServer-GL at `https://tiles.codevertexitsolutions.com` (internal: `http://tileserver.logistics.svc.cluster.local:8080`)
+**Tile provider**: Self-hosted TileServer-GL at `https://tiles.codevertexafrica.com` (internal: `http://tileserver.logistics.svc.cluster.local:8080`)
 **Frontend library**: `@bengo-hub/maps` (MapLibre GL JS wrapper, shared NPM package)
-**Routing engine**: Self-hosted Valhalla at `https://routing.codevertexitsolutions.com` (internal: `http://valhalla.logistics.svc.cluster.local:8002`)
+**Routing engine**: Self-hosted Valhalla at `https://routing.codevertexafrica.com` (internal: `http://valhalla.logistics.svc.cluster.local:8002`)
 **Data source**: OpenStreetMap Kenya extract from Geofabrik, auto-refreshed weekly
 
 ### Components
@@ -150,8 +150,8 @@ GET /api/v1/{tenant}/tracking/rider/{riderId}/location  (every 5s)
 | Trigger | Target | URL pattern |
 |---------|--------|-------------|
 | "View in cafe portal" link | cafe-website | `https://theurbanloftcafe.com/staff/riders` |
-| "View order" link on task | ordering-service | `https://ordersapp.codevertexitsolutions.com/order/{orderId}` |
-| Rider self-service link | rider-app | `https://riderapp.codevertexitsolutions.com/{tenantSlug}` |
+| "View order" link on task | ordering-service | `https://ordering.codevertexafrica.com/order/{orderId}` |
+| Rider self-service link | rider-app | `https://riderapp.codevertexafrica.com/{tenantSlug}` |
 
 ---
 
@@ -159,10 +159,10 @@ GET /api/v1/{tenant}/tracking/rider/{riderId}/location  (every 5s)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NEXT_PUBLIC_LOGISTICS_API_URL` | `https://logisticsapi.codevertexitsolutions.com/api/v1` | Backend API |
-| `NEXT_PUBLIC_SSO_URL` | `https://sso.codevertexitsolutions.com` | Auth service |
-| `NEXT_PUBLIC_AUTH_UI_URL` | `https://accounts.codevertexitsolutions.com` | Auth UI |
+| `NEXT_PUBLIC_LOGISTICS_API_URL` | `https://logisticsapi.codevertexafrica.com/api/v1` | Backend API |
+| `NEXT_PUBLIC_SSO_URL` | `https://sso.codevertexafrica.com` | Auth service |
+| `NEXT_PUBLIC_AUTH_UI_URL` | `https://accounts.codevertexafrica.com` | Auth UI |
 | `NEXT_PUBLIC_SSO_CLIENT_ID` | `logistics-ui` | OIDC client ID |
 | `NEXT_PUBLIC_TENANT_SLUG` | `urban-loft` | Canonical tenant |
 | `NEXT_PUBLIC_TENANT_ID` | (from auth) | Tenant UUID |
-| `NEXT_PUBLIC_WS_URL` | `wss://logisticsapi.codevertexitsolutions.com/ws` | WebSocket |
+| `NEXT_PUBLIC_WS_URL` | `wss://logisticsapi.codevertexafrica.com/ws` | WebSocket |
