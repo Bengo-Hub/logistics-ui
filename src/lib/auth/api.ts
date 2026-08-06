@@ -1,5 +1,6 @@
 import { api } from "@/lib/api/client";
 import type { AuthResponse } from "@/lib/auth/types";
+import { revokeServerSession as sharedRevokeServerSession } from '@bengo-hub/shared-ui-lib/auth';
 
 const SSO_BASE_URL =
   process.env.NEXT_PUBLIC_SSO_URL ?? "https://sso.codevertexafrica.com";
@@ -40,14 +41,7 @@ export function buildLogoutUrl(postLogoutRedirectUri?: string): string {
  * keys, and clears the session cookie. Best-effort — never throws.
  */
 export async function revokeServerSession(accessToken?: string | null): Promise<void> {
-  try {
-    await fetch(new URL('/api/v1/auth/logout', SSO_BASE_URL).toString(), {
-      method: 'POST',
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-      credentials: 'include',
-      keepalive: true,
-    });
-  } catch { /* best-effort */ }
+  return sharedRevokeServerSession(SSO_BASE_URL, accessToken);
 }
 
 export async function exchangeCodeForTokens(params: {
