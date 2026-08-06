@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useBranding } from "@/providers/branding-provider";
+import { useSubscription } from "@/hooks/use-subscription";
 import { useVisibleServices, type ServiceKey } from "@bengo-hub/shared-ui-lib/app-switcher";
 
 // logistics-ui intentionally links to only a curated subset of the shared registry (dispatchers
@@ -165,13 +166,17 @@ export function Header({ onMenuClick }: HeaderProps) {
   const profileRef = useRef<HTMLDivElement>(null);
   const name = displayName(user);
   const role = (user?.roles ?? [])[0];
-  // No RBAC/subscription gating today (matches prior behavior) — canManageLinks always true so
-  // 'coming-soon' + always-on entries show; activeServiceTags omitted (fails open).
+  // No RBAC gating today (matches prior behavior) — canManageLinks always true so 'coming-soon'
+  // + always-on entries show. activeProducts is undefined while the subscription lookup is in
+  // flight/unknown — fails open (shows everything) until it resolves, matching this codebase's
+  // existing "never block the UI on a subscription-fetch failure" convention.
+  const { activeProducts } = useSubscription();
   const services = useVisibleServices({
     orgSlug,
     urls: SERVICE_URLS,
     canManageLinks: true,
     include: LOGISTICS_SERVICE_KEYS,
+    activeServiceTags: activeProducts,
   });
 
   return (
