@@ -12,27 +12,38 @@ import {
   Check,
   ChevronDown,
   ExternalLink,
-  Globe,
   LogIn,
   LogOut,
   MapPin,
   Menu,
   Search,
   Settings,
-  Tag,
   UserIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useBranding } from "@/providers/branding-provider";
+import { useVisibleServices, type ServiceKey } from "@bengo-hub/shared-ui-lib/app-switcher";
 
-const SSO_URL = process.env.NEXT_PUBLIC_SSO_URL ?? "https://sso.codevertexafrica.com";
-const PRICING_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL ?? "https://pricing.codevertexafrica.com";
-
-const SERVICES = [
-  { label: "Account Portal", href: (slug: string) => `${SSO_URL}/${slug}`, Icon: Globe },
-  { label: "Subscriptions", href: (slug: string) => `${PRICING_URL}/${slug}`, Icon: Tag },
-] as const;
+// logistics-ui intentionally links to only a curated subset of the shared registry (dispatchers
+// don't need POS/Inventory/etc. shortcuts) — `include` restricts to just these keys, so new/
+// coming-soon entries (Projects, Afya, Sourcing, Traceability, Ticketing) stay in sync with the
+// canonical list without pulling in the full cross-service set. See use-visible-services.ts.
+const LOGISTICS_SERVICE_KEYS: ServiceKey[] = [
+  "auth",
+  "subscriptions",
+  "projects",
+  "afya",
+  "sourcing",
+  "traceability",
+  "ticketing",
+];
+const SERVICE_URLS: Partial<Record<ServiceKey, string>> = {
+  auth: process.env.NEXT_PUBLIC_SSO_URL ?? "https://sso.codevertexafrica.com",
+  subscriptions: process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL ?? "https://pricing.codevertexafrica.com",
+  projects: process.env.NEXT_PUBLIC_PROJECTS_UI_URL ?? "https://projects.codevertexafrica.com",
+  afya: process.env.NEXT_PUBLIC_HOSPITAL_UI_URL ?? "https://afya.codevertexafrica.com",
+};
 
 function displayName(
   user: { fullName?: string; name?: string; firstName?: string; email?: string } | null,
@@ -154,6 +165,14 @@ export function Header({ onMenuClick }: HeaderProps) {
   const profileRef = useRef<HTMLDivElement>(null);
   const name = displayName(user);
   const role = (user?.roles ?? [])[0];
+  // No RBAC/subscription gating today (matches prior behavior) — canManageLinks always true so
+  // 'coming-soon' + always-on entries show; activeServiceTags omitted (fails open).
+  const services = useVisibleServices({
+    orgSlug,
+    urls: SERVICE_URLS,
+    canManageLinks: true,
+    include: LOGISTICS_SERVICE_KEYS,
+  });
 
   return (
     <header className="h-20 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center gap-4 shrink-0">
@@ -259,22 +278,36 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-3 mb-1.5">Services</p>
                   <div className="grid gap-1">
-                    {SERVICES.map(({ label, href, Icon }) => (
-                      <a
-                        key={label}
-                        href={href(orgSlug)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-popover-foreground hover:bg-muted transition-all group"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:text-primary transition-colors shrink-0">
-                          <Icon className="h-4 w-4" />
+                    {services.map(({ key, label, href, Icon }) =>
+                      href ? (
+                        <a
+                          key={key}
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setProfileOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-popover-foreground hover:bg-muted transition-all group"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:text-primary transition-colors shrink-0">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <span className="flex-1">{label}</span>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground opacity-60" />
+                        </a>
+                      ) : (
+                        <div
+                          key={key}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-muted-foreground/60 cursor-default"
+                          title={`${label} — coming soon`}
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <span className="flex-1">{label}</span>
+                          <span className="text-[9px] font-bold uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded-full">Soon</span>
                         </div>
-                        <span className="flex-1">{label}</span>
-                        <ExternalLink className="h-3 w-3 text-muted-foreground opacity-60" />
-                      </a>
-                    ))}
+                      ),
+                    )}
                   </div>
 
                   <div className="h-px bg-border mx-1 my-2" />
