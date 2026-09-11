@@ -9,12 +9,17 @@ import { ThemeProvider } from "next-themes";
 import { OfflineBar } from "@bengo-hub/shared-ui-lib/offline";
 import { Fingerprint, Loader2 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { useBiometric } from "@/hooks/use-biometric";
 import { useMe } from "@/hooks/useMe";
-import { attachOutletIdGetter, setOn401 } from "@/lib/api/client";
+import { attachOutletIdGetter, setOn401, setOnSubscription403 } from "@/lib/api/client";
 import { SubscriptionEntitlementsProvider } from "@/providers/subscription-entitlements-provider";
 import { useAuthStore } from "@/store/auth";
 import { useOutletFilterStore } from "@/store/outlet-filter";
+
+const SUBSCRIPTIONS_UI_URL =
+  process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL || "https://pricing.codevertexafrica.com";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -175,6 +180,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
     return () => setOn401(null);
   }, [queryClient, logout]);
+
+  // Register 403 subscription/service handler — previously registered nowhere at all
+  // (setOnSubscription403 existed as a callback slot in client.ts but no caller ever set a
+  // handler, so a subscription_inactive/service_not_subscribed 403 on any API call other than
+  // /me silently went unnoticed). service_not_subscribed (RequireServiceAccess) fires for a
+  // tenant whose plan doesn't include "logistics" at all (e.g. a Library-only or standalone-ERP
+  // -only tenant reaching this app) — every current PowerSuite tenant already has logistics
+  // access from Tier 1, so this is defensive coverage rather than a currently-common trigger.
+  useEffect(() => {
+    setOnSubscription403((data: any) => {
+      const payload = (data ?? {}) as { code?: string; service_tag?: string; error?: string };
+      const serviceTag = payload.code === "service_not_subscribed" ? payload.service_tag : undefined;
+      toast.error("Subscription required", {
+        description: payload.error || "Your plan does not cover this action.",
+        action: {
+          label: "Upgrade",
+          onClick: () =>
+            window.open(`${SUBSCRIPTIONS_UI_URL}/plans?service=${serviceTag || "logistics"}`, "_blank", "noopener"),
+        },
+      });
+    });
+    return () => setOnSubscription403(null);
+  }, []);
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
