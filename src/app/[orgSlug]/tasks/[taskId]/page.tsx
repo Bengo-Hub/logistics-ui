@@ -30,6 +30,7 @@ import {
   useDispatchTask,
   useFleetMembers,
 } from "@/hooks/use-logistics";
+import { useTaskPod } from "@/hooks/use-tasks";
 import type { TaskStatus } from "@/types/logistics";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -74,6 +75,8 @@ export default function TaskDetailPage() {
   const members = membersPage?.data ?? [];
   const assignMutation = useAssignTask();
   const dispatchMutation = useDispatchTask();
+  const podEligible = task?.status === "delivered" || task?.status === "completed";
+  const { data: pod } = useTaskPod(taskId, podEligible);
 
   // Live SSE: auto-invalidate task query on status change
   const { connected: sseConnected } = useTaskStream({
@@ -119,10 +122,6 @@ export default function TaskDetailPage() {
     );
   }
 
-  const pickup = task.edges?.steps?.find((s) => s.step_type === "pickup");
-  const dropoff = task.edges?.steps?.find((s) => s.step_type === "dropoff");
-  const assignment = task.edges?.assignments?.[0];
-  const pod = task.edges?.proof_of_delivery;
   const canAssign = ASSIGNABLE_STATUSES.includes(task.status);
 
   return (
@@ -145,8 +144,8 @@ export default function TaskDetailPage() {
               {STATUS_LABELS[task.status] ?? task.status}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {task.task_type} · created {formatTime(task.created_at)}
+          <p className="text-sm text-muted-foreground capitalize">
+            {task.external_type} · created {formatTime(task.created_at)}
             {sseConnected && (
               <span className="ml-2 inline-flex items-center gap-1 text-green-600 text-xs">
                 <span className="size-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
@@ -186,7 +185,7 @@ export default function TaskDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {pickup ? (
+            {task.pickup_address ? (
               <div className="flex gap-3">
                 <div className="mt-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
                   <MapPin className="size-3.5" />
@@ -195,16 +194,17 @@ export default function TaskDetailPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Pickup
                   </p>
-                  <p className="font-medium">{pickup.location_name || "—"}</p>
-                  {pickup.contact_name && (
+                  <p className="font-medium">{task.pickup_address}</p>
+                  {task.pickup_contact_name && (
                     <p className="text-sm text-muted-foreground">
-                      {pickup.contact_name}
+                      {task.pickup_contact_name}
+                      {task.pickup_contact_phone ? ` · ${task.pickup_contact_phone}` : ""}
                     </p>
                   )}
                 </div>
               </div>
             ) : null}
-            {dropoff ? (
+            {task.dropoff_address ? (
               <div className="flex gap-3">
                 <div className="mt-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700">
                   <MapPin className="size-3.5" />
@@ -213,19 +213,19 @@ export default function TaskDetailPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Dropoff
                   </p>
-                  <p className="font-medium">{dropoff.location_name || "—"}</p>
-                  {dropoff.contact_name && (
+                  <p className="font-medium">{task.dropoff_address}</p>
+                  {task.dropoff_contact_name && (
                     <p className="text-sm text-muted-foreground">
-                      {dropoff.contact_name}
-                      {dropoff.contact_phone
-                        ? ` · ${dropoff.contact_phone}`
+                      {task.dropoff_contact_name}
+                      {task.dropoff_contact_phone
+                        ? ` · ${task.dropoff_contact_phone}`
                         : ""}
                     </p>
                   )}
                 </div>
               </div>
             ) : null}
-            {!pickup && !dropoff && (
+            {!task.pickup_address && !task.dropoff_address && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Package className="size-4" />
                 <span>
@@ -246,7 +246,7 @@ export default function TaskDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {assignment ? (
+            {task.assigned_rider_id ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="size-4 text-green-500" />
@@ -254,19 +254,19 @@ export default function TaskDetailPage() {
                     Rider assigned
                   </span>
                   <Badge variant="default" className="ml-auto">
-                    {assignment.status}
+                    {task.accepted_at ? "Accepted" : "Assigned"}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Member ID:{" "}
                   <span className="font-mono text-xs">
-                    {assignment.fleet_member_id}
+                    {task.assigned_rider_id}
                   </span>
                 </p>
-                {assignment.assigned_at && (
+                {task.assigned_at && (
                   <p className="text-xs text-muted-foreground">
                     <Clock className="mr-1 inline size-3" />
-                    {formatTime(assignment.assigned_at)}
+                    {formatTime(task.assigned_at)}
                   </p>
                 )}
               </div>
@@ -291,7 +291,7 @@ export default function TaskDetailPage() {
         </Card>
 
         {/* Proof of delivery */}
-        {pod && (
+        {podEligible && pod && (
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">

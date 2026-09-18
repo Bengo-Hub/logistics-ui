@@ -28,7 +28,7 @@ const EMPTY_MEMBERS: PaginatedResponse<FleetMember> = {
   total: 0,
   page: 1,
   limit: 20,
-  has_more: false,
+  hasMore: false,
 };
 
 export function useFleet() {

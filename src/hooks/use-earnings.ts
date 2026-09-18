@@ -11,7 +11,8 @@ export interface EarningStatement {
   period_start: string;
   period_end: string;
   gross_amount: number;
-  deductions: number;
+  /** ent field/JSON key is deduction_amount, not deductions (schema/earningsstatement.go) */
+  deduction_amount: number;
   net_amount: number;
   status: "draft" | "confirmed" | "paid";
   created_at: string;

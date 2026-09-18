@@ -25,8 +25,9 @@ export interface FleetMember {
   joined_at: string;
   created_at: string;
   updated_at: string;
+  /** FleetMemberResponse (fleet_dto.go) only ever populates `vehicles` — there is no
+   * `fleet` edge in the actual response; never add one back without checking the DTO first. */
   edges?: {
-    fleet?: Fleet;
     vehicles?: Vehicle[];
   };
 }
@@ -93,29 +94,63 @@ export interface CreateVehicleRequest {
   metadata?: Record<string, unknown>;
 }
 
-/** Delivery task from logistics-api */
+/**
+ * Delivery task from logistics-api. Matches the flattened TaskResponse DTO
+ * (internal/http/handlers/task_dto.go) returned by GetTask, ListTasks, ListMyTasks,
+ * UpdateTaskStatus and AssignTask — the raw ent.Task and its steps/assignments edges are
+ * NEVER sent over the wire; pickup/dropoff step data and the current assignment are
+ * flattened into these top-level pickup-, dropoff- and assigned-prefixed fields instead.
+ * Proof of delivery is not included here at all — fetch it separately via
+ * GET tasks/{id}/pod (see fetchTaskPod, useTaskPod), which 404s until PoD has actually
+ * been submitted.
+ */
 export interface Task {
   id: string;
   tenant_id: string;
-  tracking_code: string;
+  tenant_slug?: string;
+  tracking_code?: string;
   external_reference: string;
-  source_service: string;
-  task_type: string;
-  priority: number;
+  external_type: string;
   status: TaskStatus;
+  priority: TaskPriority;
   sla_due_at: string | null;
   requested_pickup_at: string | null;
   requested_dropoff_at: string | null;
+  assigned_rider_id: string | null;
+  pickup_address: string;
+  pickup_latitude: number | null;
+  pickup_longitude: number | null;
+  pickup_notes: string;
+  pickup_contact_name: string;
+  pickup_contact_phone: string;
+  dropoff_address: string;
+  dropoff_latitude: number | null;
+  dropoff_longitude: number | null;
+  dropoff_notes: string;
+  dropoff_contact_name: string;
+  dropoff_contact_phone: string;
+  customer_name: string;
+  customer_phone: string;
+  instructions: string;
+  items_description: string;
+  item_count: number;
+  cash_on_delivery: number;
+  distance_km: number | null;
+  eta_minutes: number | null;
+  eta_at: string | null;
+  assigned_at: string | null;
+  accepted_at: string | null;
+  picked_up_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string;
+  failure_reason: string;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-  edges?: {
-    steps?: TaskStep[];
-    events?: TaskEvent[];
-    assignments?: TaskAssignment[];
-    proof_of_delivery?: ProofOfDelivery;
-  };
 }
+
+export type TaskPriority = "normal" | "high" | "urgent";
 
 export type TaskStatus =
   | "pending"
@@ -370,13 +405,15 @@ export interface ServiceAuthMe {
   enabled_modules: string[] | null;
 }
 
-/** Pagination */
+/** Pagination — matches github.com/Bengo-Hub/pagination's Response[T] envelope, which every
+ * list handler in logistics-api uses (pagination.NewResponse). The field is "hasMore"
+ * (camelCase), not "has_more" — this package is the odd one out fleet-wide. */
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;
   limit: number;
-  has_more: boolean;
+  hasMore: boolean;
 }
 
 export interface PaginationParams {

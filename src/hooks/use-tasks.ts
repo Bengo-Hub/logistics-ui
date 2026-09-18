@@ -7,6 +7,7 @@ import {
   createTask,
   dispatchTask,
   fetchTask,
+  fetchTaskPod,
   fetchTasks,
   rateRider,
   submitPoD,
@@ -37,6 +38,19 @@ export function useTask(taskId: string) {
     queryFn: () => fetchTask(tenantSlug, taskId),
     enabled: !!tenantSlug && !!taskId,
     refetchInterval: 15_000,
+  });
+}
+
+/** Proof of delivery for a task — a separate fetch, TaskResponse never carries it. 404s
+ * (react-query error state) until PoD has actually been submitted; caller should treat
+ * an error here as "no PoD yet", not a real failure. */
+export function useTaskPod(taskId: string, enabled = true) {
+  const tenantSlug = useTenantSlug();
+  return useQuery({
+    queryKey: ["task-pod", tenantSlug, taskId],
+    queryFn: () => fetchTaskPod(tenantSlug, taskId),
+    enabled: !!tenantSlug && !!taskId && enabled,
+    retry: false,
   });
 }
 

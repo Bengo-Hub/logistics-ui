@@ -20,7 +20,7 @@ import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from "
 import { Pagination } from "@/components/ui/pagination";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetBody } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useTasks, useCreateTask, useUpdateTaskStatus, useAssignTask, useDispatchTask } from "@/hooks/use-tasks";
+import { useTasks, useCreateTask, useUpdateTaskStatus, useAssignTask, useDispatchTask, useTaskPod } from "@/hooks/use-tasks";
 import { useFleetMembers } from "@/hooks/use-fleet";
 import type { Task, TaskStatus } from "@/types/logistics";
 import { PermissionGate } from "@/components/ui/module-gate";
@@ -28,11 +28,16 @@ import { orgRoute } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "sonner";
 
-const STATUS_TABS: Array<{ value: TaskStatus | "all"; label: string }> = [
+// "En Route" has no single matching status in the granular 9-state FSM (pending -> assigned
+// -> accepted -> en_route_pickup -> arrived_pickup -> picked_up -> en_route_dropoff ->
+// arrived_dropoff -> delivered) -- it's sent as a comma-joined value logistics-api's
+// ListTasksFilter.Statuses OR-matches (see logistics.go's ListTasks). "value" is a plain
+// string rather than TaskStatus specifically to allow that joined form.
+const STATUS_TABS: Array<{ value: string; label: string }> = [
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "assigned", label: "Assigned" },
-  { value: "en_route", label: "En Route" },
+  { value: "en_route_pickup,en_route_dropoff", label: "En Route" },
   { value: "delivered", label: "Delivered" },
   { value: "failed", label: "Failed" },
 ];
@@ -115,7 +120,7 @@ function TasksContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const activeFilter = (searchParams.get("status") as TaskStatus | "all") || "all";
+  const activeFilter = searchParams.get("status") || "all";
   const page = Number(searchParams.get("page") ?? 1);
   const search = searchParams.get("q") ?? "";
 
@@ -130,6 +135,8 @@ function TasksContent() {
     dropoff_address: "",
   });
   const [assignMemberId, setAssignMemberId] = useState("");
+  const podEligible = selectedTask?.status === "delivered" || selectedTask?.status === "completed";
+  const { data: pod } = useTaskPod(selectedTask?.id ?? "", podEligible);
 
   const { data, isLoading, error } = useTasks({
     status: activeFilter !== "all" ? activeFilter : undefined,
@@ -282,8 +289,6 @@ function TasksContent() {
                     </tr>
                   ) : (
                     tasks.map((task) => {
-                      const pickup = task.edges?.steps?.find((s) => s.step_type === "pickup");
-                      const dropoff = task.edges?.steps?.find((s) => s.step_type === "dropoff");
                       const StatusIcon = statusIcon[task.status] ?? Truck;
                       return (
                         <tr
@@ -295,8 +300,8 @@ function TasksContent() {
                             <div className="font-mono text-xs font-semibold">
                               {task.tracking_code || task.id.slice(0, 8).toUpperCase()}
                             </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {task.task_type} · P{task.priority}
+                            <div className="text-xs text-muted-foreground mt-0.5 capitalize">
+                              {task.external_type} · {task.priority}
                             </div>
                           </td>
                           <td className="px-4 py-3 hidden sm:table-cell">
@@ -309,19 +314,19 @@ function TasksContent() {
                           </td>
                           <td className="px-4 py-3 hidden md:table-cell">
                             <div className="space-y-0.5">
-                              {pickup && (
+                              {task.pickup_address && (
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <MapPin className="size-3 text-success shrink-0" />
-                                  <span className="truncate max-w-35">{pickup.location_name || "Pickup"}</span>
+                                  <span className="truncate max-w-35">{task.pickup_address}</span>
                                 </div>
                               )}
-                              {dropoff && (
+                              {task.dropoff_address && (
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <MapPin className="size-3 text-destructive shrink-0" />
-                                  <span className="truncate max-w-35">{dropoff.location_name || "Dropoff"}</span>
+                                  <span className="truncate max-w-35">{task.dropoff_address}</span>
                                 </div>
                               )}
-                              {!pickup && !dropoff && (
+                              {!task.pickup_address && !task.dropoff_address && (
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <Package className="size-3" />
                                   <span>{task.external_reference || "No reference"}</span>
@@ -388,11 +393,11 @@ function TasksContent() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Type</p>
-                    <p className="font-medium capitalize">{selectedTask.task_type}</p>
+                    <p className="font-medium capitalize">{selectedTask.external_type}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Priority</p>
-                    <p className="font-medium">P{selectedTask.priority}</p>
+                    <p className="font-medium capitalize">{selectedTask.priority}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Created</p>
@@ -404,50 +409,62 @@ function TasksContent() {
                   </div>
                 </div>
 
-                {selectedTask.edges?.steps && selectedTask.edges.steps.length > 0 && (
+                {(selectedTask.pickup_address || selectedTask.dropoff_address) && (
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Stops</p>
                     <div className="space-y-2">
-                      {selectedTask.edges.steps.map((step) => (
-                        <div key={step.id} className="flex items-start gap-2 text-sm">
-                          <MapPin
-                            className={`size-4 mt-0.5 shrink-0 ${step.step_type === "pickup" ? "text-success" : "text-destructive"}`}
-                          />
+                      {selectedTask.pickup_address && (
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="size-4 mt-0.5 shrink-0 text-success" />
                           <div>
-                            <p className="font-medium">{step.location_name || step.step_type}</p>
-                            {step.contact_name && (
-                              <p className="text-xs text-muted-foreground">{step.contact_name} · {step.contact_phone}</p>
+                            <p className="font-medium">{selectedTask.pickup_address}</p>
+                            {selectedTask.pickup_contact_name && (
+                              <p className="text-xs text-muted-foreground">
+                                {selectedTask.pickup_contact_name} · {selectedTask.pickup_contact_phone}
+                              </p>
                             )}
                           </div>
                         </div>
-                      ))}
+                      )}
+                      {selectedTask.dropoff_address && (
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="size-4 mt-0.5 shrink-0 text-destructive" />
+                          <div>
+                            <p className="font-medium">{selectedTask.dropoff_address}</p>
+                            {selectedTask.dropoff_contact_name && (
+                              <p className="text-xs text-muted-foreground">
+                                {selectedTask.dropoff_contact_name} · {selectedTask.dropoff_contact_phone}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {selectedTask.edges?.assignments && selectedTask.edges.assignments.length > 0 && (
+                {selectedTask.assigned_rider_id && (
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Assignment</p>
                     <p className="text-sm">
-                      Rider assigned · {timeAgo(selectedTask.edges.assignments[0].assigned_at)}
+                      Rider assigned{selectedTask.assigned_at ? ` · ${timeAgo(selectedTask.assigned_at)}` : ""}
+                      {selectedTask.accepted_at ? " · Accepted" : ""}
                     </p>
                   </div>
                 )}
 
-                {selectedTask.edges?.proof_of_delivery && (
+                {podEligible && pod && (
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Proof of Delivery</p>
-                    {selectedTask.edges.proof_of_delivery.photo_url && (
+                    {pod.photo_url && (
                       <img
-                        src={selectedTask.edges.proof_of_delivery.photo_url}
+                        src={pod.photo_url}
                         alt="Proof of delivery"
                         className="rounded-lg border border-border w-full max-h-48 object-cover"
                       />
                     )}
-                    {selectedTask.edges.proof_of_delivery.notes && (
-                      <p className="text-sm mt-2 text-muted-foreground">
-                        {selectedTask.edges.proof_of_delivery.notes}
-                      </p>
+                    {pod.notes && (
+                      <p className="text-sm mt-2 text-muted-foreground">{pod.notes}</p>
                     )}
                   </div>
                 )}

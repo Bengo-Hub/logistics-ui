@@ -22,6 +22,7 @@ import type {
   ServiceConfigMap,
   Shipment,
   Task,
+  TaskAssignment,
   TaskStatus,
   TelemetryStats,
   TrackingInfo,
@@ -32,8 +33,10 @@ import type {
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 
 export interface TasksParams extends PaginationParams {
-  status?: TaskStatus | "all";
-  zone_id?: string;
+  /** A single TaskStatus, "all", or several comma-joined (e.g.
+   * "en_route_pickup,en_route_dropoff") to OR-match a coarse UI grouping — see
+   * logistics-api's ListTasksFilter.Statuses. Plain string to allow the joined form. */
+  status?: string;
   date_from?: string;
   date_to?: string;
   search?: string;
@@ -46,7 +49,6 @@ export async function fetchTasks(
 ): Promise<PaginatedResponse<Task>> {
   const qs = new URLSearchParams();
   if (params?.status && params.status !== "all") qs.set("status", params.status);
-  if (params?.zone_id) qs.set("zone_id", params.zone_id);
   if (params?.date_from) qs.set("date_from", params.date_from);
   if (params?.date_to) qs.set("date_to", params.date_to);
   if (params?.search) qs.set("search", params.search);
@@ -56,7 +58,7 @@ export async function fetchTasks(
   const query = qs.toString() ? `?${qs.toString()}` : "";
   const { data } = await api.get(`${tenantSlug}/tasks${query}`);
   if (Array.isArray(data)) {
-    return { data, total: data.length, page: 1, limit: data.length, has_more: false };
+    return { data, total: data.length, page: 1, limit: data.length, hasMore: false };
   }
   return data as PaginatedResponse<Task>;
 }
@@ -89,11 +91,13 @@ export async function updateTaskStatus(
   return data;
 }
 
+/** AssignTask (logistics.go) responds with the raw created TaskAssignment, not a Task —
+ * refetch the task (query invalidation) to see assigned_rider_id update on it. */
 export async function assignTask(
   tenantSlug: string,
   taskId: string,
   fleetMemberId: string
-): Promise<Task> {
+): Promise<TaskAssignment> {
   const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/assign`, {
     fleet_member_id: fleetMemberId,
   });
@@ -113,6 +117,16 @@ export async function submitPoD(
   const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/pod`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+  return data;
+}
+
+/** GET .../tasks/{taskId}/pod — 404s until proof of delivery has actually been submitted;
+ * TaskResponse itself never carries PoD data, this is the only way to fetch it. */
+export async function fetchTaskPod(
+  tenantSlug: string,
+  taskId: string
+): Promise<ProofOfDelivery> {
+  const { data } = await api.get(`${tenantSlug}/tasks/${taskId}/pod`);
   return data;
 }
 
@@ -149,7 +163,7 @@ export async function fetchMembers(
   const query = qs.toString() ? `?${qs.toString()}` : "";
   const { data } = await api.get(`${tenantSlug}/fleet/members${query}`);
   if (Array.isArray(data)) {
-    return { data, total: data.length, page: 1, limit: data.length, has_more: false };
+    return { data, total: data.length, page: 1, limit: data.length, hasMore: false };
   }
   return data as PaginatedResponse<FleetMember>;
 }
@@ -322,7 +336,7 @@ export async function fetchEarnings(
   const query = qs.toString() ? `?${qs.toString()}` : "";
   const { data } = await api.get(`${tenantSlug}/earnings${query}`);
   if (Array.isArray(data)) {
-    return { data, total: data.length, page: 1, limit: data.length, has_more: false };
+    return { data, total: data.length, page: 1, limit: data.length, hasMore: false };
   }
   return data as PaginatedResponse<EarningsEntry>;
 }
