@@ -561,3 +561,17 @@ export interface ETAResult {
   origin: { lat: number; lng: number };
   destination: { lat: number; lng: number };
 }
+
+/** Dispatcher operational alert (tasks needing manual attention, SLA breaches). Tenant-wide,
+ * not per-user — matches logistics-api's LogisticsNotification entity. */
+export interface LogisticsNotification {
+  id: string;
+  tenant_id: string;
+  notification_type: string;
+  title: string;
+  body: string;
+  payload: Record<string, unknown>;
+  related_task_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}

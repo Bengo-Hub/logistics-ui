@@ -11,6 +11,7 @@ import type {
   Fleet,
   FleetMember,
   GeoFence,
+  LogisticsNotification,
   LogisticsPermission,
   LogisticsRole,
   PaginatedResponse,
@@ -245,6 +246,27 @@ export async function updateVehicle(
 
 export async function deleteVehicle(tenantSlug: string, vehicleId: string): Promise<void> {
   await api.delete(`${tenantSlug}/fleet/vehicles/${vehicleId}`);
+}
+
+// ─── Notifications ──────────────────────────────────────────────────────────────
+
+export async function fetchNotifications(
+  tenantSlug: string,
+  includeRead = false
+): Promise<{ data: LogisticsNotification[]; total: number }> {
+  const { data } = await api.get(`${tenantSlug}/notifications`, {
+    params: includeRead ? { include_read: "true" } : undefined,
+  });
+  return { data: data?.data ?? [], total: data?.total ?? 0 };
+}
+
+export async function markNotificationRead(tenantSlug: string, id: string): Promise<void> {
+  await api.patch(`${tenantSlug}/notifications/${id}/read`);
+}
+
+export async function markAllNotificationsRead(tenantSlug: string): Promise<{ marked_read: number }> {
+  const { data } = await api.post(`${tenantSlug}/notifications/mark-all-read`);
+  return data;
 }
 
 // ─── Zones ────────────────────────────────────────────────────────────────────

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/base";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import { useOutletFilterStore } from "@/store/outlet-filter";
 import {
-  Bell,
   Building2,
   Check,
   ChevronDown,
@@ -232,11 +232,7 @@ export function Header({ onMenuClick, onToggleSidebar, sidebarCollapsed }: Heade
           </button>
         )}
 
-        {/* Notification bell */}
-        <button className="relative group p-2.5 rounded-xl hover:bg-muted transition-all">
-          <Bell className="h-4.5 w-4.5 text-muted-foreground group-hover:text-primary transition-colors" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-background" />
-        </button>
+        {user && <NotificationBell />}
 
         <ThemeToggle />
 
