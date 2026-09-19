@@ -41,6 +41,7 @@ function ManifestInjector() {
 
 export function OrgShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <AuthProvider>
@@ -50,9 +51,13 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
         <PWAUpdateBanner />
         <PwaRegistration />
         <div className="flex h-screen overflow-hidden bg-background">
-          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} collapsed={sidebarCollapsed} />
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <Header onMenuClick={() => setSidebarOpen(true)} />
+            <Header
+              onMenuClick={() => setSidebarOpen(true)}
+              onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+              sidebarCollapsed={sidebarCollapsed}
+            />
             <SubscriptionBanner />
               <VerifyEmailPrompt />
             <main className="flex-1 overflow-y-auto">

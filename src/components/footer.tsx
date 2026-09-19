@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { PoweredByBadge } from '@bengo-hub/shared-ui-lib';
 import { useBranding } from '@/providers/branding-provider';
 
 export function Footer() {
@@ -18,19 +19,7 @@ export function Footer() {
             . All rights reserved.
           </p>
 
-          <a
-            href="https://codevertexafrica.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-1 rounded-full bg-foreground text-background text-[10px] font-black tracking-tight uppercase hover:opacity-80 transition-opacity"
-          >
-            <img
-              src="/images/logo/codevertex.png"
-              alt="Codevertex"
-              className="h-3 w-auto brightness-0 invert dark:brightness-100 dark:invert-0"
-            />
-            <span>Powered by <span className="text-primary">Codevertex</span></span>
-          </a>
+          <PoweredByBadge />
         </div>
       </div>
     </footer>

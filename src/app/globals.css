@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
+@source "../../node_modules/@bengo-hub/shared-ui-lib/dist";
 
 @theme {
   --color-background: hsl(var(--background));
@@ -42,7 +43,7 @@
   /* Typography */
   --font-sans: var(--font-dm-sans), system-ui, sans-serif;
   --font-display: var(--font-outfit), system-ui, sans-serif;
-  --font-mono: ui-monospace, monospace;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);

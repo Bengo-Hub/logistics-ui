@@ -15,6 +15,7 @@ import {
   LogOut,
   MapPin,
   Menu,
+  PanelLeft,
   Search,
   Settings,
   UserIcon,
@@ -22,7 +23,12 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useBranding } from "@/providers/branding-provider";
-import { useVisibleServices, AppSwitcherGrid, type ServiceKey } from "@bengo-hub/shared-ui-lib/app-switcher";
+import {
+  useVisibleServices,
+  AppSwitcherGrid,
+  AppSwitcherTrigger,
+  type ServiceKey,
+} from "@bengo-hub/shared-ui-lib/app-switcher";
 import { AccountPanel } from "@bengo-hub/shared-ui-lib/account-panel";
 
 const SERVICE_URLS: Partial<Record<ServiceKey, string>> = {
@@ -145,9 +151,12 @@ function HeaderOutletChip() {
 
 interface HeaderProps {
   onMenuClick?: () => void;
+  /** Desktop sidebar-collapse toggle — omit to hide the toggle (mobile always uses onMenuClick). */
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
 }
 
-export function Header({ onMenuClick }: HeaderProps) {
+export function Header({ onMenuClick, onToggleSidebar, sidebarCollapsed }: HeaderProps) {
   const params = useParams();
   const orgSlug = (params.orgSlug as string) || "codevertex";
   const user = useAuthStore((s) => s.user);
@@ -163,7 +172,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const services = useVisibleServices({ orgSlug, urls: SERVICE_URLS, canManageLinks: true });
 
   return (
-    <header className="h-20 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center gap-4 shrink-0">
+    <header className="h-14 sm:h-20 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center gap-4 shrink-0">
       {/* Left: hamburger + title + search + outlet chip */}
       <div className="flex items-center gap-4 flex-1 min-w-0 overflow-hidden">
         <button
@@ -175,8 +184,22 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Menu className="h-5 w-5 text-muted-foreground" />
         </button>
 
+        {/* Desktop sidebar collapse toggle — reclaims full width for wide surfaces (e.g. tracking map). */}
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="hidden lg:inline-flex p-2 rounded-xl hover:bg-muted transition-colors shrink-0"
+            aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+            aria-pressed={!sidebarCollapsed}
+            title={sidebarCollapsed ? "Show menu" : "Hide menu"}
+          >
+            <PanelLeft className={cn("h-5 w-5 transition-colors", sidebarCollapsed ? "text-primary" : "text-muted-foreground")} />
+          </button>
+        )}
+
         <div className="flex items-center gap-6 min-w-0">
-          <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground uppercase truncate max-w-[150px] sm:max-w-none shrink-0">
+          <h1 className="hidden sm:block text-lg sm:text-xl font-black tracking-tight text-foreground uppercase truncate max-w-none shrink-0">
             {getServiceTitle("Logistics")}
           </h1>
 
@@ -216,6 +239,8 @@ export function Header({ onMenuClick }: HeaderProps) {
         </button>
 
         <ThemeToggle />
+
+        {user && <AppSwitcherTrigger services={services} />}
 
         <div className="h-8 w-px bg-border mx-1 hidden sm:block" />
 

@@ -29,11 +29,13 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useState } from "react";
 import { useBranding } from "@/providers/branding-provider";
-import { OutletSwitcher } from "@/components/outlet-switcher";
 
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
+  // collapsed hides the desktop sidebar entirely, letting a wide surface (e.g. the live
+  // tracking map) reclaim the full width. Mobile still uses the `open` overlay, unaffected.
+  collapsed?: boolean;
 }
 
 interface NavItem {
@@ -216,7 +218,7 @@ function NavGroupSection({
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, collapsed = false }: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const orgSlug = (params.orgSlug as string) || "codevertex";
@@ -274,10 +276,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         )}
       </div>
 
-      {/* Branch / outlet switcher (HQ users only) */}
-      <div className="pt-3">
-        <OutletSwitcher />
-      </div>
+      {/* Outlet switching lives ONLY in the top-nav header chip (HeaderOutletChip) — a
+          sidebar duplicate was removed so there is one switcher, one source of truth. */}
 
       {/* Nav — scrollable, only this section scrolls */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-hide">
@@ -346,9 +346,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <LogOut className="h-4 w-4" />
           </button>
         </div>
-        <p className="mt-2 text-center text-[10px] text-sidebar-foreground/25">
-          Powered by Codevertex
-        </p>
       </div>
     </div>
   );
@@ -369,6 +366,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           "fixed inset-y-0 left-0 z-50 flex w-64 flex-col transition-transform duration-300",
           "lg:sticky lg:top-0 lg:h-screen lg:z-auto lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+          // Desktop collapse: drop the sidebar out of the flex row so main content spans full width.
+          collapsed && "lg:hidden",
         )}
       >
         {/* Mobile close bar */}
