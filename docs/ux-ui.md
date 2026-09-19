@@ -4,6 +4,16 @@
 **Device targets**: Desktop (primary), tablet (secondary)
 **Design system**: Shadcn UI + Tailwind CSS
 
+**Note (2026-09):** this spec predates two changes that live code now reflects instead:
+the map stack described below as Leaflet is actually MapLibre GL, served via the shared
+`@bengo-hub/maps` package against a self-hosted Valhalla routing + TileServer backend (see
+`logistics-api/docs/integrations.md` and `project_map_platform.md`), and live status updates
+are pushed over Server-Sent Events (`use-task-stream.ts`, `EventSource`), not WebSocket. The
+shell's sidebar/header have also since been aligned to pos-ui's actual dimensions (a 256px
+sidebar, a 56px/80px responsive header) rather than the fixed sizes noted here. Treat this
+document as the original UX intent; the exact pixel/tech details in the sections below have
+drifted from it.
+
 ---
 
 ## Layout
@@ -70,7 +80,7 @@
 - **Data table**: Order ref, status, priority, pickup, dropoff, rider, ETA, created
 - **Filters**: Status tabs (All, Pending, Assigned, In Transit, Completed, Cancelled), date range, rider
 - **Actions**: View detail, assign rider (if pending), cancel
-- **Real-time**: Status badges update via WebSocket
+- **Real-time**: Status badges update via Server-Sent Events (`use-task-stream.ts`)
 
 ### Task detail (`/tasks/[taskId]`)
 
@@ -81,15 +91,15 @@
 
 ### Live tracking (`/tracking`)
 
-- **Full-width Leaflet map** with rider markers (color-coded by status)
+- **Full-width MapLibre map** (`@bengo-hub/maps`'s `FleetMap`) with rider markers (color-coded by status)
 - **Sidebar panel**: Active rider list with current task, speed, last update time
 - **Click rider marker**: Popup with rider name, current task, ETA
 - **Auto-center**: Fit bounds to active riders on load
-- **Update frequency**: Every 3 seconds via WebSocket; 5 seconds polling fallback
+- **Update frequency**: Live task events pushed via SSE; telemetry polled on an interval as fallback
 
 ### Zone editor (`/zones/editor`) -- stretch goal
 
-- **Leaflet map** with draw controls (polygon)
+- **MapLibre map** with draw controls (polygon)
 - **Side panel**: Zone name, description, operating hours, dispatch priority
 - **Save**: Sends polygon GeoJSON + metadata to logistics-api
 
