@@ -334,18 +334,38 @@ export interface ServiceConfig {
   updated_at: string;
 }
 
+/** Raw row shape from GET /{tenant}/settings (config_handler.go's logisticsSCResponse).
+ * config_key carries the "logistics." prefix as stored; config_value is always a string,
+ * typed per config_type ("bool" | "int" | "string" | "json"). */
+export interface ServiceConfigEntry {
+  id: string;
+  tenant_id?: string;
+  config_key: string;
+  config_value: string;
+  config_type: string;
+  description: string;
+  is_secret: boolean;
+  is_override: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Flattened, typed view of the tenant's real ServiceConfig rows (seeded in
+ * cmd/seed/main.go's seedServiceConfigs — these are the only keys that exist). Keys here
+ * are the config_key with the "logistics." prefix stripped. There is no tenant-level SLA
+ * window, pricing, or notification-trigger config on the backend; pricing rules are a
+ * separate real entity managed from the Earnings page, not ServiceConfig. */
 export interface ServiceConfigMap {
-  [key: string]: unknown;
-  auto_dispatch_enabled?: boolean;
-  sla_hours?: number;
-  max_riders_per_zone?: number;
   pod_required?: boolean;
-  rating_required?: boolean;
-  base_delivery_fee?: string;
-  per_km_rate?: string;
-  currency?: string;
-  notify_on_dispatch?: boolean;
-  notify_on_delivery?: boolean;
+  auto_assign_enabled?: boolean;
+  default_task_timeout?: number;
+  max_concurrent_tasks?: number;
+  max_fleet_size?: number;
+  geofence_radius_meters?: number;
+  telemetry_interval_seconds?: number;
+  max_route_waypoints?: number;
+  earnings_payout_cycle_days?: number;
+  tracking_link_expiry_hours?: number;
 }
 
 /** RBAC types */

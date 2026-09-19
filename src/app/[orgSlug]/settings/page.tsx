@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  Bell,
-  Globe,
   Layers,
   Link2,
   Loader2,
   MapPin,
-  Package,
   Save,
   Settings,
   Zap,
@@ -36,9 +34,7 @@ const LOGISTICS_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsa
 const SECTIONS = [
   { id: "general", label: "General", icon: Settings },
   { id: "assignment", label: "Assignment", icon: Zap },
-  { id: "sla", label: "SLA", icon: MapPin },
-  { id: "pricing", label: "Pricing", icon: Package },
-  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "tracking", label: "Tracking", icon: MapPin },
   { id: "integrations", label: "Integrations", icon: Link2 },
   { id: "modules", label: "Modules", icon: Layers },
 ] as const;
@@ -167,19 +163,25 @@ export default function SettingsPage() {
           <Card className="border-border">
             <CardHeader>
               <CardTitle className="text-base">Delivery Options</CardTitle>
-              <CardDescription>Configure proof of delivery and rating requirements.</CardDescription>
+              <CardDescription>Proof of delivery requirement and default task timeout.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <Toggle
                 checked={form.pod_required ?? false}
                 onChange={(v) => set("pod_required", v)}
                 label="Require Proof of Delivery (PoD)"
               />
-              <Toggle
-                checked={form.rating_required ?? false}
-                onChange={(v) => set("rating_required", v)}
-                label="Require Rider Rating after Delivery"
-              />
+              <FieldRow
+                label="Default Task Timeout (seconds)"
+                hint="How long a task can sit unassigned before it's flagged."
+              >
+                <Input
+                  type="number"
+                  min={60}
+                  value={form.default_task_timeout ?? ""}
+                  onChange={(e) => set("default_task_timeout", Number(e.target.value))}
+                />
+              </FieldRow>
             </CardContent>
           </Card>
         </div>
@@ -197,17 +199,36 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Toggle
-                checked={form.auto_dispatch_enabled ?? false}
-                onChange={(v) => set("auto_dispatch_enabled", v)}
+                checked={form.auto_assign_enabled ?? false}
+                onChange={(v) => set("auto_assign_enabled", v)}
                 label="Enable Automatic Task Dispatch"
               />
-              <FieldRow label="Max Riders per Zone">
+              <FieldRow label="Max Concurrent Tasks per Rider">
                 <Input
                   type="number"
                   min={1}
                   max={200}
-                  value={form.max_riders_per_zone ?? ""}
-                  onChange={(e) => set("max_riders_per_zone", Number(e.target.value))}
+                  value={form.max_concurrent_tasks ?? ""}
+                  onChange={(e) => set("max_concurrent_tasks", Number(e.target.value))}
+                />
+              </FieldRow>
+              <FieldRow label="Max Fleet Size" hint="Maximum fleet members allowed for this tenant.">
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.max_fleet_size ?? ""}
+                  onChange={(e) => set("max_fleet_size", Number(e.target.value))}
+                />
+              </FieldRow>
+              <FieldRow
+                label="Geofence Radius (meters)"
+                hint="Proximity radius used to detect pickup/dropoff arrival."
+              >
+                <Input
+                  type="number"
+                  min={10}
+                  value={form.geofence_radius_meters ?? ""}
+                  onChange={(e) => set("geofence_radius_meters", Number(e.target.value))}
                 />
               </FieldRow>
             </CardContent>
@@ -215,101 +236,74 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── SLA ── */}
-      {activeSection === "sla" && (
+      {/* ── Tracking ── */}
+      {activeSection === "tracking" && (
         <div className="space-y-4 max-w-2xl">
           <Card className="border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <MapPin className="size-4 text-primary" />
-                SLA Configuration
+                Live Tracking &amp; Routing
               </CardTitle>
               <CardDescription>
-                Service level agreement thresholds for delivery operations.
+                Telemetry reporting cadence and public tracking link expiry.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FieldRow
-                label="SLA Window (hours)"
-                hint="Total hours from task creation to required delivery."
+                label="Telemetry Interval (seconds)"
+                hint="How often a rider's app reports its location."
               >
                 <Input
                   type="number"
                   min={1}
-                  max={72}
-                  value={form.sla_hours ?? ""}
-                  onChange={(e) => set("sla_hours", Number(e.target.value))}
+                  value={form.telemetry_interval_seconds ?? ""}
+                  onChange={(e) => set("telemetry_interval_seconds", Number(e.target.value))}
+                />
+              </FieldRow>
+              <FieldRow
+                label="Public Tracking Link Expiry (hours)"
+                hint="How long a customer's tracking link stays valid after creation."
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.tracking_link_expiry_hours ?? ""}
+                  onChange={(e) => set("tracking_link_expiry_hours", Number(e.target.value))}
+                />
+              </FieldRow>
+              <FieldRow label="Max Route Waypoints" hint="Upper bound on stops per routing request.">
+                <Input
+                  type="number"
+                  min={2}
+                  value={form.max_route_waypoints ?? ""}
+                  onChange={(e) => set("max_route_waypoints", Number(e.target.value))}
+                />
+              </FieldRow>
+              <FieldRow
+                label="Earnings Payout Cycle (days)"
+                hint="How often rider earnings statements are settled."
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.earnings_payout_cycle_days ?? ""}
+                  onChange={(e) => set("earnings_payout_cycle_days", Number(e.target.value))}
                 />
               </FieldRow>
             </CardContent>
           </Card>
-        </div>
-      )}
-
-      {/* ── Pricing ── */}
-      {activeSection === "pricing" && (
-        <div className="space-y-4 max-w-2xl">
           <Card className="border-border">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Package className="size-4 text-primary" />
-                Delivery Pricing
-              </CardTitle>
+              <CardTitle className="text-base">Pricing Rules</CardTitle>
               <CardDescription>
-                Configure base fee and per-km rates for delivery cost calculation.
+                Base fees, per-km rates and surge rules are managed from the Earnings page.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <FieldRow label="Currency Code" hint="ISO 4217 (e.g. KES, USD, NGN)">
-                <Input
-                  value={form.currency ?? ""}
-                  placeholder="KES"
-                  onChange={(e) => set("currency", e.target.value.toUpperCase())}
-                />
-              </FieldRow>
-              <FieldRow label="Base Delivery Fee" hint="Flat fee charged per delivery.">
-                <Input
-                  value={form.base_delivery_fee ?? ""}
-                  placeholder="150.00"
-                  onChange={(e) => set("base_delivery_fee", e.target.value)}
-                />
-              </FieldRow>
-              <FieldRow label="Per-km Rate" hint="Additional cost per kilometre.">
-                <Input
-                  value={form.per_km_rate ?? ""}
-                  placeholder="20.00"
-                  onChange={(e) => set("per_km_rate", e.target.value)}
-                />
-              </FieldRow>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* ── Notifications ── */}
-      {activeSection === "notifications" && (
-        <div className="space-y-4 max-w-2xl">
-          <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Bell className="size-4 text-primary" />
-                Notification Triggers
-              </CardTitle>
-              <CardDescription>
-                Control which events send notifications to customers and dispatchers.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Toggle
-                checked={form.notify_on_dispatch ?? true}
-                onChange={(v) => set("notify_on_dispatch", v)}
-                label="Notify customer on task dispatch"
-              />
-              <Toggle
-                checked={form.notify_on_delivery ?? true}
-                onChange={(v) => set("notify_on_delivery", v)}
-                label="Notify customer on delivery completion"
-              />
+            <CardContent>
+              <Button variant="outline" asChild>
+                <Link href={`/${orgSlug}/earnings?tab=pricing`}>Open Pricing Rules</Link>
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -317,7 +311,7 @@ export default function SettingsPage() {
 
       {/* ── Integrations ── */}
       {activeSection === "integrations" && (
-        <IntegrationsSection orgSlug={orgSlug} />
+        <IntegrationsSection />
       )}
 
       {/* ── Modules ── */}
@@ -475,11 +469,9 @@ function ModulesSection() {
 
 // ─── Integrations Section ─────────────────────────────────────────────────────
 
-function IntegrationsSection({ orgSlug: _orgSlug }: { orgSlug: string }) {
+function IntegrationsSection() {
   const [authApiUrl, setAuthApiUrl] = useState(AUTH_API_URL);
-  const [allowedOrigins, setAllowedOrigins] = useState("");
   const [testStatus, setTestStatus] = useState<"idle" | "loading" | "ok" | "fail">("idle");
-  const [saving, setSaving] = useState(false);
 
   const testConnection = async () => {
     setTestStatus("loading");
@@ -488,23 +480,6 @@ function IntegrationsSection({ orgSlug: _orgSlug }: { orgSlug: string }) {
       setTestStatus(res.ok ? "ok" : "fail");
     } catch {
       setTestStatus("fail");
-    }
-  };
-
-  const handleSave = async () => {
-    if (!allowedOrigins.trim()) return;
-    setSaving(true);
-    try {
-      const { api } = await import("@/lib/api/client");
-      await api.put("/api/v1/admin/config/allowed_origins", {
-        config_value: allowedOrigins,
-        config_type: "string",
-      });
-      toast.success("Integration settings saved.");
-    } catch {
-      toast.error("Failed to save integration settings.");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -544,31 +519,6 @@ function IntegrationsSection({ orgSlug: _orgSlug }: { orgSlug: string }) {
           <FieldRow label="Logistics API URL (read-only)">
             <Input value={LOGISTICS_API_URL} readOnly className="opacity-60 cursor-not-allowed" />
           </FieldRow>
-        </CardContent>
-      </Card>
-
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Globe className="size-4 text-primary" />
-            CORS
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <FieldRow
-            label="Allowed Origins"
-            hint="Comma-separated list of allowed CORS origins."
-          >
-            <Input
-              placeholder="https://app.example.com, https://admin.example.com"
-              value={allowedOrigins}
-              onChange={(e) => setAllowedOrigins(e.target.value)}
-            />
-          </FieldRow>
-          <Button onClick={handleSave} disabled={saving || !allowedOrigins.trim()}>
-            {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            {saving ? "Saving…" : "Save Integrations"}
-          </Button>
         </CardContent>
       </Card>
     </div>

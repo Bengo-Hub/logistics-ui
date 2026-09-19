@@ -19,6 +19,7 @@ import type {
   RiderShift,
   RouteResult,
   ServiceAuthMe,
+  ServiceConfigEntry,
   ServiceConfigMap,
   Shipment,
   Task,
@@ -354,18 +355,51 @@ export async function fetchEarningsSummary(
 }
 
 // ─── Service Config ───────────────────────────────────────────────────────────
+// GET/PUT here are per-key (config_handler.go has no bulk PATCH /settings endpoint).
+// Every real key is seeded with the "logistics." prefix (cmd/seed/main.go); the map
+// keys used across the UI are the same names with that prefix stripped.
+
+const SERVICE_CONFIG_PREFIX = "logistics.";
+
+function parseConfigValue(value: string, type: string): unknown {
+  if (type === "bool") return value === "true";
+  if (type === "int" || type === "float") return Number(value);
+  if (type === "json") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
 
 export async function fetchServiceConfig(tenantSlug: string): Promise<ServiceConfigMap> {
   const { data } = await api.get(`${tenantSlug}/settings`);
-  return data;
+  const rows: ServiceConfigEntry[] = Array.isArray(data?.data) ? data.data : [];
+  const map: Record<string, unknown> = {};
+  for (const row of rows) {
+    const key = row.config_key.startsWith(SERVICE_CONFIG_PREFIX)
+      ? row.config_key.slice(SERVICE_CONFIG_PREFIX.length)
+      : row.config_key;
+    map[key] = parseConfigValue(row.config_value, row.config_type);
+  }
+  return map as ServiceConfigMap;
 }
 
 export async function updateServiceConfig(
   tenantSlug: string,
-  body: Partial<ServiceConfigMap>
+  changes: Partial<ServiceConfigMap>
 ): Promise<ServiceConfigMap> {
-  const { data } = await api.patch(`${tenantSlug}/settings`, body);
-  return data;
+  const entries = Object.entries(changes).filter(([, v]) => v !== undefined);
+  await Promise.all(
+    entries.map(([key, value]) =>
+      api.put(`${tenantSlug}/settings/${SERVICE_CONFIG_PREFIX}${key}`, {
+        config_value: String(value),
+      })
+    )
+  );
+  return fetchServiceConfig(tenantSlug);
 }
 
 // ─── RBAC ─────────────────────────────────────────────────────────────────────
