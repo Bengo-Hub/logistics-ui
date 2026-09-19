@@ -7,6 +7,7 @@ import {
   Car,
   Loader2,
   Plus,
+  Trash2,
   Truck,
   Wrench,
   X,
@@ -21,7 +22,13 @@ import {
   CardTitle,
   Input,
 } from "@/components/ui/base";
-import { useFleetMembers, useCreateVehicle, useAssignVehicle } from "@/hooks/use-fleet";
+import {
+  useFleetMembers,
+  useCreateVehicle,
+  useAssignVehicle,
+  useUpdateVehicle,
+  useDeleteVehicle,
+} from "@/hooks/use-fleet";
 import type { CreateVehicleRequest, FleetMember, Vehicle, VehicleType, VehicleStatus } from "@/types/logistics";
 
 type VehicleWithMember = Vehicle & { edges?: { fleet_member?: FleetMember } };
@@ -204,8 +211,35 @@ function AssignRiderPanel({
 
 // ─── Vehicle Card ─────────────────────────────────────────────────────────────
 
+const VEHICLE_STATUSES: VehicleStatus[] = ["active", "maintenance", "inactive"];
+
 function VehicleCard({ vehicle }: { vehicle: VehicleWithMember }) {
   const [showAssign, setShowAssign] = useState(false);
+  const updateVehicle = useUpdateVehicle();
+  const deleteVehicle = useDeleteVehicle();
+  const isAssigned = !!vehicle.edges?.fleet_member;
+
+  function handleStatusChange(status: VehicleStatus) {
+    updateVehicle.mutate(
+      { vehicleId: vehicle.id, status },
+      {
+        onError: () => toast.error("Failed to update vehicle status."),
+      }
+    );
+  }
+
+  function handleDelete() {
+    if (isAssigned) {
+      toast.error("Unassign this vehicle from its rider before deleting it.");
+      return;
+    }
+    if (!confirm(`Delete vehicle ${vehicle.license_plate}? This cannot be undone.`)) return;
+    deleteVehicle.mutate(vehicle.id, {
+      onSuccess: () => toast.success("Vehicle deleted."),
+      onError: (err: any) =>
+        toast.error(err?.response?.data ?? "Failed to delete vehicle."),
+    });
+  }
 
   return (
     <Card className="border-border">
@@ -243,6 +277,30 @@ function VehicleCard({ vehicle }: { vehicle: VehicleWithMember }) {
                 onClose={() => setShowAssign(false)}
               />
             )}
+            <div className="mt-2 flex items-center gap-2">
+              <select
+                value={vehicle.status}
+                disabled={updateVehicle.isPending}
+                onChange={(e) => handleStatusChange(e.target.value as VehicleStatus)}
+                className="h-7 rounded-md border border-border bg-background px-2 text-xs capitalize focus:outline-none focus:ring-1 focus:ring-primary/30"
+              >
+                {VEHICLE_STATUSES.map((s) => (
+                  <option key={s} value={s} className="capitalize">
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={deleteVehicle.isPending}
+                onClick={handleDelete}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
           </div>
           <Badge variant="outline" className="text-xs shrink-0 capitalize">
             {vehicle.vehicle_type}

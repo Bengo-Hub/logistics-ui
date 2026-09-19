@@ -8,15 +8,17 @@ import {
   batchInviteMembers,
   createVehicle,
   deleteMember,
+  deleteVehicle,
   fetchFleet,
   fetchMember,
   fetchMembers,
   inviteMember,
   rejectMember,
   suspendMember,
+  updateVehicle,
   type MembersParams,
 } from "@/lib/api/logistics";
-import type { CreateVehicleRequest, FleetMember, PaginatedResponse } from "@/types/logistics";
+import type { CreateVehicleRequest, FleetMember, PaginatedResponse, VehicleStatus } from "@/types/logistics";
 
 function useTenantSlug(): string {
   const params = useParams();
@@ -139,6 +141,35 @@ export function useAssignVehicle() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fleet-members"] });
       qc.invalidateQueries({ queryKey: ["fleet-member"] });
+    },
+  });
+}
+
+export function useUpdateVehicle() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      vehicleId,
+      ...body
+    }: { vehicleId: string } & Partial<
+      Pick<CreateVehicleRequest, "vehicle_type" | "make" | "model" | "license_plate">
+    > & { status?: VehicleStatus }) => updateVehicle(tenantSlug, vehicleId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fleet"] });
+      qc.invalidateQueries({ queryKey: ["fleet-members"] });
+    },
+  });
+}
+
+export function useDeleteVehicle() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vehicleId: string) => deleteVehicle(tenantSlug, vehicleId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fleet"] });
+      qc.invalidateQueries({ queryKey: ["fleet-members"] });
     },
   });
 }

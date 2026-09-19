@@ -29,6 +29,7 @@ import type {
   TrackingInfo,
   UserRoleAssignment,
   Vehicle,
+  VehicleStatus,
 } from "@/types/logistics";
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
@@ -229,6 +230,21 @@ export async function assignVehicle(
   vehicleId: string
 ): Promise<void> {
   await api.post(`${tenantSlug}/fleet/members/${memberId}/vehicle`, { vehicle_id: vehicleId });
+}
+
+export async function updateVehicle(
+  tenantSlug: string,
+  vehicleId: string,
+  body: Partial<Pick<CreateVehicleRequest, "vehicle_type" | "make" | "model" | "license_plate">> & {
+    status?: VehicleStatus;
+  }
+): Promise<Vehicle> {
+  const { data } = await api.patch(`${tenantSlug}/fleet/vehicles/${vehicleId}`, body);
+  return data;
+}
+
+export async function deleteVehicle(tenantSlug: string, vehicleId: string): Promise<void> {
+  await api.delete(`${tenantSlug}/fleet/vehicles/${vehicleId}`);
 }
 
 // ─── Zones ────────────────────────────────────────────────────────────────────
