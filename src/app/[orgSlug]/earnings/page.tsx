@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DollarSign, FileText, Loader2, Plus, RefreshCw, Trash2, Wallet } from "lucide-react";
+import { toast } from "sonner";
+import { CircleDollarSign, DollarSign, FileText, Loader2, Plus, RefreshCw, Trash2, Wallet } from "lucide-react";
 import {
   Badge,
   Button,
@@ -17,6 +18,7 @@ import {
   useCreatePricingRule,
   useDeletePricingRule,
   useGenerateStatements,
+  useSettleStatement,
   type PricingRule,
 } from "@/hooks/use-earnings";
 
@@ -31,6 +33,7 @@ const TABS: { label: string; value: Tab }[] = [
 const STATUS_VARIANT: Record<string, "success" | "secondary" | "warning"> = {
   paid: "success",
   confirmed: "secondary",
+  processing: "secondary",
   draft: "warning",
 };
 
@@ -65,6 +68,16 @@ export default function EarningsPage() {
   const createRule = useCreatePricingRule();
   const deleteRule = useDeletePricingRule();
   const generateStmts = useGenerateStatements();
+  const settleStatement = useSettleStatement();
+
+  function handleSettle(statementId: string) {
+    if (!confirm("Settle this statement? This dispatches a real payout to the rider via treasury.")) return;
+    settleStatement.mutate(statementId, {
+      onSuccess: (res) => toast.success(`Payout initiated. Reference: ${res.payout_reference}`),
+      onError: (err: any) =>
+        toast.error(err?.response?.data?.error ?? err?.response?.data ?? "Failed to settle statement."),
+    });
+  }
 
   const totalPaid = statements.filter((s) => s.status === "paid").reduce((sum, s) => sum + s.net_amount, 0);
   const totalPending = statements.filter((s) => s.status !== "paid").reduce((sum, s) => sum + s.net_amount, 0);
@@ -153,6 +166,7 @@ export default function EarningsPage() {
                       <th className="pb-3 font-medium">Gross</th>
                       <th className="pb-3 font-medium">Net</th>
                       <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -165,6 +179,23 @@ export default function EarningsPage() {
                           <Badge variant={STATUS_VARIANT[stmt.status] ?? "secondary"} className="text-xs capitalize">
                             {stmt.status}
                           </Badge>
+                        </td>
+                        <td className="py-3 text-right">
+                          {stmt.status === "draft" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={settleStatement.isPending}
+                              onClick={() => handleSettle(stmt.id)}
+                            >
+                              {settleStatement.isPending && settleStatement.variables === stmt.id ? (
+                                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                              ) : (
+                                <CircleDollarSign className="mr-1.5 size-3.5" />
+                              )}
+                              Settle
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}
