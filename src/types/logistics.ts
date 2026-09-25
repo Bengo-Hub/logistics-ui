@@ -134,6 +134,9 @@ export interface Task {
   instructions: string;
   items_description: string;
   item_count: number;
+  /** Source order number (ordering/POS), what the outlet and customer know the order by. */
+  order_number?: string;
+  payment_method?: string;
   cash_on_delivery: number;
   distance_km: number | null;
   eta_minutes: number | null;

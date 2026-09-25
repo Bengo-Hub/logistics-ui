@@ -229,8 +229,8 @@ export default function TaskDetailPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Package className="size-4" />
                 <span>
-                  {task.external_reference
-                    ? `Order: ${task.external_reference}`
+                  {task.order_number || task.external_reference
+                    ? `Order: ${task.order_number || task.external_reference.replace(/^order:/, "")}`
                     : "No location data"}
                 </span>
               </div>
@@ -258,11 +258,19 @@ export default function TaskDetailPage() {
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Member ID:{" "}
-                  <span className="font-mono text-xs">
-                    {task.assigned_rider_id}
+                  Rider:{" "}
+                  <span className="font-medium text-foreground">
+                    {(() => {
+                      const m = members.find((r) => r.id === task.assigned_rider_id);
+                      return m ? `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "Rider" : task.assigned_rider_id;
+                    })()}
                   </span>
                 </p>
+                {task.cash_on_delivery > 0 && (
+                  <p className="text-sm font-semibold text-warning">
+                    Collects KES {task.cash_on_delivery.toLocaleString()} at the door
+                  </p>
+                )}
                 {task.assigned_at && (
                   <p className="text-xs text-muted-foreground">
                     <Clock className="mr-1 inline size-3" />

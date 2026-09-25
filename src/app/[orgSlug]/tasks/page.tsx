@@ -298,10 +298,15 @@ function TasksContent() {
                         >
                           <td className="px-4 py-3">
                             <div className="font-mono text-xs font-semibold">
-                              {task.tracking_code || task.id.slice(0, 8).toUpperCase()}
+                              {task.order_number || task.tracking_code || task.id.slice(0, 8).toUpperCase()}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5 capitalize">
                               {task.external_type} · {task.priority}
+                              {task.cash_on_delivery > 0 && (
+                                <span className="ml-1 font-semibold normal-case text-warning">
+                                  · collect KES {task.cash_on_delivery.toLocaleString()}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3 hidden sm:table-cell">
@@ -329,7 +334,7 @@ function TasksContent() {
                               {!task.pickup_address && !task.dropoff_address && (
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <Package className="size-3" />
-                                  <span>{task.external_reference || "No reference"}</span>
+                                  <span>{task.order_number || task.external_reference.replace(/^order:/, "") || "No reference"}</span>
                                 </div>
                               )}
                             </div>
@@ -443,12 +448,31 @@ function TasksContent() {
                   </div>
                 )}
 
+                {(selectedTask.items_description || selectedTask.cash_on_delivery > 0) && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Order</p>
+                    {selectedTask.order_number && <p className="text-sm font-semibold">{selectedTask.order_number}</p>}
+                    {selectedTask.items_description && (
+                      <p className="text-sm text-muted-foreground">{selectedTask.items_description}</p>
+                    )}
+                    {selectedTask.cash_on_delivery > 0 && (
+                      <p className="mt-1 text-sm font-semibold text-warning">
+                        Rider collects KES {selectedTask.cash_on_delivery.toLocaleString()} (cash or M-Pesa)
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {selectedTask.assigned_rider_id && (
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Assignment</p>
                     <p className="text-sm">
-                      Rider assigned{selectedTask.assigned_at ? ` · ${timeAgo(selectedTask.assigned_at)}` : ""}
-                      {selectedTask.accepted_at ? " · Accepted" : ""}
+                      {(() => {
+                        const m = membersData?.data?.find((r) => r.id === selectedTask.assigned_rider_id);
+                        return m ? `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "Rider" : "Rider";
+                      })()}
+                      {selectedTask.assigned_at ? ` · assigned ${timeAgo(selectedTask.assigned_at)}` : ""}
+                      {selectedTask.accepted_at ? " · accepted" : " · waiting for the rider to accept"}
                     </p>
                   </div>
                 )}
@@ -470,8 +494,9 @@ function TasksContent() {
                 )}
 
                 {/* Assign Rider */}
-                <PermissionGate permission="logistics.tasks.dispatch">
-                  {["pending", "assigned"].includes(selectedTask.status) && (
+                {/* logistics.tasks.dispatch was never seeded, so only superusers ever saw this. */}
+                <PermissionGate permission="logistics.tasks.manage">
+                  {selectedTask.status === "pending" && (
                     <div className="border-t border-border pt-4 space-y-2">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assign Rider</p>
                       <select
@@ -498,15 +523,17 @@ function TasksContent() {
                     </div>
                   )}
 
-                  {/* Dispatch */}
-                  {selectedTask.status === "assigned" && (
+                  {/* Auto-dispatch picks the nearest available rider; the backend only does this for an
+                      unassigned (pending) task. */}
+                  {selectedTask.status === "pending" && (
                     <Button
+                      variant="outline"
                       className="w-full"
                       onClick={handleDispatch}
                       disabled={dispatchTask.isPending}
                     >
                       {dispatchTask.isPending ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
-                      Dispatch Task
+                      Auto-assign nearest rider
                     </Button>
                   )}
                 </PermissionGate>
