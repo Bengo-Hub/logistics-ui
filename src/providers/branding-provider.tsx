@@ -107,7 +107,11 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     }
   }, [effectiveBrand]);
 
+  // The tenant's own name for this app wins (Accounts > Branding > App Names
+  // and Icons), else "<First word> <appName>".
   const getServiceTitle = (appName: string) => {
+    const custom = effectiveBrand?.serviceBranding?.logistics?.name;
+    if (custom) return custom;
     const tenantName = effectiveBrand?.orgName || effectiveBrand?.name || '';
     const firstWord = tenantName.split(' ')[0] || 'Codevertex';
     return `${firstWord} ${appName}`;

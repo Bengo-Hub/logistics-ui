@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#5B1C4D"/>
+  <!-- route from depot to drop-off -->
+  <path d="M150 380 C150 300 250 330 262 262 C274 196 362 214 362 150" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="18" stroke-linecap="round" stroke-dasharray="2 34"/>
+  <circle cx="150" cy="380" r="30" fill="#ea8022"/>
+  <circle cx="150" cy="380" r="12" fill="#5B1C4D"/>
+  <!-- drop-off pin -->
+  <path d="M362 84 C322 84 292 114 292 152 C292 202 362 262 362 262 C362 262 432 202 432 152 C432 114 402 84 362 84 Z" fill="#ffffff"/>
+  <circle cx="362" cy="152" r="24" fill="#5B1C4D"/>
+</svg>

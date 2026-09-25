@@ -7,19 +7,29 @@ const AUTH_API_BASE =
 
 const DEFAULT_PRIMARY = '#5B1C4D';
 const DEFAULT_BG = '#1a0a15';
+// This app's entry in tenant metadata service_branding (set in Accounts > Branding).
+const SERVICE_KEY = 'logistics';
+
+interface ServiceBrandingEntry {
+  name?: string;
+  short_name?: string;
+  tagline?: string;
+  theme_color?: string;
+  icon_url?: string;
+}
 
 interface TenantResponse {
   name?: string;
   logo_url?: string;
   brand_colors?: { primary?: string; secondary?: string };
-  metadata?: Record<string, string | undefined>;
+  metadata?: Record<string, unknown>;
 }
 
 async function fetchTenant(slug: string): Promise<TenantResponse | null> {
   try {
     const res = await fetch(
       `${AUTH_API_BASE}/api/v1/tenants/by-slug/${encodeURIComponent(slug)}`,
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 600 } },
     );
     if (!res.ok) return null;
     return res.json() as Promise<TenantResponse>;
@@ -28,40 +38,72 @@ async function fetchTenant(slug: string): Promise<TenantResponse | null> {
   }
 }
 
+function serviceEntry(metadata: Record<string, unknown> | undefined): ServiceBrandingEntry {
+  const all = metadata?.service_branding;
+  if (!all || typeof all !== 'object') return {};
+  const entry = (all as Record<string, unknown>)[SERVICE_KEY];
+  return entry && typeof entry === 'object' ? (entry as ServiceBrandingEntry) : {};
+}
+
+function metaString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const v = metadata?.[key];
+  return typeof v === 'string' && v ? v : undefined;
+}
+
+/** Declared type of an icon URL; a wrong type makes browsers skip the icon. */
+function iconMime(url: string): string | undefined {
+  const data = /^data:(image\/[a-z0-9.+-]+)/i.exec(url);
+  if (data) return data[1];
+  const ext = url.split('?')[0]?.split('.').pop()?.toLowerCase();
+  if (ext === 'svg') return 'image/svg+xml';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'webp') return 'image/webp';
+  return undefined;
+}
+
+// Bundled square PNGs are always listed so the app stays installable when the
+// tenant icon is a wide logo; the tenant icon comes first so browsers prefer it.
+const BUNDLED_ICONS = [
+  { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+  { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+  { src: '/icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+  { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+];
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ orgSlug: string }> },
 ) {
   const { orgSlug } = await params;
   const tenant = await fetchTenant(orgSlug);
+  const entry = serviceEntry(tenant?.metadata);
 
-  const name = tenant?.name ?? 'Codevertex';
+  const businessName = tenant?.name ?? orgSlug;
+  const firstWord = businessName.trim().split(/\s+/)[0] || 'Bengo';
+  // Tenant's own app name (e.g. "Loft Dispatch"), else "<Business> Logistics".
+  const name = entry.name || `${businessName} Logistics`;
+  const shortName =
+    entry.short_name || (entry.name && entry.name.length <= 12 ? entry.name : `${firstWord} Logistics`);
   const primaryColor =
-    tenant?.brand_colors?.primary ??
-    (tenant?.metadata?.primary_color as string | undefined) ??
-    DEFAULT_PRIMARY;
+    entry.theme_color ?? tenant?.brand_colors?.primary ?? metaString(tenant?.metadata, 'primary_color') ?? DEFAULT_PRIMARY;
   const bgColor =
-    tenant?.brand_colors?.secondary ??
-    (tenant?.metadata?.secondary_color as string | undefined) ??
-    DEFAULT_BG;
-  const logoUrl = tenant?.logo_url ?? (tenant?.metadata?.logo_url as string | undefined);
+    tenant?.brand_colors?.secondary ?? metaString(tenant?.metadata, 'secondary_color') ?? DEFAULT_BG;
+  const iconUrl = entry.icon_url || tenant?.logo_url || metaString(tenant?.metadata, 'logo_url');
+  const iconType = iconUrl ? iconMime(iconUrl) : undefined;
 
-  const icons = logoUrl
-    ? [
-        { src: logoUrl, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-        { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-      ]
-    : [
-        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-      ];
+  const icons = [
+    ...(iconUrl
+      ? [{ src: iconUrl, sizes: iconType === 'image/svg+xml' ? 'any' : '512x512', ...(iconType ? { type: iconType } : {}), purpose: 'any' }]
+      : []),
+    ...BUNDLED_ICONS,
+  ];
 
   const manifest = {
-    name: `${name} Logistics`,
-    // Home-screen label = tenant first word + service, e.g. "Urban Logistics",
-    // so a tenant's several installed Bengo apps stay distinguishable.
-    short_name: `${name.trim().split(/\s+/)[0] || 'Bengo'} Logistics`,
-    description: 'Manage deliveries, routes and logistics operations.',
+    id: `/${orgSlug}/`,
+    name,
+    short_name: shortName,
+    description: entry.tagline || 'Manage deliveries, routes and logistics operations.',
     start_url: `/${orgSlug}/`,
     scope: `/${orgSlug}/`,
     display: 'standalone',
@@ -77,7 +119,7 @@ export async function GET(
         short_name: 'Tasks',
         description: 'View active delivery tasks',
         url: `/${orgSlug}/tasks`,
-        icons: [{ src: logoUrl ?? '/icons/icon-192.png', sizes: '192x192' }],
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
       },
     ],
   };
@@ -85,7 +127,7 @@ export async function GET(
   return NextResponse.json(manifest, {
     headers: {
       'Content-Type': 'application/manifest+json',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      'Cache-Control': 'public, max-age=600, stale-while-revalidate=86400',
     },
   });
 }

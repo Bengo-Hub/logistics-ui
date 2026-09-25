@@ -24,7 +24,17 @@ export interface TenantResponse {
   name: string;
   slug: string;
   status?: string;
+  logo_url?: string;
+  brand_colors?: { primary?: string; secondary?: string };
   metadata?: Record<string, unknown>;
+}
+
+/** Tenant's own name/icon for one app (metadata service_branding.<service>). */
+export interface ServiceBrandingEntry {
+  name?: string;
+  short_name?: string;
+  icon_url?: string;
+  theme_color?: string;
 }
 
 export interface TenantBrand {
@@ -35,14 +45,16 @@ export interface TenantBrand {
   primaryColor: string | null;
   secondaryColor: string | null;
   orgName: string;
+  serviceBranding?: Record<string, ServiceBrandingEntry>;
 }
 
 export function parseBrandFromTenant(t: TenantResponse): TenantBrand {
   const meta = (t.metadata || {}) as TenantBrandMetadata;
-  const logoUrl = meta.logo_url ?? meta.logoUrl ?? null;
-  const primaryColor = (meta.primary_color ?? meta.primaryColor) ?? null;
-  const secondaryColor = (meta.secondary_color ?? meta.secondaryColor) ?? null;
+  const logoUrl = t.logo_url ?? meta.logo_url ?? meta.logoUrl ?? null;
+  const primaryColor = t.brand_colors?.primary ?? (meta.primary_color ?? meta.primaryColor) ?? null;
+  const secondaryColor = t.brand_colors?.secondary ?? (meta.secondary_color ?? meta.secondaryColor) ?? null;
   const orgName = (meta.org_name ?? meta.orgName) ?? t.name ?? '';
+  const serviceBranding = t.metadata?.service_branding;
 
   return {
     id: t.id,
@@ -52,6 +64,10 @@ export function parseBrandFromTenant(t: TenantResponse): TenantBrand {
     primaryColor: typeof primaryColor === 'string' ? primaryColor : null,
     secondaryColor: typeof secondaryColor === 'string' ? secondaryColor : null,
     orgName: typeof orgName === 'string' ? orgName : (t.name ?? ''),
+    serviceBranding:
+      serviceBranding && typeof serviceBranding === 'object'
+        ? (serviceBranding as Record<string, ServiceBrandingEntry>)
+        : undefined,
   };
 }
 
