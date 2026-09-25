@@ -6,6 +6,7 @@ import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import {
+  Banknote,
   BarChart3,
   ChevronDown,
   ClipboardList,
@@ -92,6 +93,7 @@ const navGroups: NavGroup[] = [
     label: "Finance",
     defaultCollapsed: true,
     items: [
+      { id: "cash", label: "Rider Cash", href: "/cash", icon: Banknote, permission: "logistics.tasks.manage" },
       { id: "earnings", label: "Earnings", href: "/earnings", icon: Wallet, permission: "logistics.earnings.view", moduleKey: "earnings" },
       { id: "reporting", label: "Reports", href: "/reporting", icon: FileText, moduleKey: "reporting", feature: "performance_reports" },
     ],
