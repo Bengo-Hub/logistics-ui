@@ -19,6 +19,7 @@ import {
   CardTitle,
   Input,
 } from "@/components/ui/base";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   useBackups,
   useBackupSettings,
@@ -193,18 +194,13 @@ function AutoBackupCard() {
 export default function BackupsPage() {
   const { data: backups, isLoading } = useBackups();
   const { mutate: create, isPending: creating } = useCreateBackup();
-  const { mutate: remove } = useDeleteBackup();
+  const { mutate: remove, isPending: removing } = useDeleteBackup();
   const { mutate: download, isPending: downloading, variables: downloadingName } =
     useDownloadBackup();
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   function handleDelete(name: string) {
-    if (
-      window.confirm(
-        `Delete backup "${name}"? This permanently removes the backup file and cannot be undone.`
-      )
-    ) {
-      remove(name);
-    }
+    setDeleting(name);
   }
 
   return (
@@ -308,6 +304,19 @@ export default function BackupsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Delete this backup?"
+        description={`"${deleting ?? ""}" is removed permanently. This cannot be undone.`}
+        confirmLabel="Delete backup"
+        pending={removing}
+        onConfirm={() => {
+          if (!deleting) return;
+          remove(deleting, { onSettled: () => setDeleting(null) });
+        }}
+      />
     </div>
   );
 }
