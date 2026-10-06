@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CircleDollarSign, DollarSign, FileText, Loader2, Plus, RefreshCw, Trash2, Wallet } from "lucide-react";
 import {
   Badge,
@@ -69,10 +70,17 @@ export default function EarningsPage() {
   const deleteRule = useDeletePricingRule();
   const generateStmts = useGenerateStatements();
   const settleStatement = useSettleStatement();
+  const [settleId, setSettleId] = useState<string | null>(null);
+  const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null);
 
   function handleSettle(statementId: string) {
-    if (!confirm("Settle this statement? This dispatches a real payout to the rider via treasury.")) return;
-    settleStatement.mutate(statementId, {
+    setSettleId(statementId);
+  }
+
+  function confirmSettle() {
+    if (!settleId) return;
+    settleStatement.mutate(settleId, {
+      onSettled: () => setSettleId(null),
       onSuccess: (res) => toast.success(`Payout initiated. Reference: ${res.payout_reference}`),
       onError: (err: any) =>
         toast.error(err?.response?.data?.error ?? err?.response?.data ?? "Failed to settle statement."),
@@ -234,9 +242,7 @@ export default function EarningsPage() {
                           {rule.is_active ? "Active" : "Inactive"}
                         </Badge>
                         <button
-                          onClick={() => {
-                            if (confirm("Delete this pricing rule?")) deleteRule.mutate(rule.id);
-                          }}
+                          onClick={() => setDeleteRuleId(rule.id)}
                           className="text-muted-foreground hover:text-destructive transition-colors"
                         >
                           <Trash2 className="size-4" />
@@ -422,6 +428,31 @@ export default function EarningsPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={settleId !== null}
+        onOpenChange={(open) => !open && setSettleId(null)}
+        title="Settle this statement?"
+        description="This sends a real payout to the rider through treasury."
+        confirmLabel="Settle and pay"
+        variant="warning"
+        pending={settleStatement.isPending}
+        onConfirm={confirmSettle}
+      />
+      <ConfirmDialog
+        open={deleteRuleId !== null}
+        onOpenChange={(open) => !open && setDeleteRuleId(null)}
+        title="Delete this pricing rule?"
+        description="Deliveries already paid keep their amounts. This cannot be undone."
+        confirmLabel="Delete rule"
+        pending={deleteRule.isPending}
+        onConfirm={() => {
+          if (!deleteRuleId) return;
+          deleteRule.mutate(deleteRuleId, {
+            onSettled: () => setDeleteRuleId(null),
+            onError: () => toast.error("Could not delete the pricing rule."),
+          });
+        }}
+      />
     </div>
   );
 }

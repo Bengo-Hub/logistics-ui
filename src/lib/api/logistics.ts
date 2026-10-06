@@ -99,11 +99,25 @@ export async function updateTaskStatus(
 export async function assignTask(
   tenantSlug: string,
   taskId: string,
-  fleetMemberId: string
+  fleetMemberId: string,
+  reassign = false
 ): Promise<TaskAssignment> {
   const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/assign`, {
     fleet_member_id: fleetMemberId,
+    ...(reassign ? { reassign: true } : {}),
   });
+  return data;
+}
+
+/** Take a job back from its rider before pickup; it returns to the open pool. */
+export async function unassignTask(tenantSlug: string, taskId: string, reason: string): Promise<Task> {
+  const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/unassign`, { reason });
+  return data;
+}
+
+/** Cancel a delivery that will not happen (the rider is freed; the reason is kept). */
+export async function cancelTask(tenantSlug: string, taskId: string, reason: string): Promise<Task> {
+  const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/cancel`, { reason });
   return data;
 }
 

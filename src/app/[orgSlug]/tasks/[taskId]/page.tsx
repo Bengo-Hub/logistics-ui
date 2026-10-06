@@ -30,7 +30,9 @@ import {
   useDispatchTask,
   useFleetMembers,
 } from "@/hooks/use-logistics";
-import { useTaskPod } from "@/hooks/use-tasks";
+import { useCancelTask, useTaskPod, useUnassignTask } from "@/hooks/use-tasks";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 import type { TaskStatus } from "@/types/logistics";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -50,6 +52,16 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 const ASSIGNABLE_STATUSES: TaskStatus[] = ["pending"];
+/** The order is still at the outlet, so the job can move to another rider. */
+const PRE_PICKUP_STATUSES: TaskStatus[] = ["assigned", "accepted", "en_route_pickup", "arrived_pickup"];
+const CLOSED_STATUSES: TaskStatus[] = ["delivered", "completed", "failed", "cancelled"];
+
+function errorText(err: unknown, fallback: string) {
+  const e = err as { response?: { data?: unknown }; message?: string };
+  const body = e?.response?.data;
+  if (typeof body === "string" && body.trim()) return body.trim();
+  return e?.message || fallback;
+}
 
 function formatTime(ts: string) {
   return new Date(ts).toLocaleString("en-KE", {
@@ -68,6 +80,10 @@ export default function TaskDetailPage() {
 
   const [showAssignPanel, setShowAssignPanel] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [reassigning, setReassigning] = useState(false);
+  const [confirm, setConfirm] = useState<null | "unassign" | "cancel">(null);
+  const unassignMutation = useUnassignTask();
+  const cancelMutation = useCancelTask();
 
   const qc = useQueryClient();
   const { data: task, isLoading, isError } = useTask(taskId);
@@ -92,14 +108,48 @@ export default function TaskDetailPage() {
   const handleAssign = () => {
     if (!selectedMemberId) return;
     assignMutation.mutate(
-      { taskId, fleetMemberId: selectedMemberId },
+      { taskId, fleetMemberId: selectedMemberId, reassign: reassigning },
       {
         onSuccess: () => {
+          toast.success(reassigning ? "Job moved to the new rider" : "Rider assigned");
           setShowAssignPanel(false);
           setSelectedMemberId("");
+          setReassigning(false);
         },
+        onError: (err) => toast.error(errorText(err, "Could not assign the rider")),
       }
     );
+  };
+
+  const handleConfirm = (reason: string) => {
+    if (confirm === "unassign") {
+      unassignMutation.mutate(
+        { taskId, reason: reason || "unassigned by dispatcher" },
+        {
+          onSuccess: () => {
+            toast.success("Rider taken off the job");
+            setConfirm(null);
+          },
+          onError: (err) => toast.error(errorText(err, "Could not unassign")),
+        }
+      );
+    } else if (confirm === "cancel") {
+      cancelMutation.mutate(
+        { taskId, reason },
+        {
+          onSuccess: () => {
+            toast.success("Delivery cancelled");
+            setConfirm(null);
+          },
+          onError: (err) => toast.error(errorText(err, "Could not cancel the delivery")),
+        }
+      );
+    }
+  };
+
+  const riderName = (id: string | null | undefined) => {
+    const m = members.find((r) => r.id === id);
+    return m ? `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.email || "Rider" : "Rider";
   };
 
   if (isLoading) {
@@ -123,6 +173,8 @@ export default function TaskDetailPage() {
   }
 
   const canAssign = ASSIGNABLE_STATUSES.includes(task.status);
+  const canReassign = !!task.assigned_rider_id && PRE_PICKUP_STATUSES.includes(task.status);
+  const canCancel = !CLOSED_STATUSES.includes(task.status);
 
   return (
     <div className="space-y-6">
@@ -172,6 +224,31 @@ export default function TaskDetailPage() {
               <Truck className="mr-2 size-4" />
               Assign Rider
             </Button>
+          </div>
+        )}
+        {(canReassign || canCancel) && (
+          <div className="flex gap-2">
+            {canReassign && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setReassigning(true);
+                    setShowAssignPanel(true);
+                  }}
+                >
+                  Reassign
+                </Button>
+                <Button variant="outline" onClick={() => setConfirm("unassign")}>
+                  Unassign
+                </Button>
+              </>
+            )}
+            {canCancel && (
+              <Button variant="destructive" onClick={() => setConfirm("cancel")}>
+                Cancel delivery
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -260,10 +337,7 @@ export default function TaskDetailPage() {
                 <p className="text-sm text-muted-foreground">
                   Rider:{" "}
                   <span className="font-medium text-foreground">
-                    {(() => {
-                      const m = members.find((r) => r.id === task.assigned_rider_id);
-                      return m ? `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "Rider" : task.assigned_rider_id;
-                    })()}
+                    {riderName(task.assigned_rider_id)}
                   </span>
                 </p>
                 {task.cash_on_delivery > 0 && (
@@ -297,6 +371,25 @@ export default function TaskDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {(task.failure_reason || task.cancellation_reason) && (
+          <Card className="lg:col-span-2 border-destructive/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="size-4 text-destructive" />
+                {task.status === "failed" ? "Delivery failed" : "Delivery cancelled"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm">{task.failure_reason || task.cancellation_reason}</p>
+              {task.status === "failed" && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The rider holds the order; arrange its return to the outlet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Proof of delivery */}
         {podEligible && pod && (
@@ -353,7 +446,7 @@ export default function TaskDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle>Assign Rider</CardTitle>
+              <CardTitle>{reassigning ? "Move job to another rider" : "Assign Rider"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {members.length === 0 ? (
@@ -371,8 +464,9 @@ export default function TaskDetailPage() {
                   >
                     <option value="">-- Choose a rider --</option>
                     {members.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.user_id} ({m.status})
+                      <option key={m.id} value={m.id} disabled={m.id === task.assigned_rider_id}>
+                        {riderName(m.id)}
+                        {m.phone ? ` · ${m.phone}` : ""}
                       </option>
                     ))}
                   </select>
@@ -385,6 +479,7 @@ export default function TaskDetailPage() {
                   onClick={() => {
                     setShowAssignPanel(false);
                     setSelectedMemberId("");
+                    setReassigning(false);
                   }}
                 >
                   Cancel
@@ -400,15 +495,26 @@ export default function TaskDetailPage() {
                   Assign
                 </Button>
               </div>
-              {assignMutation.isError && (
-                <p className="text-sm text-destructive">
-                  Failed to assign rider. Please try again.
-                </p>
-              )}
+
             </CardContent>
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(open) => !open && setConfirm(null)}
+        title={confirm === "cancel" ? "Cancel this delivery?" : "Take the job off the rider?"}
+        description={
+          confirm === "cancel"
+            ? "The rider is freed and the order owner is told the delivery was cancelled. This cannot be undone."
+            : "The job goes back to the open pool. Only possible before the rider collects the order."
+        }
+        confirmLabel={confirm === "cancel" ? "Cancel delivery" : "Unassign"}
+        reasonLabel={confirm === "cancel" ? "Reason (required)" : "Reason (optional)"}
+        reasonRequired={confirm === "cancel"}
+        pending={unassignMutation.isPending || cancelMutation.isPending}
+        onConfirm={handleConfirm}
+      />
     </div>
   );
 }

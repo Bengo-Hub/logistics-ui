@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import {
   assignTask,
+  cancelTask,
   createTask,
   dispatchTask,
   fetchTask,
@@ -11,6 +12,7 @@ import {
   fetchTasks,
   rateRider,
   submitPoD,
+  unassignTask,
   updateTaskStatus,
   type TasksParams,
 } from "@/lib/api/logistics";
@@ -81,8 +83,15 @@ export function useAssignTask() {
   const tenantSlug = useTenantSlug();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ taskId, fleetMemberId }: { taskId: string; fleetMemberId: string }) =>
-      assignTask(tenantSlug, taskId, fleetMemberId),
+    mutationFn: ({
+      taskId,
+      fleetMemberId,
+      reassign,
+    }: {
+      taskId: string;
+      fleetMemberId: string;
+      reassign?: boolean;
+    }) => assignTask(tenantSlug, taskId, fleetMemberId, reassign),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["task"] });
@@ -129,6 +138,32 @@ export function useRateRider() {
     }) => rateRider(tenantSlug, taskId, rating, comment),
     onSuccess: (_, { taskId }) => {
       qc.invalidateQueries({ queryKey: ["task", tenantSlug, taskId] });
+    },
+  });
+}
+
+export function useUnassignTask() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, reason }: { taskId: string; reason: string }) =>
+      unassignTask(tenantSlug, taskId, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task"] });
+    },
+  });
+}
+
+export function useCancelTask() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, reason }: { taskId: string; reason: string }) =>
+      cancelTask(tenantSlug, taskId, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task"] });
     },
   });
 }
