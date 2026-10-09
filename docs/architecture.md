@@ -17,7 +17,7 @@
 | API client | Axios with auth interceptors, retry, 401 redirect |
 | PWA | @ducanh2912/next-pwa |
 | Forms | React Hook Form + Zod |
-| Maps | Leaflet / react-leaflet (delivery zones, live tracking) |
+| Maps | MapLibre GL through `@bengo-hub/maps` (LiveFleetMap, ZoneLayer, ZoneEditor, LocationPicker) on the self-hosted tile server |
 | Auth | SSO via auth-ui (OIDC/OAuth2 PKCE) |
 | Real-time | WebSocket (live rider tracking, task status) |
 
@@ -127,7 +127,7 @@ logistics-api (WebSocket server)
 logistics-ui (WebSocket client)
     |
     +-- useWebSocket() hook      -- connection management, reconnect, heartbeat
-    +-- TrackingMap component    -- Leaflet map with live marker updates
+    +-- TrackingMap component    -- MapLibre map with live marker updates
 ```
 
 Fallback: REST polling every 5 seconds via `GET /tracking/rider/{riderId}/location`.
@@ -149,7 +149,12 @@ Fallback: REST polling every 5 seconds via `GET /tracking/rider/{riderId}/locati
 
 ### Nice-to-have (stretch)
 
-- Delivery zone boundary editor (Leaflet draw plugin)
+- Delivery areas page (`/zones`), built 2026-10-09: area list plus map, add or edit an area as a
+  circle or polygon on the map or by typed coordinates, fee or free, minimum order, ETA, priority,
+  outlet scope, aliases, no-delivery areas, GeoJSON import and export; a Pricing and geofence tab for
+  the per-km fallback, buffer, maximum distance and rounding; a Test a location tab that shows the
+  exact customer quote; and a Performance tab with deliveries by area. Backend contract:
+  logistics-api `docs/delivery-zones.md`
 - Dispatch rule configuration UI
 - Rider shift scheduling
 - Earnings overview per rider

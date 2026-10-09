@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@bengo-hub/maps':
-        specifier: github:Bengo-Hub/maps#v0.2.7
-        version: https://codeload.github.com/Bengo-Hub/maps/tar.gz/1edf1ce162ea9f137741a5c05925a0d239f63e7e(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: github:Bengo-Hub/maps#v0.3.0
+        version: https://codeload.github.com/Bengo-Hub/maps/tar.gz/db926f556a1f9ef55eab1bad0cc0efa68e5e3bdb(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@bengo-hub/shared-ui-lib':
         specifier: github:Bengo-Hub/shared-ui-lib#v0.1.109
         version: https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/0e699d6de403a6120306eb62f88add83a3bd42f9(@floating-ui/dom@1.7.6)(@tanstack/react-query@5.90.21(react@19.2.3))(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(lucide-react@0.452.0(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -634,9 +634,9 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@bengo-hub/maps@https://codeload.github.com/Bengo-Hub/maps/tar.gz/1edf1ce162ea9f137741a5c05925a0d239f63e7e':
-    resolution: {tarball: https://codeload.github.com/Bengo-Hub/maps/tar.gz/1edf1ce162ea9f137741a5c05925a0d239f63e7e}
-    version: 0.2.7
+  '@bengo-hub/maps@https://codeload.github.com/Bengo-Hub/maps/tar.gz/db926f556a1f9ef55eab1bad0cc0efa68e5e3bdb':
+    resolution: {tarball: https://codeload.github.com/Bengo-Hub/maps/tar.gz/db926f556a1f9ef55eab1bad0cc0efa68e5e3bdb}
+    version: 0.3.0
     peerDependencies:
       maplibre-gl: '>=4.0.0'
       react: '>=18.0.0'
@@ -4782,7 +4782,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@bengo-hub/maps@https://codeload.github.com/Bengo-Hub/maps/tar.gz/1edf1ce162ea9f137741a5c05925a0d239f63e7e(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@bengo-hub/maps@https://codeload.github.com/Bengo-Hub/maps/tar.gz/db926f556a1f9ef55eab1bad0cc0efa68e5e3bdb(maplibre-gl@5.21.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       maplibre-gl: 5.21.0
       react: 19.2.3

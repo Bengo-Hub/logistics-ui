@@ -1,10 +1,8 @@
 "use client";
 
-import { MapProvider, LiveFleetMap } from "@bengo-hub/maps";
+import { LiveFleetMap } from "@bengo-hub/maps";
 import type { FleetRider } from "@bengo-hub/maps";
-
-const TILE_SERVER = "https://tiles.codevertexafrica.com";
-const API_BASE = "https://logisticsapi.codevertexafrica.com/api/v1";
+import { LogisticsMapProvider } from "@/components/maps/logistics-map-provider";
 
 interface FleetMapProps {
   tenantSlug: string;
@@ -16,17 +14,13 @@ interface FleetMapProps {
 
 export function FleetMap({ tenantSlug, authToken, className, onRiderClick, onRidersUpdate }: FleetMapProps) {
   return (
-    <MapProvider
-      tileServerUrl={TILE_SERVER}
-      apiBaseUrl={`${API_BASE}`}
-      authToken={authToken}
-    >
+    <LogisticsMapProvider authToken={authToken}>
       <LiveFleetMap
         tenantSlug={tenantSlug}
         className={className}
         onRiderClick={onRiderClick}
         onRidersUpdate={onRidersUpdate}
       />
-    </MapProvider>
+    </LogisticsMapProvider>
   );
 }

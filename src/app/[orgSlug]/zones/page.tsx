@@ -1,28 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { Hexagon, Loader2, MapPin, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { Copy, Download, Hexagon, Loader2, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
+import { toast } from "sonner";
+import type { ZoneShape } from "@bengo-hub/maps";
+import { Badge, Button, Card, CardContent, Input } from "@/components/ui/base";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DeliveryPricingCard } from "@/components/zones/delivery-pricing-card";
+import { QuoteTester } from "@/components/zones/quote-tester";
+import { ZoneFormSheet } from "@/components/zones/zone-form-sheet";
+import { ZoneStatsCard } from "@/components/zones/zone-stats-card";
 import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-} from "@/components/ui/base";
-import {
-  useZones,
-  useCreateZone,
-  useUpdateZone,
-  useDeleteZone,
-  type GeoFence,
-} from "@/hooks/use-logistics";
+  ZONE_TYPE_LABEL,
+  downloadJSON,
+  draftFromZone,
+  emptyDraft,
+  feeBadge,
+  zonesFromGeoJSON,
+  zonesToGeoJSON,
+  type ZoneDraft,
+} from "@/components/zones/zone-utils";
+import { useMyPermissions } from "@/hooks/use-module-access";
+import { useCreateZone, useDeleteZone, useDeliveryCoverage, useZones } from "@/hooks/use-zones";
+import { useAuthStore } from "@/store/auth";
+import type { GeoFence } from "@/types/logistics";
 
-const ZONE_COLORS = [
-  "#3b82f6", "#22c55e", "#ef4444", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#14b8a6", "#f97316",
-];
+const ZonesOverviewMap = dynamic(() => import("@/components/zones/zone-maps").then((m) => m.ZonesOverviewMap), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse rounded-xl bg-muted/40" />,
+});
 
 const statusVariant: Record<string, "success" | "secondary" | "warning"> = {
   active: "success",
@@ -32,302 +40,252 @@ const statusVariant: Record<string, "success" | "secondary" | "warning"> = {
 
 export default function ZonesPage() {
   const { data: zones = [], isLoading, error } = useZones();
-  const createZone = useCreateZone();
-  const updateZone = useUpdateZone();
+  const { data: coverage } = useDeliveryCoverage();
+  const { hasPermission } = useMyPermissions();
+  const authToken = useAuthStore((s) => s.session?.accessToken ?? undefined);
+  const canManageZones = hasPermission("logistics.zones.manage");
+  const canManagePricing = hasPermission("logistics.pricing.manage");
   const deleteZone = useDeleteZone();
+  const createZone = useCreateZone();
 
-  const [showForm, setShowForm] = useState(false);
-  const [editingZone, setEditingZone] = useState<GeoFence | null>(null);
-  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [draft, setDraft] = useState<ZoneDraft>(emptyDraft());
+  const [toDelete, setToDelete] = useState<GeoFence | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  // Form state
-  const [formName, setFormName] = useState("");
-  const [formType, setFormType] = useState("delivery");
-  const [formStatus, setFormStatus] = useState("active");
-  const [formColor, setFormColor] = useState(ZONE_COLORS[0]);
-  const [formBoundary, setFormBoundary] = useState("");
+  const outlets = coverage?.outlets ?? [];
+  const defaultCenter = outlets[0] ? { latitude: outlets[0].location.lat, longitude: outlets[0].location.lng } : undefined;
 
-  function openCreate() {
-    setEditingZone(null);
-    setFormName("");
-    setFormType("delivery");
-    setFormStatus("active");
-    setFormColor(ZONE_COLORS[Math.floor(Math.random() * ZONE_COLORS.length)]);
-    setFormBoundary("");
-    setShowForm(true);
-  }
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = q
+      ? zones.filter((z) => z.name.toLowerCase().includes(q) || (z.settings?.aliases ?? []).some((a) => a.toLowerCase().includes(q)))
+      : zones;
+    // Free and cheaper areas first, drafts last, so the list reads like a tariff sheet.
+    return [...list].sort((a, b) => {
+      const da = a.status === "active" ? 0 : 1, db = b.status === "active" ? 0 : 1;
+      if (da !== db) return da - db;
+      const fa = a.settings?.free ? -1 : a.settings?.fee ?? 0, fb = b.settings?.free ? -1 : b.settings?.fee ?? 0;
+      return fa - fb || a.name.localeCompare(b.name);
+    });
+  }, [zones, search]);
 
-  function openEdit(zone: GeoFence) {
-    setEditingZone(zone);
-    setFormName(zone.name);
-    setFormType(zone.zone_type);
-    setFormStatus(zone.status);
-    setFormColor(zone.color);
-    setFormBoundary(JSON.stringify(zone.boundary));
-    setShowForm(true);
-  }
+  const shapes = useMemo<ZoneShape[]>(
+    () =>
+      zones.map((z) => ({
+        id: z.id,
+        name: z.name,
+        boundary: z.boundary,
+        color: z.color,
+        zoneType: z.zone_type,
+        muted: z.status !== "active",
+        badge: z.status === "active" ? feeBadge(z) : z.status,
+      })),
+    [zones],
+  );
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const openCreate = () => {
+    setDraft(emptyDraft(defaultCenter));
+    setSheetOpen(true);
+  };
+  const openEdit = (z: GeoFence) => {
+    setDraft(draftFromZone(z));
+    setSheetOpen(true);
+  };
+  const duplicate = (z: GeoFence) => {
+    const d = draftFromZone(z);
+    setDraft({ ...d, id: undefined, name: `${z.name} copy`, status: "draft" });
+    setSheetOpen(true);
+  };
 
-    let boundary: number[][];
+  const onImport = async (file: File) => {
+    setImporting(true);
     try {
-      boundary = JSON.parse(formBoundary);
-      if (!Array.isArray(boundary) || boundary.length < 3) {
-        throw new Error("need 3+ points");
+      const { inputs, skipped } = zonesFromGeoJSON(JSON.parse(await file.text()));
+      const existing = new Set(zones.map((z) => z.name.toLowerCase()));
+      let added = 0, failed = 0;
+      for (const input of inputs) {
+        if (existing.has(input.name.toLowerCase())) {
+          failed++;
+          continue;
+        }
+        try {
+          await createZone.mutateAsync(input);
+          added++;
+        } catch {
+          failed++;
+        }
       }
+      toast.success(`Imported ${added} area${added === 1 ? "" : "s"}${failed + skipped ? `, skipped ${failed + skipped} (duplicates or invalid)` : ""}`);
     } catch {
-      alert("Invalid boundary. Provide a JSON array of [lng, lat] coordinate pairs (minimum 3 points).");
-      return;
+      toast.error("That file is not valid GeoJSON");
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
-
-    if (editingZone) {
-      await updateZone.mutateAsync({
-        zoneId: editingZone.id,
-        name: formName,
-        zone_type: formType,
-        status: formStatus,
-        boundary,
-        color: formColor,
-      });
-    } else {
-      await createZone.mutateAsync({
-        name: formName,
-        zone_type: formType,
-        status: formStatus,
-        boundary,
-        color: formColor,
-      });
-    }
-    setShowForm(false);
-  }
-
-  async function handleDelete(zoneId: string) {
-    if (!confirm("Delete this zone? This action cannot be undone.")) return;
-    await deleteZone.mutateAsync(zoneId);
-    if (selectedZone === zoneId) setSelectedZone(null);
-  }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Delivery Zones</h1>
-          <p className="text-muted-foreground">
-            Configure delivery zones and their boundaries.
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <Hexagon className="h-6 w-6 text-primary" /> Delivery areas
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Where you deliver and what it costs. Ordering, POS deliveries and riders all use these settings.
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="size-4" />
-          Create Zone
-        </Button>
+        {canManageZones && (
+          <Button onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" /> Add area
+          </Button>
+        )}
       </div>
 
-      {/* Create/Edit Form */}
-      {showForm && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>{editingZone ? "Edit Zone" : "Create Zone"}</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>
-              <X className="size-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium">Zone Name</label>
-                  <Input
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    placeholder="e.g. CBD & Downtown"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Type</label>
-                  <select
-                    value={formType}
-                    onChange={(e) => setFormType(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="delivery">Delivery</option>
-                    <option value="pickup">Pickup</option>
-                    <option value="exclusion">Exclusion</option>
-                    <option value="surge">Surge</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Status</label>
-                  <select
-                    value={formStatus}
-                    onChange={(e) => setFormStatus(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="draft">Draft</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Color</label>
-                  <div className="flex gap-2 mt-1">
-                    {ZONE_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setFormColor(c)}
-                        className={`size-7 rounded-full border-2 ${
-                          formColor === c ? "border-foreground" : "border-transparent"
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">
-                  Boundary Coordinates (JSON)
-                </label>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Array of [longitude, latitude] pairs forming a polygon. Minimum 3 points.
-                  Example: [[36.81, -1.28], [36.83, -1.28], [36.83, -1.30], [36.81, -1.30]]
-                </p>
-                <textarea
-                  value={formBoundary}
-                  onChange={(e) => setFormBoundary(e.target.value)}
-                  placeholder='[[36.81, -1.28], [36.83, -1.28], [36.83, -1.30], [36.81, -1.30]]'
-                  rows={3}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
-                  required
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createZone.isPending || updateZone.isPending}
-                >
-                  {(createZone.isPending || updateZone.isPending) && (
-                    <Loader2 className="size-4 animate-spin" />
-                  )}
-                  {editingZone ? "Update Zone" : "Create Zone"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs defaultValue="areas" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="areas">Areas</TabsTrigger>
+          <TabsTrigger value="pricing">Pricing and geofence</TabsTrigger>
+          <TabsTrigger value="test">Test a location</TabsTrigger>
+          <TabsTrigger value="stats">Performance</TabsTrigger>
+        </TabsList>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground">Loading zones...</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
-          <p className="text-sm text-destructive">Failed to load zones.</p>
-        </div>
-      )}
-
-      {!isLoading && !error && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Map Placeholder */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Hexagon className="size-5 text-primary" />
-                Zone Map
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex h-125 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30">
-                <div className="text-center">
-                  <MapPin className="mx-auto size-12 text-muted-foreground/50" />
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Interactive zone map will render after @bengo-hub/maps integration
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground/70">
-                    {zones.length} zone{zones.length !== 1 ? "s" : ""} configured
-                  </p>
+        <TabsContent value="areas">
+          <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
+            <Card className="order-2 lg:order-1">
+              <CardContent className="space-y-3 p-4">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input className="pl-9" placeholder="Search areas" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Zone List */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground">
-              Configured Zones ({zones.length})
-            </h2>
-
-            {zones.length === 0 && (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Hexagon className="size-10 text-muted-foreground/30" />
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    No zones configured yet.
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-3" onClick={openCreate}>
-                    <Plus className="size-4" /> Create First Zone
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => downloadJSON("delivery-areas.geojson", zonesToGeoJSON(zones))} disabled={!zones.length}>
+                    <Download className="mr-1 h-4 w-4" /> Export
                   </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {zones.map((zone) => (
-              <Card
-                key={zone.id}
-                className={`cursor-pointer transition-shadow hover:shadow-md ${
-                  selectedZone === zone.id ? "ring-2 ring-primary" : ""
-                }`}
-                onClick={() => setSelectedZone(selectedZone === zone.id ? null : zone.id)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="size-4 rounded-full"
-                        style={{ backgroundColor: zone.color }}
-                      />
-                      <div>
-                        <p className="font-medium">{zone.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {zone.zone_type} &middot; {zone.boundary?.length || 0} points
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant={statusVariant[zone.status] ?? "secondary"} className="text-xs">
-                      {zone.status}
-                    </Badge>
-                  </div>
-                  {selectedZone === zone.id && (
-                    <div className="mt-3 flex gap-2 border-t pt-3">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(zone)}>
-                        <Pencil className="size-3" /> Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDelete(zone.id)}
-                        disabled={deleteZone.isPending}
-                      >
-                        <Trash2 className="size-3" /> Delete
-                      </Button>
-                    </div>
+                  {canManageZones && (
+                    <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing}>
+                      {importing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />} Import GeoJSON
+                    </Button>
                   )}
-                </CardContent>
-              </Card>
-            ))}
+                  <input ref={fileRef} type="file" accept=".geojson,.json,application/geo+json,application/json" className="hidden" onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])} />
+                </div>
+                {outlets.length === 0 && (
+                  <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+                    No outlet has a map location yet. Set it under Branches in the account settings, otherwise distance pricing and
+                    dispatch cannot start from the outlet.
+                  </p>
+                )}
+
+                {isLoading && (
+                  <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading areas...
+                  </p>
+                )}
+                {error && <p className="text-sm text-destructive">Failed to load areas.</p>}
+                {!isLoading && filtered.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">{zones.length ? "No areas match." : "No delivery areas yet."}</p>
+                )}
+
+                <ul className="max-h-140 space-y-2 overflow-y-auto pr-1">
+                  {filtered.map((z) => (
+                    <li key={z.id} className="rounded-xl border p-3 hover:bg-muted/40">
+                      <div className="flex items-start justify-between gap-2">
+                        <button type="button" className="min-w-0 text-left" onClick={() => openEdit(z)}>
+                          <p className="flex items-center gap-2 font-medium">
+                            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: z.zone_type === "exclusion" ? "#ef4444" : z.color }} />
+                            <span className="truncate">{z.name}</span>
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {ZONE_TYPE_LABEL[z.zone_type] ?? z.zone_type} ·{" "}
+                            {z.settings?.shape === "circle" ? `${((z.settings.radius_m ?? 0) / 1000).toFixed(1)} km radius` : `${z.area_km2} km²`}
+                            {z.zone_type === "delivery" ? ` · priority ${z.settings?.priority ?? 0}` : ""}
+                          </p>
+                        </button>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="text-sm font-semibold">{feeBadge(z)}</span>
+                          <Badge variant={statusVariant[z.status] ?? "secondary"}>{z.status}</Badge>
+                        </div>
+                      </div>
+                      {z.settings?.notes && z.status !== "active" && <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{z.settings.notes}</p>}
+                      {canManageZones && (
+                        <div className="mt-2 flex gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(z)}>
+                            <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => duplicate(z)}>
+                            <Copy className="mr-1 h-3.5 w-3.5" /> Duplicate
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setToDelete(z)}>
+                            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+                          </Button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            <div className="relative order-1 h-105 overflow-hidden rounded-xl border lg:order-2 lg:h-auto lg:min-h-160">
+              <ZonesOverviewMap
+                className="absolute inset-0"
+                zones={shapes}
+                outlets={outlets}
+                authToken={authToken}
+                onZoneClick={(id) => {
+                  const z = zones.find((x) => x.id === id);
+                  if (z) openEdit(z);
+                }}
+              />
+            </div>
           </div>
-        </div>
-      )}
+        </TabsContent>
+
+        <TabsContent value="pricing">
+          <DeliveryPricingCard canManage={canManagePricing} />
+        </TabsContent>
+
+        <TabsContent value="test">
+          <QuoteTester coverage={coverage} authToken={authToken} />
+        </TabsContent>
+
+        <TabsContent value="stats">
+          <ZoneStatsCard />
+        </TabsContent>
+      </Tabs>
+
+      <ZoneFormSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        draft={draft}
+        setDraft={setDraft}
+        zones={zones}
+        outlets={outlets}
+        canManage={canManageZones}
+        authToken={authToken}
+      />
+
+      <ConfirmDialog
+        open={!!toDelete}
+        onOpenChange={(o) => !o && setToDelete(null)}
+        title={`Delete ${toDelete?.name ?? "area"}?`}
+        description="Customers in this area will be quoted by distance (or refused) from now on. This cannot be undone."
+        confirmLabel="Delete area"
+        pending={deleteZone.isPending}
+        onConfirm={async () => {
+          if (!toDelete) return;
+          try {
+            await deleteZone.mutateAsync(toDelete.id);
+            toast.success(`${toDelete.name} deleted`);
+          } catch {
+            toast.error("Could not delete the area");
+          }
+          setToDelete(null);
+        }}
+      />
     </div>
   );
 }

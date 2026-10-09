@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { CircleDollarSign, DollarSign, FileText, Loader2, Plus, RefreshCw, Trash2, Wallet } from "lucide-react";
+import { CircleDollarSign, DollarSign, FileText, Loader2, Pencil, Plus, RefreshCw, Trash2, Wallet } from "lucide-react";
 import {
   Badge,
   Button,
@@ -17,6 +17,7 @@ import {
   useBillingEvents,
   usePricingRules,
   useCreatePricingRule,
+  useUpdatePricingRule,
   useDeletePricingRule,
   useGenerateStatements,
   useSettleStatement,
@@ -60,6 +61,8 @@ export default function EarningsPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [showCreateRule, setShowCreateRule] = useState(false);
   const [newRule, setNewRule] = useState({ ...EMPTY_RULE });
+  // Set when the rule modal edits an existing rule instead of creating one.
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [genPeriod, setGenPeriod] = useState({ start: "", end: "" });
 
@@ -67,6 +70,17 @@ export default function EarningsPage() {
   const { data: events = [], isLoading: loadingEvents } = useBillingEvents();
   const { data: rules = [], isLoading: loadingRules } = usePricingRules();
   const createRule = useCreatePricingRule();
+  const updateRule = useUpdatePricingRule();
+  const closeRuleModal = () => {
+    setShowCreateRule(false);
+    setEditingRuleId(null);
+    setNewRule({ ...EMPTY_RULE });
+  };
+  const saveRule = () => {
+    const done = { onSuccess: closeRuleModal };
+    if (editingRuleId) updateRule.mutate({ ruleId: editingRuleId, ...newRule }, done);
+    else createRule.mutate(newRule, done);
+  };
   const deleteRule = useDeletePricingRule();
   const generateStmts = useGenerateStatements();
   const settleStatement = useSettleStatement();
@@ -220,6 +234,10 @@ export default function EarningsPage() {
       {/* Pricing Rules */}
       {tab === "pricing" && (
         <div className="space-y-4">
+          <p className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+            These rules set what riders earn per delivery when an order carries no delivery fee. What customers pay is set under
+            Delivery areas, in the Pricing and geofence tab.
+          </p>
           <div className="flex justify-end">
             <Button size="sm" onClick={() => setShowCreateRule(true)}>
               <Plus className="mr-2 size-4" /> New Rule
@@ -241,6 +259,18 @@ export default function EarningsPage() {
                         <Badge variant={rule.is_active ? "success" : "secondary"} className="text-xs">
                           {rule.is_active ? "Active" : "Inactive"}
                         </Badge>
+                        <button
+                          onClick={() => {
+                            const { id, tenant_id: _t, created_at: _c, updated_at: _u, ...editable } = rule;
+                            setNewRule({ ...EMPTY_RULE, ...editable });
+                            setEditingRuleId(id);
+                            setShowCreateRule(true);
+                          }}
+                          aria-label="Edit rule"
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Pencil className="size-4" />
+                        </button>
                         <button
                           onClick={() => setDeleteRuleId(rule.id)}
                           className="text-muted-foreground hover:text-destructive transition-colors"
@@ -312,7 +342,7 @@ export default function EarningsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle>New Pricing Rule</CardTitle>
+              <CardTitle>{editingRuleId ? "Edit Pricing Rule" : "New Pricing Rule"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
@@ -356,20 +386,20 @@ export default function EarningsPage() {
                   </div>
                 ))}
               </div>
-              {createRule.isError && (
-                <p className="text-sm text-destructive">Failed to create rule. Please try again.</p>
+              {(createRule.isError || updateRule.isError) && (
+                <p className="text-sm text-destructive">Failed to save the rule. Please try again.</p>
               )}
               <div className="flex gap-3 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => { setShowCreateRule(false); setNewRule({ ...EMPTY_RULE }); }}>
+                <Button variant="outline" className="flex-1" onClick={closeRuleModal}>
                   Cancel
                 </Button>
                 <Button
                   className="flex-1"
-                  disabled={!newRule.name || createRule.isPending}
-                  onClick={() => createRule.mutate(newRule, { onSuccess: () => { setShowCreateRule(false); setNewRule({ ...EMPTY_RULE }); } })}
+                  disabled={!newRule.name || createRule.isPending || updateRule.isPending}
+                  onClick={saveRule}
                 >
-                  {createRule.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                  Create
+                  {createRule.isPending || updateRule.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                  {editingRuleId ? "Save" : "Create"}
                 </Button>
               </div>
             </CardContent>

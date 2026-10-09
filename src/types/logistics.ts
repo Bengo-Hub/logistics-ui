@@ -257,18 +257,144 @@ export interface StatusHistoryEntry {
   label: string;
 }
 
-/** Geo-fence zone */
+/** Delivery settings of a zone (logistics-api zones.ZoneSettings, stored in metadata). */
+export interface ZoneSettings {
+  shape: "circle" | "polygon";
+  center?: { lat: number; lng: number } | null;
+  radius_m?: number;
+  fee: number;
+  free: boolean;
+  currency?: string;
+  min_order: number;
+  eta_minutes?: number;
+  priority: number;
+  outlet_ids?: string[];
+  aliases?: string[];
+  notes?: string;
+}
+
+export type ZoneType = "delivery" | "exclusion" | "pickup" | "surge";
+export type ZoneStatus = "active" | "inactive" | "draft";
+
+/** Delivery zone (geo-fence) */
 export interface GeoFence {
   id: string;
   tenant_id: string;
   name: string;
-  zone_type: string;
-  status: string;
+  zone_type: ZoneType | string;
+  status: ZoneStatus | string;
+  /** Closed ring of [lng, lat]. */
   boundary: number[][];
   color: string;
-  metadata: Record<string, unknown>;
+  settings: ZoneSettings;
+  area_km2: number;
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+/** Body for creating or replacing a zone. */
+export interface ZoneInput {
+  name: string;
+  zone_type: string;
+  status: string;
+  color: string;
+  boundary?: number[][];
+  settings: ZoneSettings;
+}
+
+/** Customer delivery pricing and geofence policy (logistics.delivery_quote_policy). */
+export interface DeliveryPolicy {
+  fallback: "per_km" | "none";
+  buffer_km: number;
+  max_radius_km?: number | null;
+  require_zones: boolean;
+  base_fee: number;
+  per_km_rate: number;
+  min_fee: number;
+  rounding: number;
+  distance_source: "road" | "straight";
+  road_factor_fallback: number;
+  speed_kmh: number;
+  prep_minutes: number;
+  currency: string;
+  quote_cache_seconds: number;
+}
+
+export interface DeliveryPolicyView {
+  policy: DeliveryPolicy;
+  source: "tenant" | "platform" | "default";
+  updated_at?: string;
+}
+
+export interface ZoneRef {
+  id: string;
+  name: string;
+}
+
+export interface OutletPoint {
+  id: string;
+  name: string;
+  location: { lat: number; lng: number };
+}
+
+/** Delivery quote. The fee is authoritative. */
+export interface DeliveryQuote {
+  serviceable: boolean;
+  reason?: string;
+  method?: "zone" | "per_km";
+  fee: number;
+  free: boolean;
+  currency: string;
+  zone?: ZoneRef;
+  nearest_area?: ZoneRef;
+  nearest_area_km?: number;
+  distance_km: number;
+  distance_type?: "road" | "estimated" | "straight";
+  eta_minutes?: number;
+  min_order: number;
+  below_min_order?: boolean;
+  outlet?: OutletPoint;
+  breakdown?: { base_fee: number; per_km_rate: number; raw: number; min_fee: number; rounding: number };
+  policy_version: string;
+  cache_seconds: number;
+}
+
+export interface DeliveryCoverage {
+  zones: { id: string; name: string; zone_type: string; color: string; fee: number; free: boolean; center?: { lat: number; lng: number }; aliases?: string[]; boundary: number[][] }[];
+  outlets: OutletPoint[];
+  bounds?: [number, number, number, number];
+  center?: { lat: number; lng: number };
+  min_fee: number;
+  has_free_zone: boolean;
+  currency: string;
+  policy: { fallback: string; buffer_km: number; per_km_rate: number };
+  policy_version: string;
+}
+
+/** Place from the geocode proxy. */
+export interface GeoPlace {
+  name: string;
+  display_name: string;
+  location: { lat: number; lng: number };
+  kind?: string;
+  source: "zone" | "geocoder";
+  area?: ZoneRef;
+  area_km?: number;
+}
+
+/** Deliveries by zone report row. */
+export interface ZoneStat {
+  zone_id: string;
+  zone_name: string;
+  tasks: number;
+  delivered: number;
+  failed: number;
+  cancelled: number;
+  delivery_fees: number;
+  avg_distance_km: number;
+  avg_delivery_minutes: number;
+  on_time_percent: number;
 }
 
 /** Telemetry (GPS) data point */

@@ -97,7 +97,7 @@ drifted from it.
 - **Auto-center**: Fit bounds to active riders on load
 - **Update frequency**: Live task events pushed via SSE; telemetry polled on an interval as fallback
 
-### Zone editor (`/zones/editor`) -- stretch goal
+### Zone editor (side panel on `/zones`), shipped 2026-10-09
 
 - **MapLibre map** with draw controls (polygon)
 - **Side panel**: Zone name, description, operating hours, dispatch priority

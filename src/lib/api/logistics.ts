@@ -10,7 +10,12 @@ import type {
   ETAResult,
   Fleet,
   FleetMember,
+  DeliveryCoverage,
+  DeliveryPolicy,
+  DeliveryPolicyView,
+  DeliveryQuote,
   GeoFence,
+  GeoPlace,
   LogisticsNotification,
   LogisticsPermission,
   LogisticsRole,
@@ -31,6 +36,8 @@ import type {
   UserRoleAssignment,
   Vehicle,
   VehicleStatus,
+  ZoneInput,
+  ZoneStat,
 } from "@/types/logistics";
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
@@ -283,7 +290,7 @@ export async function markAllNotificationsRead(tenantSlug: string): Promise<{ ma
   return data;
 }
 
-// ─── Zones ────────────────────────────────────────────────────────────────────
+// ─── Zones, delivery policy, quotes and geocoding ─────────────────────────────
 
 export async function fetchZones(tenantSlug: string): Promise<GeoFence[]> {
   const { data } = await api.get(`${tenantSlug}/zones`);
@@ -295,25 +302,56 @@ export async function fetchZone(tenantSlug: string, zoneId: string): Promise<Geo
   return data;
 }
 
-export async function createZone(
-  tenantSlug: string,
-  body: { name: string; zone_type?: string; status?: string; boundary: number[][]; color?: string }
-): Promise<GeoFence> {
+export async function createZone(tenantSlug: string, body: ZoneInput): Promise<GeoFence> {
   const { data } = await api.post(`${tenantSlug}/zones`, body);
   return data;
 }
 
-export async function updateZone(
-  tenantSlug: string,
-  zoneId: string,
-  body: Partial<{ name: string; zone_type: string; status: string; boundary: number[][]; color: string }>
-): Promise<GeoFence> {
+export async function updateZone(tenantSlug: string, zoneId: string, body: Partial<ZoneInput>): Promise<GeoFence> {
   const { data } = await api.patch(`${tenantSlug}/zones/${zoneId}`, body);
   return data;
 }
 
 export async function deleteZone(tenantSlug: string, zoneId: string): Promise<void> {
   await api.delete(`${tenantSlug}/zones/${zoneId}`);
+}
+
+export async function fetchDeliveryPolicy(tenantSlug: string): Promise<DeliveryPolicyView> {
+  const { data } = await api.get(`${tenantSlug}/delivery-policy`);
+  return data;
+}
+
+export async function saveDeliveryPolicy(tenantSlug: string, policy: DeliveryPolicy): Promise<DeliveryPolicyView> {
+  const { data } = await api.put(`${tenantSlug}/delivery-policy`, policy);
+  return data;
+}
+
+export async function fetchDeliveryQuote(
+  tenantSlug: string,
+  params: { lat: number; lng: number; outlet_id?: string; order_total?: number },
+): Promise<DeliveryQuote> {
+  const { data } = await api.get(`${tenantSlug}/zones/quote`, { params });
+  return data;
+}
+
+export async function fetchDeliveryCoverage(tenantSlug: string): Promise<DeliveryCoverage> {
+  const { data } = await api.get(`${tenantSlug}/zones/coverage`);
+  return data;
+}
+
+export async function searchPlaces(tenantSlug: string, q: string): Promise<GeoPlace[]> {
+  const { data } = await api.get(`${tenantSlug}/routing/geocode/search`, { params: { q } });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function reversePlace(tenantSlug: string, lat: number, lng: number): Promise<GeoPlace> {
+  const { data } = await api.get(`${tenantSlug}/routing/geocode/reverse`, { params: { lat, lng } });
+  return data;
+}
+
+export async function fetchZoneStats(tenantSlug: string, period = "30d"): Promise<ZoneStat[]> {
+  const { data } = await api.get(`${tenantSlug}/analytics/zones`, { params: { period } });
+  return Array.isArray(data) ? data : [];
 }
 
 // ─── Routing ──────────────────────────────────────────────────────────────────

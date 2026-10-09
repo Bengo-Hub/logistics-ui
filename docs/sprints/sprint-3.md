@@ -30,8 +30,8 @@
 
 ## Remaining
 
-- [ ] MapLibre GL JS map component (or Leaflet) — needs @bengo-hub/maps integration
+- [x] MapLibre GL JS map component through @bengo-hub/maps (2026-10-09)
 - [ ] Rider marker layer: fetch active telemetry streams `GET /telemetry/streams?status=active`
 - [ ] Task route overlay (Valhalla polyline on map)
-- [ ] Zone polygon map-draw control (Leaflet.draw or MapLibre Draw)
-- [ ] Zone type selector (delivery / exclusion / surge) in zone editor
+- [x] Zone circle and polygon editor (`ZoneEditor` in @bengo-hub/maps v0.3.0) with typed coordinates (2026-10-09)
+- [x] Zone type selector (delivery / no-delivery) and status in the zone editor (2026-10-09)
