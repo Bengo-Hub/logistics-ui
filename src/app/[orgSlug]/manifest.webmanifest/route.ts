@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { serviceAppName } from '@bengo-hub/shared-ui-lib/branding';
+import {
+  serviceBrandingEntry,
+  serviceFullName,
+  serviceShortName,
+  type ServiceBrandingEntry,
+} from '@bengo-hub/shared-ui-lib/branding';
 
 const AUTH_API_BASE =
   process.env.NEXT_PUBLIC_SSO_URL ||
@@ -10,14 +15,6 @@ const DEFAULT_PRIMARY = '#5B1C4D';
 const DEFAULT_BG = '#1a0a15';
 // This app's entry in tenant metadata service_branding (set in Accounts > Branding).
 const SERVICE_KEY = 'logistics';
-
-interface ServiceBrandingEntry {
-  name?: string;
-  short_name?: string;
-  tagline?: string;
-  theme_color?: string;
-  icon_url?: string;
-}
 
 interface TenantResponse {
   name?: string;
@@ -37,13 +34,6 @@ async function fetchTenant(slug: string): Promise<TenantResponse | null> {
   } catch {
     return null;
   }
-}
-
-function serviceEntry(metadata: Record<string, unknown> | undefined): ServiceBrandingEntry {
-  const all = metadata?.service_branding;
-  if (!all || typeof all !== 'object') return {};
-  const entry = (all as Record<string, unknown>)[SERVICE_KEY];
-  return entry && typeof entry === 'object' ? (entry as ServiceBrandingEntry) : {};
 }
 
 function metaString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
@@ -78,15 +68,13 @@ export async function GET(
 ) {
   const { orgSlug } = await params;
   const tenant = await fetchTenant(orgSlug);
-  const entry = serviceEntry(tenant?.metadata);
+  const entry: ServiceBrandingEntry = serviceBrandingEntry(tenant?.metadata, SERVICE_KEY) ?? {};
 
   const businessName = tenant?.name ?? orgSlug;
-  // Tenant's own app name (e.g. "Loft Dispatch"), else "<Business> Logistics"; the home-screen
-  // label defaults to "<brand word> Logistics" (shared rule in shared-ui-lib branding).
-  const name = entry.name || `${businessName} Logistics`;
-  const shortName =
-    entry.short_name ||
-    (entry.name && entry.name.length <= 12 ? entry.name : serviceAppName(businessName, 'Logistics', 'Bengo'));
+  // Shared naming rule (shared-ui-lib branding): the tenant's own app name (e.g. "Loft Dispatch")
+  // wins, else "<Business> Logistics" and a "<brand word> Logistics" home-screen label.
+  const name = serviceFullName(businessName, 'Logistics', 'Bengo', entry);
+  const shortName = serviceShortName(businessName, 'Logistics', 'Bengo', entry);
   const primaryColor =
     entry.theme_color ?? tenant?.brand_colors?.primary ?? metaString(tenant?.metadata, 'primary_color') ?? DEFAULT_PRIMARY;
   const bgColor =

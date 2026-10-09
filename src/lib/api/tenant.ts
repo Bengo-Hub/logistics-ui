@@ -3,6 +3,8 @@
  * Auth-api: GET /api/v1/tenants/by-slug/{slug} (public).
  */
 
+import { serviceBrandingMap, type ServiceBrandingEntry } from '@bengo-hub/shared-ui-lib/branding';
+
 const AUTH_API_URL =
   process.env.NEXT_PUBLIC_AUTH_API_URL ||
   process.env.NEXT_PUBLIC_SSO_URL ||
@@ -29,13 +31,8 @@ export interface TenantResponse {
   metadata?: Record<string, unknown>;
 }
 
-/** Tenant's own name/icon for one app (metadata service_branding.<service>). */
-export interface ServiceBrandingEntry {
-  name?: string;
-  short_name?: string;
-  icon_url?: string;
-  theme_color?: string;
-}
+/** Tenant's own name/icon for one app (metadata service_branding.<service>), shared definition. */
+export type { ServiceBrandingEntry };
 
 export interface TenantBrand {
   id: string;
@@ -54,7 +51,6 @@ export function parseBrandFromTenant(t: TenantResponse): TenantBrand {
   const primaryColor = t.brand_colors?.primary ?? (meta.primary_color ?? meta.primaryColor) ?? null;
   const secondaryColor = t.brand_colors?.secondary ?? (meta.secondary_color ?? meta.secondaryColor) ?? null;
   const orgName = (meta.org_name ?? meta.orgName) ?? t.name ?? '';
-  const serviceBranding = t.metadata?.service_branding;
 
   return {
     id: t.id,
@@ -64,10 +60,7 @@ export function parseBrandFromTenant(t: TenantResponse): TenantBrand {
     primaryColor: typeof primaryColor === 'string' ? primaryColor : null,
     secondaryColor: typeof secondaryColor === 'string' ? secondaryColor : null,
     orgName: typeof orgName === 'string' ? orgName : (t.name ?? ''),
-    serviceBranding:
-      serviceBranding && typeof serviceBranding === 'object'
-        ? (serviceBranding as Record<string, ServiceBrandingEntry>)
-        : undefined,
+    serviceBranding: serviceBrandingMap(t.metadata),
   };
 }
 

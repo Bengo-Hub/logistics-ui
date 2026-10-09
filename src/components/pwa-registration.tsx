@@ -58,9 +58,9 @@ export function PwaRegistration() {
     }
   }, [orgSlug]);
 
-  // App name = tenant brand word + service, e.g. "The Urban Logistics" (shared rule, see
-  // shared-ui-lib branding). Keeps installed apps distinguishable for one tenant.
-  const appName = serviceAppName(tenant?.orgName, "Logistics", "Codevertex");
+  // Same title as the header: the tenant's own Logistics name (Accounts > Branding) else
+  // "<brand word> Logistics", e.g. "The Urban Logistics" (shared rule in shared-ui-lib branding).
+  const appName = serviceAppName(tenant?.orgName, "Logistics", "Codevertex", tenant?.serviceBranding?.logistics);
   const logoUrl = tenant?.logoUrl;
 
   useEffect(() => {

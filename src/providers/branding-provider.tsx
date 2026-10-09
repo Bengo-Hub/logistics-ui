@@ -111,11 +111,13 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   // The tenant's own name for this app wins (Accounts > Branding > App Names
   // and Icons), else "<brand word> <appName>" (shared rule in shared-ui-lib branding: "The Urban
   // Loft Cafe" gives "The Urban Logistics").
-  const getServiceTitle = (appName: string) => {
-    const custom = effectiveBrand?.serviceBranding?.logistics?.name;
-    if (custom) return custom;
-    return serviceAppName(effectiveBrand?.orgName || effectiveBrand?.name, appName, 'Codevertex');
-  };
+  const getServiceTitle = (appName: string) =>
+    serviceAppName(
+      effectiveBrand?.orgName || effectiveBrand?.name,
+      appName,
+      'Codevertex',
+      effectiveBrand?.serviceBranding?.logistics,
+    );
 
   const value = useMemo(
     () => ({
