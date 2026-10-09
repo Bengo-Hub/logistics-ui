@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Share, X } from "lucide-react";
 import { useParams } from "next/navigation";
+import { serviceAppName } from "@bengo-hub/shared-ui-lib/branding";
 import { useBranding } from "@/providers/branding-provider";
 import { requestAppPermissions } from "@/hooks/use-app-permissions";
 
@@ -57,12 +58,9 @@ export function PwaRegistration() {
     }
   }, [orgSlug]);
 
-  // App name = tenant's first word + service, e.g. "Urban Logistics". Keeps
-  // installed apps distinguishable when several Bengo apps run for one tenant.
-  const tenantFirstWord = tenant?.orgName?.trim().split(/\s+/)[0];
-  const appName = tenantFirstWord
-    ? `${tenantFirstWord} Logistics`
-    : "Codevertex Logistics";
+  // App name = tenant brand word + service, e.g. "The Urban Logistics" (shared rule, see
+  // shared-ui-lib branding). Keeps installed apps distinguishable for one tenant.
+  const appName = serviceAppName(tenant?.orgName, "Logistics", "Codevertex");
   const logoUrl = tenant?.logoUrl;
 
   useEffect(() => {

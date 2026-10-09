@@ -1,4 +1,5 @@
 import { fetchTenantBySlug, type TenantBrand } from '@/lib/api/tenant';
+import { serviceAppName } from '@bengo-hub/shared-ui-lib/branding';
 import { useParams } from 'next/navigation';
 import { createContext, ReactNode, useContext, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -108,13 +109,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   }, [effectiveBrand]);
 
   // The tenant's own name for this app wins (Accounts > Branding > App Names
-  // and Icons), else "<First word> <appName>".
+  // and Icons), else "<brand word> <appName>" (shared rule in shared-ui-lib branding: "The Urban
+  // Loft Cafe" gives "The Urban Logistics").
   const getServiceTitle = (appName: string) => {
     const custom = effectiveBrand?.serviceBranding?.logistics?.name;
     if (custom) return custom;
-    const tenantName = effectiveBrand?.orgName || effectiveBrand?.name || '';
-    const firstWord = tenantName.split(' ')[0] || 'Codevertex';
-    return `${firstWord} ${appName}`;
+    return serviceAppName(effectiveBrand?.orgName || effectiveBrand?.name, appName, 'Codevertex');
   };
 
   const value = useMemo(

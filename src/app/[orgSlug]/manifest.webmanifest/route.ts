@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { serviceAppName } from '@bengo-hub/shared-ui-lib/branding';
 
 const AUTH_API_BASE =
   process.env.NEXT_PUBLIC_SSO_URL ||
@@ -80,11 +81,12 @@ export async function GET(
   const entry = serviceEntry(tenant?.metadata);
 
   const businessName = tenant?.name ?? orgSlug;
-  const firstWord = businessName.trim().split(/\s+/)[0] || 'Bengo';
-  // Tenant's own app name (e.g. "Loft Dispatch"), else "<Business> Logistics".
+  // Tenant's own app name (e.g. "Loft Dispatch"), else "<Business> Logistics"; the home-screen
+  // label defaults to "<brand word> Logistics" (shared rule in shared-ui-lib branding).
   const name = entry.name || `${businessName} Logistics`;
   const shortName =
-    entry.short_name || (entry.name && entry.name.length <= 12 ? entry.name : `${firstWord} Logistics`);
+    entry.short_name ||
+    (entry.name && entry.name.length <= 12 ? entry.name : serviceAppName(businessName, 'Logistics', 'Bengo'));
   const primaryColor =
     entry.theme_color ?? tenant?.brand_colors?.primary ?? metaString(tenant?.metadata, 'primary_color') ?? DEFAULT_PRIMARY;
   const bgColor =
