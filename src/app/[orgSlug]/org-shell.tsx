@@ -59,9 +59,13 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
               sidebarCollapsed={sidebarCollapsed}
             />
             <SubscriptionBanner />
-              <VerifyEmailPrompt />
+            <VerifyEmailPrompt />
+            {/* The shell owns page spacing: pages render content only, so padding never
+                doubles up or goes missing from one page to the next. */}
             <main className="flex-1 overflow-y-auto">
-              {children}
+              <div className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+                {children}
+              </div>
             </main>
             <Footer />
           </div>

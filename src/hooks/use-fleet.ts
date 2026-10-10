@@ -14,8 +14,10 @@ import {
   fetchMembers,
   inviteMember,
   rejectMember,
+  setMemberEmployment,
   suspendMember,
   updateVehicle,
+  type Employment,
   type MembersParams,
 } from "@/lib/api/logistics";
 import type { CreateVehicleRequest, FleetMember, PaginatedResponse, VehicleStatus } from "@/types/logistics";
@@ -69,6 +71,16 @@ export function useInviteMember() {
   return useMutation({
     mutationFn: (body: Parameters<typeof inviteMember>[1]) =>
       inviteMember(tenantSlug, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet-members"] }),
+  });
+}
+
+export function useSetMemberEmployment() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, ...body }: { memberId: string } & Employment) =>
+      setMemberEmployment(tenantSlug, memberId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet-members"] }),
   });
 }

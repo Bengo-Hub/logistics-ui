@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 const EMAIL = process.env.E2E_LOGIN_EMAIL || 'admin@demo.codevertexafrica.com';
-const PASSWORD = process.env.E2E_LOGIN_PASSWORD || 'DemoAdmin2024!';
+// Credentials come from the environment only; never commit a password, even a demo one.
+const PASSWORD = process.env.E2E_LOGIN_PASSWORD ?? '';
 
 test.describe('Logistics UI SSO login and landing', () => {
   test('landing or dashboard loads for tenant', async ({ page }) => {
@@ -12,6 +13,7 @@ test.describe('Logistics UI SSO login and landing', () => {
   });
 
   test('full SSO login then authenticated indicator', async ({ page }) => {
+    test.skip(!PASSWORD, 'set E2E_LOGIN_PASSWORD to run the login flow');
     await page.goto('/');
     const signInLink = page.getByRole('link', { name: /sign in|login/i }).first();
     await signInLink.click().catch(() => {});

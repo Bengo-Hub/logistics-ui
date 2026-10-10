@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useCashWithRiders, useRecordRemittance, type RiderCash } from "@/hooks/use-rider-cash";
-import { useHasPermission } from "@/hooks/useMe";
+import { useMyPermissions } from "@/hooks/use-module-access";
 
 // Cash on delivery riders are carrying. The outlet counts what a rider hands in and records it
 // here; everything they held is closed in one hand-in, and any shortfall is kept on the record.
@@ -41,12 +41,12 @@ function errorText(err: unknown, fallback: string) {
 export default function RiderCashPage() {
   const { data, isLoading, refetch, isRefetching } = useCashWithRiders();
   // The backend enforces logistics.tasks.manage; hide the action from users without it.
-  const canRecord = useHasPermission("logistics.tasks.manage");
+  const canRecord = useMyPermissions().hasPermission("logistics.tasks.manage");
   const [selected, setSelected] = useState<RiderCash | null>(null);
   const riders = data?.data ?? [];
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Rider cash</h1>

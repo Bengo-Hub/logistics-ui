@@ -197,12 +197,42 @@ export async function fetchMember(tenantSlug: string, memberId: string): Promise
   return data;
 }
 
-export async function inviteMember(
-  tenantSlug: string,
-  body: { first_name: string; last_name: string; email: string; phone: string; role?: string }
-): Promise<FleetMember> {
+/** freelance riders are paid per delivery; staff riders are salaried in erp-api payroll. */
+export type EmploymentType = "freelance" | "staff";
+
+export interface Employment {
+  type: EmploymentType;
+  per_task_earnings?: boolean;
+}
+
+export interface InviteMemberBody {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  id_number?: string;
+  license_no?: string;
+  employment?: Employment;
+}
+
+export async function inviteMember(tenantSlug: string, body: InviteMemberBody): Promise<FleetMember> {
   const { data } = await api.post(`${tenantSlug}/fleet/members`, body);
   return data;
+}
+
+export async function setMemberEmployment(
+  tenantSlug: string,
+  memberId: string,
+  body: Employment
+): Promise<FleetMember> {
+  const { data } = await api.put(`${tenantSlug}/fleet/members/${memberId}/employment`, body);
+  return data;
+}
+
+/** Reads a member's employment terms from metadata; members without terms are freelance. */
+export function memberEmployment(m: Pick<FleetMember, "metadata">): Employment {
+  const raw = (m.metadata?.employment ?? {}) as Partial<Employment>;
+  return { type: raw.type === "staff" ? "staff" : "freelance", per_task_earnings: raw.per_task_earnings };
 }
 
 export async function approveMember(tenantSlug: string, memberId: string): Promise<FleetMember> {

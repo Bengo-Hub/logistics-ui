@@ -27,10 +27,12 @@ import {
   useRejectMember,
   useDeleteMember,
   useBatchInviteMembers,
-  useInviteMember,
+  useSetMemberEmployment,
 } from "@/hooks/use-fleet";
 import type { FleetMember, FleetMemberStatus } from "@/types/logistics";
 import { PermissionGate } from "@/components/ui/module-gate";
+import { InviteRiderDialog } from "@/components/riders/invite-rider-dialog";
+import { memberEmployment } from "@/lib/api/logistics";
 import { toast } from "sonner";
 import { orgRoute } from "@/lib/utils";
 import Link from "next/link";
@@ -54,6 +56,39 @@ type ConfirmAction = {
   member: FleetMember;
 };
 
+// Freelance riders earn per delivery; staff are on HR payroll (per diem is claimed in HR).
+function EmploymentToggle({ member }: { member: FleetMember }) {
+  const setEmployment = useSetMemberEmployment();
+  const current = memberEmployment(member).type;
+  const change = (type: "freelance" | "staff") => {
+    if (type === current) return;
+    setEmployment.mutate(
+      { memberId: member.id, type },
+      {
+        onSuccess: () => toast.success(type === "staff" ? "Marked as staff (payroll)" : "Marked as freelance"),
+        onError: () => toast.error("Could not update engagement"),
+      },
+    );
+  };
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <Badge variant={current === "staff" ? "secondary" : "success"} className="capitalize">
+        {current === "staff" ? "Staff (payroll)" : "Freelance"}
+      </Badge>
+      <PermissionGate permission="logistics.fleet.manage">
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={setEmployment.isPending}
+          onClick={() => change(current === "staff" ? "freelance" : "staff")}
+        >
+          {current === "staff" ? "Make freelance" : "Make staff"}
+        </Button>
+      </PermissionGate>
+    </div>
+  );
+}
+
 const EMPTY_ROW = { first_name: "", last_name: "", email: "", phone: "" };
 
 function RidersContent() {
@@ -70,10 +105,16 @@ function RidersContent() {
 
   const [selectedMember, setSelectedMember] = useState<FleetMember | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
-  const [showInvite, setShowInvite] = useState(false);
+  // ?invite=1 opens the add-rider form, so other apps link here instead of copying it.
+  const showInvite = searchParams.get("invite") === "1";
+  const setInviteOpen = (open: boolean) => {
+    const p = new URLSearchParams(searchParams.toString());
+    if (open) p.set("invite", "1");
+    else p.delete("invite");
+    router.replace(`${pathname}?${p.toString()}`);
+  };
   const [showBatch, setShowBatch] = useState(false);
   const [batchRows, setBatchRows] = useState([{ ...EMPTY_ROW }]);
-  const [inviteForm, setInviteForm] = useState({ first_name: "", last_name: "", email: "", phone: "", role: "rider" });
 
   const { data, isLoading, error } = useFleetMembers({
     status: activeFilter !== "all" ? activeFilter : undefined,
@@ -87,7 +128,6 @@ function RidersContent() {
   const rejectMutation = useRejectMember();
   const deleteMutation = useDeleteMember();
   const batchInvite = useBatchInviteMembers();
-  const inviteMember = useInviteMember();
 
   const members = data?.data ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / 20));
@@ -153,16 +193,7 @@ function RidersContent() {
     });
   };
 
-  const handleInvite = () => {
-    inviteMember.mutate(inviteForm, {
-      onSuccess: () => {
-        setShowInvite(false);
-        setInviteForm({ first_name: "", last_name: "", email: "", phone: "", role: "rider" });
-        toast.success("Rider invited");
-      },
-      onError: () => toast.error("Failed to invite rider"),
-    });
-  };
+
 
   const confirmMessages: Record<ConfirmAction["type"], { title: string; description: string; actionLabel: string; variant: "default" | "destructive" }> = {
     approve: { title: "Approve Rider", description: "This rider will be granted access to accept deliveries.", actionLabel: "Approve", variant: "default" },
@@ -186,7 +217,7 @@ function RidersContent() {
             <Button variant="outline" size="sm" onClick={() => setShowBatch(true)}>
               <Users className="size-4" /> Batch Invite
             </Button>
-            <Button size="sm" onClick={() => setShowInvite(true)}>
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
               <UserPlus className="size-4" /> Add Rider
             </Button>
           </div>
@@ -402,6 +433,10 @@ function RidersContent() {
                         <p className="text-xs text-muted-foreground">Joined</p>
                         <p className="font-medium mt-1">{new Date(selectedMember.created_at).toLocaleDateString()}</p>
                       </div>
+                      <div className="col-span-2">
+                        <p className="text-xs text-muted-foreground">Engagement</p>
+                        <EmploymentToggle member={selectedMember} />
+                      </div>
                       {selectedMember.emergency_contact_name && (
                         <div className="col-span-2">
                           <p className="text-xs text-muted-foreground">Emergency Contact</p>
@@ -531,41 +566,7 @@ function RidersContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Invite Rider Dialog */}
-      <Dialog open={showInvite} onOpenChange={setShowInvite}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Invite Rider</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium">First Name</label>
-                <Input className="mt-1" value={inviteForm.first_name} onChange={(e) => setInviteForm((p) => ({ ...p, first_name: e.target.value }))} placeholder="Jane" />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Last Name</label>
-                <Input className="mt-1" value={inviteForm.last_name} onChange={(e) => setInviteForm((p) => ({ ...p, last_name: e.target.value }))} placeholder="Doe" />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Email *</label>
-              <Input className="mt-1" type="email" value={inviteForm.email} onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))} placeholder="jane@example.com" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Phone</label>
-              <Input className="mt-1" value={inviteForm.phone} onChange={(e) => setInviteForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+254 700 000 000" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
-            <Button onClick={handleInvite} disabled={!inviteForm.email || inviteMember.isPending}>
-              {inviteMember.isPending ? <Loader2 className="size-4 animate-spin mr-1" /> : null}
-              Send Invite
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <InviteRiderDialog open={showInvite} onOpenChange={setInviteOpen} />
 
       {/* Batch Invite Dialog */}
       <Dialog open={showBatch} onOpenChange={setShowBatch}>

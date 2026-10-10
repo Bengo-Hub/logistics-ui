@@ -1,7 +1,6 @@
 "use client";
 
-import { useMe } from "@/hooks/useMe";
-import { useModuleAccess } from "@/hooks/use-module-access";
+import { useModuleAccess, useMyPermissions } from "@/hooks/use-module-access";
 import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { cn, orgRoute } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
@@ -224,13 +223,14 @@ export function Sidebar({ open, onClose, collapsed = false }: SidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const orgSlug = (params.orgSlug as string) || "codevertex";
-  const session = useAuthStore((s) => s.session);
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
-  const { hasPermission, hasRole } = useMe(!!session);
+  // Logistics permissions come from the service's own /auth/me (tenant admins get all of them);
+  // the platform link is for real platform owners only, not tenant superusers.
+  const { hasPermission } = useMyPermissions();
   const { hasModule } = useModuleAccess();
   const { tenant } = useBranding();
-  const isPlatformOwner = hasRole("superuser") || hasRole("platform_owner");
+  const isPlatformOwner = user?.isPlatformOwner ?? false;
 
   const isActive = (href: string) => {
     const full = orgRoute(orgSlug, href);

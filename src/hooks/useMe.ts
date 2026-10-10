@@ -53,17 +53,3 @@ export function useMe(enabled = true) {
     isAuthenticated: !!user,
   };
 }
-
-export function useHasRole(role: string): boolean {
-  const { hasRole } = useMe();
-  return hasRole(role);
-}
-
-export function useHasPermission(permission: string): boolean {
-  const { hasPermission } = useMe();
-  return hasPermission(permission);
-}
-
-export function useIsSuperAdmin(): boolean {
-  return useHasRole("superuser");
-}
