@@ -35,3 +35,18 @@
 - [ ] Task route overlay (Valhalla polyline on map)
 - [x] Zone circle and polygon editor (`ZoneEditor` in @bengo-hub/maps v0.3.0) with typed coordinates (2026-10-09)
 - [x] Zone type selector (delivery / no-delivery) and status in the zone editor (2026-10-09)
+
+## Round 3 (2026-10-10)
+
+Done:
+- [x] Sidebar reads logistics permissions from the service `/auth/me` (same source as pages); tenant admins and superusers get every permission from the API, the Platform link shows for platform owners only. Duplicate `useHasPermission` removed.
+- [x] Shell owns page spacing (`max-w-[1600px]`, `px-4 sm:px-6 lg:px-8`); pages render content only.
+- [x] One add-rider dialog (`components/riders/invite-rider-dialog.tsx`): name, email, phone, ID, licence, freelance or staff. `/{org}/riders?invite=1` opens it so other apps link here instead of copying the form. Rider sheet shows and changes the engagement.
+- [x] e2e login reads `E2E_LOGIN_PASSWORD` only (no committed fallback).
+
+Open, in priority order:
+- [ ] Treasury-style `SubscriptionGate` on every gated page; `NavFeatureLock` badges on all gated sidebar items (only analytics, tracking and reports today); buttons locked with `FeatureLock`.
+- [ ] Settings modules section: `/settings/modules` parses the slug as a UUID (400), has no permission gate, and the section's state never syncs.
+- [ ] Task detail and rider detail: show `per_diem_claim` status and a "Raise per diem" action for staff riders.
+- [ ] Storefront staff area links to `/{org}/riders?invite=1` (cafe-website's own add-rider form to be removed).
+- [ ] Rider marker layer and task route overlay (above).
