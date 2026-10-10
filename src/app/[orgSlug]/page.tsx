@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Bike, Clock, MapPin, Package, TrendingUp, Users, CheckCircle, AlertTriangle } from "lucide-react";
+import { Clock, MapPin, Package, TrendingUp, Users, CheckCircle, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/base";
 import { useFleet, useFleetMembers } from "@/hooks/use-fleet";
 import { useTasks } from "@/hooks/use-tasks";
@@ -10,6 +10,7 @@ import { useParams } from "next/navigation";
 import { orgRoute } from "@/lib/utils";
 import Link from "next/link";
 import type { Task } from "@/types/logistics";
+import { FleetMapPanel } from "@/components/fleet-map-panel";
 
 const statusColor: Record<string, string> = {
   pending: "bg-warning",
@@ -184,22 +185,13 @@ export default function DashboardPage() {
               Live Fleet Map
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/20">
-              <div className="text-center space-y-2">
-                <Bike className="mx-auto size-10 text-muted-foreground/40" />
-                <p className="text-sm font-medium text-muted-foreground">Live map coming soon</p>
-                <p className="text-xs text-muted-foreground/60">
-                  Rider GPS positions via @bengo-hub/maps
-                </p>
-                <Link
-                  href={orgRoute(orgSlug, "/tracking")}
-                  className="inline-block mt-2 text-xs font-medium text-primary hover:underline"
-                >
-                  View Tracking →
-                </Link>
-              </div>
+          <CardContent className="space-y-2">
+            <div className="h-[360px] overflow-hidden rounded-xl border border-border">
+              <FleetMapPanel tenantSlug={orgSlug} />
             </div>
+            <Link href={orgRoute(orgSlug, "/tracking")} className="inline-block text-xs font-medium text-primary hover:underline">
+              Open tracking
+            </Link>
           </CardContent>
         </Card>
 

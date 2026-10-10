@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import {
   Activity,
   Bike,
@@ -24,22 +23,11 @@ import { useTasks } from "@/hooks/use-tasks";
 import { useTelemetry } from "@/hooks/use-telemetry";
 import { useTaskStream } from "@/hooks/use-task-stream";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/auth";
 import { orgRoute } from "@/lib/utils";
 import type { Task } from "@/types/logistics";
 import type { FleetRider } from "@bengo-hub/maps";
+import { FleetMapPanel } from "@/components/fleet-map-panel";
 
-const FleetMap = dynamic(
-  () => import("@/components/fleet-map").then((m) => ({ default: m.FleetMap })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-full w-full flex items-center justify-center animate-pulse bg-muted/30 rounded-xl">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    ),
-  }
-);
 
 const ACTIVE_STATUSES = ["assigned", "accepted", "en_route", "en_route_pickup", "arrived_pickup", "picked_up", "en_route_dropoff", "arrived_dropoff"] as const;
 
@@ -202,8 +190,6 @@ function TrackingPageInner() {
   const orgSlug = params.orgSlug as string;
   const searchParams = useSearchParams();
   const router = useRouter();
-  const session = useAuthStore((s) => s.session);
-  const authToken = session?.accessToken ?? undefined;
 
   const initialCode = searchParams.get("waybill") || searchParams.get("orderId") || "";
   const [searchCode, setSearchCode] = useState(initialCode);
@@ -344,12 +330,7 @@ function TrackingPageInner() {
           </CardHeader>
           <CardContent className="p-0 overflow-hidden rounded-b-[calc(var(--radius)-1px)]">
             <div className="h-125 w-full">
-              <FleetMap
-                tenantSlug={orgSlug}
-                authToken={authToken}
-                className="h-full w-full"
-                onRiderClick={(rider) => setSelectedRider(rider)}
-              />
+              <FleetMapPanel tenantSlug={orgSlug} onRiderClick={(rider) => setSelectedRider(rider)} />
             </div>
             {selectedRider && (
               <div className="flex items-center gap-3 px-4 py-3 border-t border-border bg-muted/30 text-sm">
