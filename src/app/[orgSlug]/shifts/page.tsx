@@ -23,6 +23,7 @@ import {
   useUpdateShiftStatus,
 } from "@/hooks/use-shifts";
 import { useFleetMembers } from "@/hooks/use-fleet";
+import { useZones } from "@/hooks/use-zones";
 import type { CreateShiftRequest, RiderShift, ShiftStatus } from "@/types/logistics";
 import { toast } from "sonner";
 
@@ -61,12 +62,21 @@ function CreateShiftDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const { data: membersData } = useFleetMembers({ status: "active" });
   const members = membersData?.data ?? [];
   const create = useCreateShift();
+  // Areas this rider covers: auto-dispatch offers their jobs to this rider first.
+  const { data: zones = [] } = useZones();
+  const deliveryZones = zones.filter((z) => z.zone_type === "delivery" && z.status === "active");
 
   const [form, setForm] = useState<Partial<CreateShiftRequest>>({
     fleet_member_id: "",
     shift_start: "",
     shift_end: "",
+    zone_ids: [],
   });
+  const toggleZone = (id: string) =>
+    setForm((f) => {
+      const ids = f.zone_ids ?? [];
+      return { ...f, zone_ids: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] };
+    });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -120,6 +130,27 @@ function CreateShiftDialog({ open, onClose }: { open: boolean; onClose: () => vo
               required
             />
           </div>
+          {deliveryZones.length > 0 && (
+            <div>
+              <label className="text-sm font-medium">Areas covered (optional)</label>
+              <p className="text-xs text-muted-foreground">Deliveries to these areas go to this rider first.</p>
+              <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+                {deliveryZones.map((z) => {
+                  const on = (form.zone_ids ?? []).includes(z.id);
+                  return (
+                    <button
+                      key={z.id}
+                      type="button"
+                      onClick={() => toggleZone(z.id)}
+                      className={`rounded-full border px-3 py-1 text-xs ${on ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"}`}
+                    >
+                      {z.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={create.isPending}>
