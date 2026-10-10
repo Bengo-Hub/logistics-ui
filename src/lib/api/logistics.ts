@@ -356,6 +356,23 @@ export async function saveDeliveryPolicy(tenantSlug: string, policy: DeliveryPol
   return data;
 }
 
+/** Drops the tenant's own policy so it follows the platform default again. */
+export async function resetDeliveryPolicy(tenantSlug: string): Promise<DeliveryPolicyView> {
+  const { data } = await api.delete(`${tenantSlug}/delivery-policy`);
+  return data;
+}
+
+/** The platform default policy every tenant without its own uses (platform owners only). */
+export async function fetchPlatformDeliveryPolicy(): Promise<DeliveryPolicyView> {
+  const { data } = await api.get(`admin/delivery-policy`);
+  return data;
+}
+
+export async function savePlatformDeliveryPolicy(policy: DeliveryPolicy): Promise<DeliveryPolicyView> {
+  const { data } = await api.put(`admin/delivery-policy`, policy);
+  return data;
+}
+
 export async function fetchDeliveryQuote(
   tenantSlug: string,
   params: { lat: number; lng: number; outlet_id?: string; order_total?: number },
@@ -526,48 +543,25 @@ export async function updateServiceConfig(
 
 export async function fetchRoles(tenantSlug: string): Promise<LogisticsRole[]> {
   const { data } = await api.get(`${tenantSlug}/rbac/roles`);
-  return Array.isArray(data) ? data : [];
-}
-
-export async function fetchRole(tenantSlug: string, roleId: string): Promise<LogisticsRole> {
-  const { data } = await api.get(`${tenantSlug}/rbac/roles/${roleId}`);
-  return data;
+  return data?.roles ?? [];
 }
 
 export async function fetchPermissions(tenantSlug: string): Promise<LogisticsPermission[]> {
   const { data } = await api.get(`${tenantSlug}/rbac/permissions`);
-  return Array.isArray(data) ? data : [];
+  return data?.permissions ?? [];
 }
 
-export async function assignRoleToUser(
-  tenantSlug: string,
-  userId: string,
-  roleId: string
-): Promise<UserRoleAssignment> {
-  const { data } = await api.post(`${tenantSlug}/rbac/assignments`, {
-    user_id: userId,
-    role_id: roleId,
-  });
-  return data;
+export async function assignRoleToUser(tenantSlug: string, userId: string, roleId: string): Promise<void> {
+  await api.post(`${tenantSlug}/rbac/assignments`, { user_id: userId, role_id: roleId });
 }
 
-export async function revokeRoleFromUser(
-  tenantSlug: string,
-  userId: string,
-  roleId: string
-): Promise<void> {
-  await api.delete(`${tenantSlug}/rbac/assignments`, {
-    data: { user_id: userId, role_id: roleId },
-  });
+export async function revokeAssignment(tenantSlug: string, assignmentId: string): Promise<void> {
+  await api.delete(`${tenantSlug}/rbac/assignments/${assignmentId}`);
 }
 
-export async function fetchUserAssignments(
-  tenantSlug: string,
-  userId?: string
-): Promise<UserRoleAssignment[]> {
-  const query = userId ? `?user_id=${userId}` : "";
-  const { data } = await api.get(`${tenantSlug}/rbac/assignments${query}`);
-  return Array.isArray(data) ? data : [];
+export async function fetchUserAssignments(tenantSlug: string, userId?: string): Promise<UserRoleAssignment[]> {
+  const { data } = await api.get(`${tenantSlug}/rbac/assignments`, { params: userId ? { user_id: userId } : undefined });
+  return data?.assignments ?? [];
 }
 
 // ─── Auth / Trinity Layer 3 ───────────────────────────────────────────────────

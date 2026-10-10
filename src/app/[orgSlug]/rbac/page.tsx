@@ -1,393 +1,234 @@
 "use client";
 
-import { useState } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Plus,
-  Shield,
-  ShieldCheck,
-  Trash2,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Info, Loader2, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-} from "@/components/ui/base";
-import { useRoles, usePermissions, useUserAssignments, useAssignRole, useRevokeRole } from "@/hooks/use-rbac";
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "@/components/ui/base";
 import { useFleetMembers } from "@/hooks/use-fleet";
-import type { LogisticsRole, UserRoleAssignment } from "@/types/logistics";
+import { useMyPermissions } from "@/hooks/use-module-access";
+import { useAssignRole, useRevokeRole, useRoles, useUserAssignments } from "@/hooks/use-rbac";
+import type { LogisticsRole } from "@/types/logistics";
 
-// ─── Permission category helpers ─────────────────────────────────────────────
+// Who can do what in logistics. Tenant admins hold everything through their sign-in role;
+// sign-in roles like dispatcher or rider map to the matching system role; extra roles can be
+// granted here. The API applies the same rule (rbac.Service.HasPermission).
 
-const CATEGORY_LABELS: Record<string, string> = {
-  tasks: "Tasks",
-  fleet: "Fleet",
-  vehicles: "Vehicles",
-  zones: "Zones",
-  analytics: "Analytics",
-  earnings: "Earnings",
-  distribution: "Distribution",
-  settings: "Settings",
-  rbac: "Access Control",
-  telemetry: "Telemetry",
-  shifts: "Shifts",
-  reporting: "Reporting",
-};
+const selectCls = "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm";
 
-function groupPermissionsByCategory(perms: Array<{ id: string; permission_code: string }>) {
-  const groups: Record<string, typeof perms> = {};
-  for (const p of perms) {
-    const parts = p.permission_code.split(".");
-    const cat = parts.length >= 2 ? parts[1] : "other";
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(p);
-  }
-  return groups;
-}
-
-// ─── Role Card ────────────────────────────────────────────────────────────────
-
-function RoleCard({ role }: { role: LogisticsRole }) {
-  const [expanded, setExpanded] = useState(false);
-  const permissions = role.edges?.permissions ?? [];
-  const assignmentsCount = role.edges?.user_assignments?.length ?? 0;
-  const grouped = groupPermissionsByCategory(permissions);
-  const categoryCount = Object.keys(grouped).length;
-
-  return (
-    <Card className="border-border">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-              {role.is_system ? (
-                <ShieldCheck className="size-4 text-primary" />
-              ) : (
-                <Shield className="size-4 text-primary" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="text-sm font-semibold">{role.name}</CardTitle>
-                {role.is_system && (
-                  <Badge variant="secondary" className="text-xs px-1.5 py-0">System</Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground font-mono">{role.role_code}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {permissions.length > 0 && (
-              <Badge variant="outline" className="text-xs gap-1">
-                <Shield className="size-2.5" />
-                {permissions.length} perm{permissions.length !== 1 ? "s" : ""}
-                {categoryCount > 0 && `, ${categoryCount} categor${categoryCount !== 1 ? "ies" : "y"}`}
-              </Badge>
-            )}
-            <Badge variant="outline" className="text-xs">
-              {assignmentsCount} user{assignmentsCount !== 1 ? "s" : ""}
-            </Badge>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={() => setExpanded((v) => !v)}
-              title={expanded ? "Collapse" : "Expand permissions"}
-            >
-              {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-            </Button>
-          </div>
-        </div>
-        {role.description && (
-          <p className="text-xs text-muted-foreground mt-1 ml-11">{role.description}</p>
-        )}
-      </CardHeader>
-
-      {expanded && (
-        <CardContent className="pt-0 border-t border-border">
-          {permissions.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">No permissions configured.</p>
-          ) : (
-            <div className="space-y-3 pt-3">
-              {Object.entries(grouped).map(([cat, perms]) => (
-                <div key={cat}>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                    {CATEGORY_LABELS[cat] ?? cat}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {perms.map((p) => {
-                      const action = p.permission_code.split(".").slice(2).join(".");
-                      return (
-                        <span
-                          key={p.id}
-                          className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground"
-                          title={p.permission_code}
-                        >
-                          {action || p.permission_code}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      )}
-    </Card>
-  );
-}
-
-// ─── Assignment Row ───────────────────────────────────────────────────────────
-
-function AssignmentRow({ assignment }: { assignment: UserRoleAssignment }) {
-  const { mutateAsync: revokeRole, isPending } = useRevokeRole();
-
-  async function handleRevoke() {
-    try {
-      await revokeRole({ userId: assignment.user_id, roleId: assignment.role_id });
-      toast.success("Role revoked.");
-    } catch {
-      toast.error("Failed to revoke role.");
-    }
-  }
-
-  const role = assignment.edges?.role;
-  const user = assignment.edges?.user;
-
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-border p-3">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
-        <Users className="size-4 text-muted-foreground" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">
-          {user ? `${user.first_name} ${user.last_name}`.trim() || `User ${assignment.user_id.slice(0, 8)}` : `User ${assignment.user_id.slice(0, 8)}`}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {role?.name ?? assignment.role_id}
-          {" · "}
-          Assigned {new Date(assignment.created_at).toLocaleDateString()}
-        </p>
-      </div>
-      <Badge variant="outline" className="text-xs font-mono shrink-0">
-        {role?.role_code ?? "—"}
-      </Badge>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-        onClick={handleRevoke}
-        disabled={isPending}
-        title="Revoke role"
-      >
-        {isPending ? (
-          <Loader2 className="size-3.5 animate-spin" />
-        ) : (
-          <Trash2 className="size-3.5" />
-        )}
-      </Button>
-    </div>
-  );
-}
-
-// ─── Assign Role Dialog ───────────────────────────────────────────────────────
-
-function AssignRolePanel({
-  onClose,
-}: {
-  onClose: () => void;
-}) {
-  const [userId, setUserId] = useState("");
-  const [roleId, setRoleId] = useState("");
-  const { data: roles } = useRoles();
-  const { data: membersData } = useFleetMembers({ limit: 100 });
-  const { mutateAsync: assignRole, isPending } = useAssignRole();
-
-  const members = membersData?.data ?? [];
-
-  async function handleAssign() {
-    if (!userId || !roleId) {
-      toast.error("Select both a user and a role.");
-      return;
-    }
-    try {
-      await assignRole({ userId, roleId });
-      toast.success("Role assigned.");
-      onClose();
-    } catch {
-      toast.error("Failed to assign role.");
-    }
-  }
-
-  return (
-    <Card className="border-primary/40 bg-primary/5">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm">Assign Role to User</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium">User</label>
-          <select
-            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-          >
-            <option value="">Select user…</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {`${m.first_name} ${m.last_name}`.trim() || `Rider ${m.id.slice(0, 8)}`}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium">Role</label>
-          <select
-            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={roleId}
-            onChange={(e) => setRoleId(e.target.value)}
-          >
-            <option value="">Select role…</option>
-            {(roles ?? []).map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} ({r.role_code})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex gap-2 pt-1">
-          <Button size="sm" onClick={handleAssign} disabled={isPending}>
-            {isPending ? <Loader2 className="size-3.5 animate-spin" /> : <UserPlus className="size-3.5" />}
-            Assign
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function RbacPage() {
-  const [tab, setTab] = useState<"roles" | "assignments">("roles");
-  const [showAssign, setShowAssign] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const { data: roles, isLoading: rolesLoading } = useRoles();
-  const { data: assignments, isLoading: assignmentsLoading } = useUserAssignments();
-
-  const filteredRoles = (roles ?? []).filter(
-    (r) =>
-      r.name.toLowerCase().includes(search.toLowerCase()) ||
-      r.role_code.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const filteredAssignments = (assignments ?? []).filter((a) =>
-    (a.edges?.role?.name ?? a.role_id).toLowerCase().includes(search.toLowerCase())
-  );
+export default function RolesPage() {
+  const { hasPermission } = useMyPermissions();
+  const canManage = hasPermission("logistics.config.manage");
+  const { data: roles = [], isLoading } = useRoles();
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">RBAC Management</h1>
-          <p className="text-muted-foreground">Manage roles, permissions, and user assignments.</p>
-        </div>
-        <Button onClick={() => setShowAssign((v) => !v)}>
-          <Plus className="size-4" />
-          Assign Role
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Roles and permissions</h1>
+        <p className="text-sm text-muted-foreground">Who can dispatch, manage riders and change settings.</p>
       </div>
 
-      {showAssign && <AssignRolePanel onClose={() => setShowAssign(false)} />}
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {(["roles", "assignments"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors capitalize ${
-              tab === t
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t === "roles" ? `Roles (${(roles ?? []).length})` : `Assignments (${(assignments ?? []).length})`}
-          </button>
-        ))}
-        <div className="ml-auto flex items-center pb-1">
-          <Input
-            placeholder="Search…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-8 w-48 text-sm"
-          />
+      <div className="flex gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm">
+        <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+        <div className="space-y-1 text-muted-foreground">
+          <p>
+            <span className="font-medium text-foreground">Admins</span> of your business have full access automatically.
+          </p>
+          <p>
+            Sign-in roles carry over: dispatchers, delivery coordinators and fleet managers get the{" "}
+            <span className="font-medium text-foreground">Dispatcher</span> role, riders and drivers the{" "}
+            <span className="font-medium text-foreground">Driver</span> role. Grant a role below only to give someone more.
+          </p>
         </div>
       </div>
 
-      {/* Roles Tab */}
-      {tab === "roles" && (
-        <div className="space-y-3">
-          {rolesLoading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            </div>
-          )}
-          {!rolesLoading && filteredRoles.length === 0 && (
-            <div className="rounded-xl border border-dashed border-border py-16 text-center">
-              <Shield className="mx-auto size-10 text-muted-foreground/40" />
-              <p className="mt-3 text-sm text-muted-foreground">No roles found.</p>
-            </div>
-          )}
-          {filteredRoles.map((role) => (
-            <RoleCard key={role.id} role={role} />
-          ))}
-        </div>
-      )}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-primary" /> Roles
+            </CardTitle>
+            <CardDescription>System roles are kept up to date by the platform.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? (
+              <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading roles...
+              </p>
+            ) : roles.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No roles yet.</p>
+            ) : (
+              roles.map((r) => <RoleRow key={r.id} role={r} />)
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Assignments Tab */}
-      {tab === "assignments" && (
-        <div className="space-y-3">
-          {assignmentsLoading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            </div>
+        <AssignmentsCard roles={roles} canManage={canManage} />
+      </div>
+    </div>
+  );
+}
+
+function RoleRow({ role }: { role: LogisticsRole }) {
+  const [open, setOpen] = useState(false);
+  // Group codes by module: logistics.tasks.view -> tasks: view
+  const grouped = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const code of role.permissions) {
+      const [, mod = "other", action = code] = code.split(".");
+      m.set(mod, [...(m.get(mod) ?? []), action.replace(/_/g, " ")]);
+    }
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [role.permissions]);
+
+  return (
+    <div className="rounded-xl border border-border">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-3 p-3 text-left">
+        {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2 text-sm font-semibold">
+            {role.name}
+            {role.is_system_role && <Badge variant="secondary">System</Badge>}
+          </span>
+          {role.description && <span className="block truncate text-xs text-muted-foreground">{role.description}</span>}
+        </span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Users className="size-3.5" /> {role.assignment_count}
+        </span>
+      </button>
+      {open && (
+        <div className="space-y-2 border-t border-border p-3">
+          {grouped.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No permissions.</p>
+          ) : (
+            grouped.map(([mod, actions]) => (
+              <div key={mod} className="flex flex-wrap items-baseline gap-1.5 text-xs">
+                <span className="w-20 shrink-0 font-medium capitalize">{mod}</span>
+                {actions.map((a) => (
+                  <span key={a} className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                    {a}
+                  </span>
+                ))}
+              </div>
+            ))
           )}
-          {!assignmentsLoading && filteredAssignments.length === 0 && (
-            <div className="rounded-xl border border-dashed border-border py-16 text-center">
-              <Users className="mx-auto size-10 text-muted-foreground/40" />
-              <p className="mt-3 text-sm text-muted-foreground">No role assignments found.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => setShowAssign(true)}
-              >
-                <UserPlus className="size-3.5" />
-                Assign First Role
-              </Button>
-            </div>
-          )}
-          {filteredAssignments.map((a) => (
-            <AssignmentRow key={a.id} assignment={a} />
-          ))}
         </div>
       )}
     </div>
+  );
+}
+
+function AssignmentsCard({ roles, canManage }: { roles: LogisticsRole[]; canManage: boolean }) {
+  const { data: assignments = [], isLoading } = useUserAssignments(canManage);
+  const { data: members } = useFleetMembers({ limit: 100 });
+  const assign = useAssignRole();
+  const revoke = useRevokeRole();
+  const [userId, setUserId] = useState("");
+  const [roleId, setRoleId] = useState("");
+  const [filter, setFilter] = useState("");
+
+  const people = useMemo(
+    () =>
+      (members?.data ?? []).map((m) => ({
+        id: m.user_id,
+        label: [`${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.email, m.email].filter(Boolean).join(" · "),
+      })),
+    [members],
+  );
+  const shown = assignments.filter((a) =>
+    `${a.user_name} ${a.user_email} ${a.role_name}`.toLowerCase().includes(filter.trim().toLowerCase()),
+  );
+
+  const grant = async () => {
+    try {
+      await assign.mutateAsync({ userId, roleId });
+      toast.success("Role granted");
+      setUserId("");
+      setRoleId("");
+    } catch (e) {
+      toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Could not grant the role");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Granted roles</CardTitle>
+        <CardDescription>Roles given here, on top of sign-in roles.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!canManage ? (
+          <p className="text-sm text-muted-foreground">You need the settings permission to see and grant roles.</p>
+        ) : (
+          <>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_auto]">
+              <select className={selectCls} value={userId} onChange={(e) => setUserId(e.target.value)}>
+                <option value="">Choose a person</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <select className={selectCls} value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+                <option value="">Role</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={grant} disabled={!userId || !roleId || assign.isPending}>
+                {assign.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                Grant
+              </Button>
+            </div>
+            {assignments.length > 5 && (
+              <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by name, email or role" />
+            )}
+            {isLoading ? (
+              <p className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading...
+              </p>
+            ) : shown.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+                No roles granted yet. Sign-in roles still apply.
+              </p>
+            ) : (
+              <div className="divide-y divide-border rounded-xl border border-border">
+                {shown.map((a) => (
+                  <div key={a.id} className="flex items-center gap-3 p-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{a.user_name || a.user_email || a.user_id.slice(0, 8)}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {a.user_email} · since {new Date(a.assigned_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">{a.role_name}</Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      title="Revoke role"
+                      disabled={revoke.isPending}
+                      onClick={async () => {
+                        if (!confirm(`Remove the ${a.role_name} role from ${a.user_name || a.user_email}?`)) return;
+                        try {
+                          await revoke.mutateAsync(a.id);
+                          toast.success("Role removed");
+                        } catch {
+                          toast.error("Could not remove the role");
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

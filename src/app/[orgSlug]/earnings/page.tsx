@@ -28,7 +28,7 @@ type Tab = "overview" | "pricing" | "events";
 
 const TABS: { label: string; value: Tab }[] = [
   { label: "Statements", value: "overview" },
-  { label: "Pricing Rules", value: "pricing" },
+  { label: "Rider pay rules", value: "pricing" },
   { label: "Billing Events", value: "events" },
 ];
 

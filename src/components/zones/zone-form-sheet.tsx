@@ -9,7 +9,7 @@ import { Button, Input } from "@/components/ui/base";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useCreateZone, usePlaceSearch, useUpdateZone } from "@/hooks/use-zones";
 import type { GeoFence, OutletPoint } from "@/types/logistics";
-import { ZONE_COLORS, draftToInput, type ZoneDraft } from "./zone-utils";
+import { ZONE_COLORS, draftToInput, pointFromMapLink, type ZoneDraft } from "./zone-utils";
 
 const ZoneEditorMap = dynamic(() => import("./zone-maps").then((m) => m.ZoneEditorMap), {
   ssr: false,
@@ -37,6 +37,7 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
   const saving = create.isPending || update.isPending;
   const [error, setError] = useState<string | null>(null);
   const [placeQuery, setPlaceQuery] = useState("");
+  const [mapLink, setMapLink] = useState("");
   const places = usePlaceSearch(placeQuery);
 
   useEffect(() => {
@@ -79,7 +80,8 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="!w-[min(100vw,960px)] flex flex-col">
+      {/* Full screen so the map has room; the form scrolls on its own column. */}
+      <SheetContent side="right" className="!w-screen !max-w-none flex flex-col">
         <SheetHeader>
           <SheetTitle>{draft.id ? `Edit ${draft.name || "area"}` : "Add a delivery area"}</SheetTitle>
           <SheetDescription>
@@ -87,8 +89,8 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
             distance rate when they are close enough.
           </SheetDescription>
         </SheetHeader>
-        <SheetBody className="grid flex-1 gap-5 lg:grid-cols-[1fr_380px]">
-          <div className="flex min-h-90 flex-col gap-2">
+        <SheetBody className="grid flex-1 gap-5 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_420px] lg:overflow-hidden">
+          <div className="flex min-h-[60vh] flex-col gap-2 lg:min-h-0">
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
@@ -112,7 +114,7 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
                   : "Tap to add corners, drag to move, double-click a corner to remove it."}
               </span>
             </div>
-            <div className="relative min-h-80 flex-1 overflow-hidden rounded-xl border">
+            <div className="relative min-h-[50vh] flex-1 overflow-hidden rounded-xl border lg:min-h-0">
               <ZoneEditorMap
                 className="absolute inset-0"
                 value={g}
@@ -125,7 +127,7 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 lg:overflow-y-auto lg:pr-1">
             <div className="space-y-1">
               <p className={label}>Name</p>
               <Input value={draft.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Alupe" />
@@ -181,6 +183,35 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* A Google Maps link or copied coordinates set the centre (or add a corner). */}
+            <div className="space-y-1">
+              <p className={label}>Google Maps link or coordinates</p>
+              <Input
+                value={mapLink}
+                onChange={(e) => setMapLink(e.target.value)}
+                onPaste={(e) => {
+                  const pt = pointFromMapLink(e.clipboardData.getData("text"));
+                  if (!pt) return;
+                  e.preventDefault();
+                  setMapLink("");
+                  setGeo(g.shape === "circle" ? { ...g, center: pt } : { ...g, boundary: [...g.boundary, [pt.longitude, pt.latitude]] });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  const pt = pointFromMapLink(mapLink);
+                  if (!pt) {
+                    setError("Paste a full Google Maps link (open short links first) or coordinates like 0.4633, 34.1052.");
+                    return;
+                  }
+                  setMapLink("");
+                  setGeo(g.shape === "circle" ? { ...g, center: pt } : { ...g, boundary: [...g.boundary, [pt.longitude, pt.latitude]] });
+                }}
+                placeholder="Paste a place link, or 0.4633, 34.1052"
+              />
+              <p className="text-xs text-muted-foreground">The place pin in the link is used, not the map view around it.</p>
             </div>
 
             {g.shape === "circle" ? (

@@ -484,55 +484,43 @@ export interface ServiceConfigEntry {
  * are the config_key with the "logistics." prefix stripped. There is no tenant-level SLA
  * window, pricing, or notification-trigger config on the backend; pricing rules are a
  * separate real entity managed from the Earnings page, not ServiceConfig. */
+/** Tenant settings the API acts on (keys without the "logistics." prefix). */
 export interface ServiceConfigMap {
   pod_required?: boolean;
   auto_assign_enabled?: boolean;
-  default_task_timeout?: number;
-  max_concurrent_tasks?: number;
-  max_fleet_size?: number;
-  geofence_radius_meters?: number;
-  telemetry_interval_seconds?: number;
-  max_route_waypoints?: number;
-  earnings_payout_cycle_days?: number;
-  tracking_link_expiry_hours?: number;
 }
 
 /** RBAC types */
+/** A role with its permission codes and how many users hold it (GET /rbac/roles). */
 export interface LogisticsRole {
   id: string;
-  tenant_id: string;
   role_code: string;
   name: string;
-  description: string;
-  is_system: boolean;
-  created_at: string;
-  updated_at: string;
-  edges?: {
-    permissions?: LogisticsPermission[];
-    user_assignments?: UserRoleAssignment[];
-  };
+  description?: string;
+  is_system_role: boolean;
+  permissions: string[];
+  assignment_count: number;
 }
 
 export interface LogisticsPermission {
   id: string;
   permission_code: string;
   name: string;
-  description: string;
   module: string;
-  created_at: string;
+  action: string;
 }
 
+/** A role held by a user (GET /rbac/assignments). */
 export interface UserRoleAssignment {
   id: string;
-  tenant_id: string;
   user_id: string;
+  user_name: string;
+  user_email: string;
   role_id: string;
-  assigned_by: string;
-  created_at: string;
-  edges?: {
-    role?: LogisticsRole;
-    user?: FleetMember;
-  };
+  role_code: string;
+  role_name: string;
+  assigned_at: string;
+  expires_at?: string;
 }
 
 /** Auth/me response (Trinity Layer 3) */

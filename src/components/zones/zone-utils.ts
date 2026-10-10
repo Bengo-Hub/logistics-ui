@@ -203,3 +203,27 @@ export function downloadJSON(filename: string, data: unknown) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Reads a point from a pasted Google Maps link or coordinates. The place pin in a link
+ * (!3d<lat>!4d<lng>) wins over the map view (@lat,lng), which is only where the map was
+ * looking. Also accepts "?q=lat,lng" and plain "0.4633, 34.1052" (Google's right-click copy).
+ * Short maps.app.goo.gl links carry no coordinates: open them and copy the full link.
+ */
+export function pointFromMapLink(text: string): { latitude: number; longitude: number } | null {
+  const t = decodeURIComponent(text.trim());
+  const patterns = [
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+    /[?&](?:q|query|ll|center)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/,
+  ];
+  for (const re of patterns) {
+    const m = t.match(re);
+    if (!m) continue;
+    const latitude = Number(m[1]);
+    const longitude = Number(m[2]);
+    if (Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) return { latitude, longitude };
+  }
+  return null;
+}

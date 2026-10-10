@@ -4,17 +4,39 @@ import { useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "@/components/ui/base";
-import { useDeliveryPolicy, useSaveDeliveryPolicy } from "@/hooks/use-zones";
+import {
+  useDeliveryPolicy,
+  usePlatformDeliveryPolicy,
+  useResetDeliveryPolicy,
+  useSaveDeliveryPolicy,
+  useSavePlatformDeliveryPolicy,
+} from "@/hooks/use-zones";
 import type { DeliveryPolicy } from "@/types/logistics";
 import { money } from "./zone-utils";
 
 const label = "text-xs font-semibold uppercase tracking-wide text-muted-foreground";
 const selectCls = "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm";
 
-/** Per-km fallback pricing and geofence settings (logistics.delivery_quote_policy). */
-export function DeliveryPricingCard({ canManage }: { canManage: boolean }) {
-  const { data, isLoading } = useDeliveryPolicy();
-  const save = useSaveDeliveryPolicy();
+/**
+ * Per-km fallback pricing and geofence settings (logistics.delivery_quote_policy). The one
+ * editor for this policy: scope "tenant" edits the tenant's own copy (Zones page), scope
+ * "platform" edits the default every tenant without its own copy uses (Platform page).
+ */
+export function DeliveryPricingCard({
+  canManage,
+  scope = "tenant",
+}: {
+  canManage: boolean;
+  scope?: "tenant" | "platform";
+}) {
+  const platform = scope === "platform";
+  const tenantPolicy = useDeliveryPolicy(!platform);
+  const platformPolicy = usePlatformDeliveryPolicy(platform);
+  const { data, isLoading } = platform ? platformPolicy : tenantPolicy;
+  const saveTenant = useSaveDeliveryPolicy();
+  const savePlatform = useSavePlatformDeliveryPolicy();
+  const save = platform ? savePlatform : saveTenant;
+  const reset = useResetDeliveryPolicy();
   const [p, setP] = useState<DeliveryPolicy | null>(null);
 
   useEffect(() => {
@@ -55,13 +77,17 @@ export function DeliveryPricingCard({ canManage }: { canManage: boolean }) {
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <CardTitle>Distance pricing and geofence</CardTitle>
+            <CardTitle>{platform ? "Default distance pricing and geofence" : "Distance pricing and geofence"}</CardTitle>
             <CardDescription>
-              Applies to customer pins outside every delivery area. Areas with their own fee always win.
+              {platform
+                ? "Used by every tenant that has not set its own. Tenants change theirs on their Delivery areas page."
+                : "Applies to customer pins outside every delivery area. Areas with their own fee always win."}
             </CardDescription>
           </div>
           <Badge variant={data?.source === "tenant" ? "success" : "secondary"}>
-            {data?.source === "tenant" ? "Custom" : data?.source === "platform" ? "Platform default" : "Default"}
+            {platform
+              ? data?.source === "platform" ? "Saved" : "Built-in defaults"
+              : data?.source === "tenant" ? "Custom" : data?.source === "platform" ? "Platform default" : "Default"}
           </Badge>
         </div>
       </CardHeader>
@@ -153,7 +179,24 @@ export function DeliveryPricingCard({ canManage }: { canManage: boolean }) {
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          {!platform && data?.source === "tenant" && (
+            <Button
+              variant="outline"
+              disabled={!canManage || reset.isPending}
+              onClick={async () => {
+                if (!confirm("Drop this tenant's pricing and use the platform default?")) return;
+                try {
+                  await reset.mutateAsync();
+                  toast.success("Now using the platform default");
+                } catch {
+                  toast.error("Could not reset pricing");
+                }
+              }}
+            >
+              Use platform default
+            </Button>
+          )}
           <Button onClick={onSave} disabled={!canManage || save.isPending}>
             {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save pricing

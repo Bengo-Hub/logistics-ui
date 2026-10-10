@@ -5,10 +5,9 @@ import { useParams } from "next/navigation";
 import {
   assignRoleToUser,
   fetchPermissions,
-  fetchRole,
   fetchRoles,
   fetchUserAssignments,
-  revokeRoleFromUser,
+  revokeAssignment,
 } from "@/lib/api/logistics";
 
 function useTenantSlug(): string {
@@ -16,22 +15,17 @@ function useTenantSlug(): string {
   return (params?.orgSlug as string) ?? "";
 }
 
-export function useRoles() {
-  const tenantSlug = useTenantSlug();
-  return useQuery({
-    queryKey: ["rbac-roles", tenantSlug],
-    queryFn: () => fetchRoles(tenantSlug),
-    enabled: !!tenantSlug,
-  });
+function useInvalidateRbac() {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: ["rbac-assignments"] });
+    qc.invalidateQueries({ queryKey: ["rbac-roles"] });
+  };
 }
 
-export function useRole(roleId: string) {
+export function useRoles() {
   const tenantSlug = useTenantSlug();
-  return useQuery({
-    queryKey: ["rbac-role", tenantSlug, roleId],
-    queryFn: () => fetchRole(tenantSlug, roleId),
-    enabled: !!tenantSlug && !!roleId,
-  });
+  return useQuery({ queryKey: ["rbac-roles", tenantSlug], queryFn: () => fetchRoles(tenantSlug), enabled: !!tenantSlug });
 }
 
 export function usePermissions() {
@@ -40,34 +34,33 @@ export function usePermissions() {
     queryKey: ["rbac-permissions", tenantSlug],
     queryFn: () => fetchPermissions(tenantSlug),
     enabled: !!tenantSlug,
+    staleTime: 10 * 60 * 1000,
   });
 }
 
-export function useUserAssignments(userId?: string) {
+export function useUserAssignments(enabled = true, userId?: string) {
   const tenantSlug = useTenantSlug();
   return useQuery({
     queryKey: ["rbac-assignments", tenantSlug, userId],
     queryFn: () => fetchUserAssignments(tenantSlug, userId),
-    enabled: !!tenantSlug,
+    enabled: enabled && !!tenantSlug,
   });
 }
 
 export function useAssignRole() {
   const tenantSlug = useTenantSlug();
-  const qc = useQueryClient();
+  const invalidate = useInvalidateRbac();
   return useMutation({
-    mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) =>
-      assignRoleToUser(tenantSlug, userId, roleId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["rbac-assignments"] }),
+    mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) => assignRoleToUser(tenantSlug, userId, roleId),
+    onSuccess: invalidate,
   });
 }
 
 export function useRevokeRole() {
   const tenantSlug = useTenantSlug();
-  const qc = useQueryClient();
+  const invalidate = useInvalidateRbac();
   return useMutation({
-    mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) =>
-      revokeRoleFromUser(tenantSlug, userId, roleId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["rbac-assignments"] }),
+    mutationFn: (assignmentId: string) => revokeAssignment(tenantSlug, assignmentId),
+    onSuccess: invalidate,
   });
 }

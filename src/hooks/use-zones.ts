@@ -15,6 +15,9 @@ import {
   saveDeliveryPolicy,
   searchPlaces,
   updateZone,
+  fetchPlatformDeliveryPolicy,
+  resetDeliveryPolicy,
+  savePlatformDeliveryPolicy,
 } from "@/lib/api/logistics";
 import type { DeliveryPolicy, ZoneInput } from "@/types/logistics";
 
@@ -78,12 +81,12 @@ export function useDeleteZone() {
   });
 }
 
-export function useDeliveryPolicy() {
+export function useDeliveryPolicy(enabled = true) {
   const tenantSlug = useTenantSlug();
   return useQuery({
     queryKey: ["delivery-policy", tenantSlug],
     queryFn: () => fetchDeliveryPolicy(tenantSlug),
-    enabled: !!tenantSlug,
+    enabled: enabled && !!tenantSlug,
   });
 }
 
@@ -92,6 +95,32 @@ export function useSaveDeliveryPolicy() {
   const invalidate = useInvalidateDelivery();
   return useMutation({
     mutationFn: (policy: DeliveryPolicy) => saveDeliveryPolicy(tenantSlug, policy),
+    onSuccess: invalidate,
+  });
+}
+
+export function useResetDeliveryPolicy() {
+  const tenantSlug = useTenantSlug();
+  const invalidate = useInvalidateDelivery();
+  return useMutation({
+    mutationFn: () => resetDeliveryPolicy(tenantSlug),
+    onSuccess: invalidate,
+  });
+}
+
+/** The platform default policy (platform owners only). */
+export function usePlatformDeliveryPolicy(enabled = true) {
+  return useQuery({
+    queryKey: ["delivery-policy", "platform"],
+    queryFn: fetchPlatformDeliveryPolicy,
+    enabled,
+  });
+}
+
+export function useSavePlatformDeliveryPolicy() {
+  const invalidate = useInvalidateDelivery();
+  return useMutation({
+    mutationFn: (policy: DeliveryPolicy) => savePlatformDeliveryPolicy(policy),
     onSuccess: invalidate,
   });
 }
