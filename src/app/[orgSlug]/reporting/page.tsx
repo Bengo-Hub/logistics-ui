@@ -1,5 +1,7 @@
 "use client";
 
+import { SubscriptionGate } from "@/components/subscription/subscription-gate";
+
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
@@ -21,7 +23,16 @@ const PERIODS: Array<{ value: KPIPeriod; label: string }> = [
   { value: "30d", label: "Last 30 Days" },
 ];
 
+// Plan gate matches the API (performance_reports); shows the upgrade card when missing.
 export default function ReportingPage() {
+  return (
+    <SubscriptionGate feature="performance_reports">
+      <ReportingContent />
+    </SubscriptionGate>
+  );
+}
+
+function ReportingContent() {
   const params = useParams();
   const orgSlug = params.orgSlug as string;
   const [period, setPeriod] = useState<KPIPeriod>("7d");

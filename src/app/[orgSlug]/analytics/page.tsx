@@ -1,5 +1,7 @@
 "use client";
 
+import { SubscriptionGate } from "@/components/subscription/subscription-gate";
+
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { BarChart3, CheckCircle, Clock, Loader2, Package, TrendingUp, Users, Zap } from "lucide-react";
@@ -391,7 +393,10 @@ export default function AnalyticsPage() {
         </div>
       }
     >
-      <AnalyticsPageInner />
+      {/* Plan gate matches the API (driver_analytics); shows the upgrade card when missing. */}
+      <SubscriptionGate feature="driver_analytics">
+        <AnalyticsPageInner />
+      </SubscriptionGate>
     </Suspense>
   );
 }

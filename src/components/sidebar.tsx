@@ -61,7 +61,7 @@ const navGroups: NavGroup[] = [
     label: "Overview",
     items: [
       { id: "dashboard", label: "Dashboard", href: "", icon: LayoutDashboard },
-      { id: "analytics", label: "Analytics", href: "/analytics", icon: BarChart3, moduleKey: "analytics", feature: "driver_analytics" },
+      { id: "analytics", label: "Analytics", href: "/analytics", icon: BarChart3, moduleKey: "analytics", feature: "driver_analytics", permission: "logistics.tasks.view" },
     ],
   },
   {
@@ -94,16 +94,16 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "cash", label: "Rider Cash", href: "/cash", icon: Banknote, permission: "logistics.tasks.manage" },
       { id: "earnings", label: "Earnings", href: "/earnings", icon: Wallet, permission: "logistics.earnings.view", moduleKey: "earnings" },
-      { id: "reporting", label: "Reports", href: "/reporting", icon: FileText, moduleKey: "reporting", feature: "performance_reports" },
+      { id: "reporting", label: "Reports", href: "/reporting", icon: FileText, moduleKey: "reporting", feature: "performance_reports", permission: "logistics.tasks.view" },
     ],
   },
   {
     label: "Admin",
     defaultCollapsed: true,
     items: [
-      { id: "rbac", label: "Roles & Perms", href: "/rbac", icon: Shield, moduleKey: "rbac" },
+      { id: "rbac", label: "Roles & Perms", href: "/rbac", icon: Shield, moduleKey: "rbac", permission: "logistics.config.manage" },
       { id: "backups", label: "Backups", href: "/backups", icon: Database },
-      { id: "settings", label: "Settings", href: "/settings", icon: Settings, moduleKey: "settings" },
+      { id: "settings", label: "Settings", href: "/settings", icon: Settings, moduleKey: "settings", permission: "logistics.config.manage" },
     ],
   },
 ];
