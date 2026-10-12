@@ -128,6 +128,23 @@ export async function cancelTask(tenantSlug: string, taskId: string, reason: str
   return data;
 }
 
+/** Per diem outcome kept on a task (metadata.per_diem_claim); the claim itself is in HR. */
+export interface PerDiemClaim {
+  status: "raised" | "skipped" | "failed";
+  claim_id?: string;
+  amount?: string;
+  days?: number;
+  code?: string;
+  message?: string;
+  updated_at?: string;
+}
+
+/** Raises (or re-raises) the staff rider's per diem for a task in HR payroll (erp-api). */
+export async function raisePerDiem(tenantSlug: string, taskId: string, days: number): Promise<PerDiemClaim> {
+  const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/per-diem`, days > 0 ? { days } : {});
+  return data;
+}
+
 export async function dispatchTask(tenantSlug: string, taskId: string): Promise<Task> {
   const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/dispatch`, {});
   return data;

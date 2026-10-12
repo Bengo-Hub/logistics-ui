@@ -34,6 +34,8 @@ import { useCancelTask, useTaskPod, useUnassignTask } from "@/hooks/use-tasks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import type { TaskStatus } from "@/types/logistics";
+import type { PerDiemClaim } from "@/lib/api/logistics";
+import { PerDiemCard } from "@/components/tasks/per-diem-card";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   pending: "Pending",
@@ -390,6 +392,16 @@ export default function TaskDetailPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Staff rider per diem (an HR claim), present only for staff riders' trips */}
+        {(task.metadata as Record<string, unknown> | undefined)?.per_diem_claim ? (
+          <div className="lg:col-span-2">
+            <PerDiemCard
+              taskId={task.id}
+              claim={(task.metadata as Record<string, unknown>).per_diem_claim as PerDiemClaim}
+            />
+          </div>
+        ) : null}
 
         {/* Proof of delivery */}
         {podEligible && pod && (

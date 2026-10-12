@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import {
   assignTask,
   cancelTask,
+  raisePerDiem,
   createTask,
   dispatchTask,
   fetchTask,
@@ -152,6 +153,15 @@ export function useUnassignTask() {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["task"] });
     },
+  });
+}
+
+export function useRaisePerDiem() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, days }: { taskId: string; days: number }) => raisePerDiem(tenantSlug, taskId, days),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["task"] }),
   });
 }
 
