@@ -50,8 +50,15 @@ Done:
 - [x] Delivery area editor full screen; paste a Google Maps place link or coordinates.
 - [x] Dashboard live fleet map through the shared `FleetMapPanel` (also used by Tracking), gated on `live_tracking` (`5559fdd`).
 
+## Round 4 (2026-10-13): Deliveries, Riders, Shifts, Earnings
+- [x] One task status vocabulary (`lib/task-status.ts`, mirrors the API's `statuses.go`): labels, badge tones, board filters (Waiting, Assigned, On the way, Delivered, Failed or cancelled) covering every state; the dashboard, tracking and task pages had their own copies. `returned` added to the status type.
+- [x] Deliveries board: rows show route, delivery area, rider or "Needs a rider", cash to collect and lateness; the sheet assigns a rider (staff marked) or sends to the nearest rider; `?new=1` opens the form (dashboard shortcut).
+- [x] New delivery form (`components/tasks/create-task-dialog.tsx`): pickup from an outlet, drop-off pinned on the shared map with place search, customer, instructions, cash to collect, area and fee preview from the live quote. The old form put the addresses in metadata, so hand-made jobs had no stops (no navigation, no area tag, no nearest-rider dispatch).
+- [x] Riders: on-shift dot and count, ratings, staff badge, waiting-for-approval count and filter, rejected filter, recent jobs (tasks `rider_id` filter) instead of "Activity coming soon", vehicle summary. Batch invite takes freelance or staff and shows rows the API refused (it always said all were invited).
+- [x] Shifts: On shift now, Upcoming and Past views grouped by day, presets, areas, start, end, cancel and remove; the form sent `datetime-local` text the API rejects (every shift failed) and now sends RFC3339. Gated on the `shifts` module and `fleet.view` like the API.
+- [x] Earnings: To pay, Being paid, Paid; statements name the rider; Pay (needs `earnings.manage`) confirms the amount; "Make statements for a day" sends the `date` the API reads (it sent a period it ignored); pay rules offer only fixed or per km (surge alone pays nothing), with a worked example; earnings log names the rider and links the delivery.
+- [x] One `apiErrorText` helper (cash and task pages had copies) so API messages reach the toast.
+
 Open, in priority order:
-- [ ] Design pass on the remaining pages (tasks, riders, earnings, analytics, shifts) and `SubscriptionGate` on each gated page; `NavFeatureLock` badges on all gated sidebar items.
-- [ ] Task detail and rider detail: show `per_diem_claim` status and a "Raise per diem" action for staff riders.
-- [ ] Storefront staff area links to `/{org}/riders?invite=1` (cafe-website's own add-rider form to be removed).
+- [ ] Analytics page design pass; `SubscriptionGate` on each gated page; `NavFeatureLock` badges on all gated sidebar items.
 - [ ] Rider marker layer and task route overlay (above).

@@ -139,6 +139,9 @@ export interface Task {
   payment_method?: string;
   cash_on_delivery: number;
   distance_km: number | null;
+  /** Delivery area the drop-off falls in (from the checkout quote or intake tagging). */
+  zone_id?: string;
+  zone_name?: string;
   eta_minutes: number | null;
   eta_at: string | null;
   assigned_at: string | null;
@@ -168,7 +171,8 @@ export type TaskStatus =
   | "delivered"
   | "completed"
   | "failed"
-  | "cancelled";
+  | "cancelled"
+  | "returned";
 
 /** Task step (pickup/dropoff location) */
 export interface TaskStep {
@@ -642,19 +646,18 @@ export interface AddCustodyEventRequest {
 /** Rider Shifts */
 export type ShiftStatus = "scheduled" | "active" | "completed" | "cancelled";
 
+/** shifts.Shift: the stored shift plus the rider's name. */
 export interface RiderShift {
   id: string;
-  tenant_id: string;
   fleet_member_id: string;
+  rider_name: string;
+  rider_phone?: string;
   shift_start: string;
   shift_end: string;
   status: ShiftStatus;
-  zone_ids?: string[];
+  zone_ids: string[];
   created_at: string;
   updated_at: string;
-  edges?: {
-    fleet_member?: FleetMember;
-  };
 }
 
 export interface CreateShiftRequest {

@@ -33,37 +33,10 @@ import {
 import { useCancelTask, useTaskPod, useUnassignTask } from "@/hooks/use-tasks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
-import type { TaskStatus } from "@/types/logistics";
+import { apiErrorText } from "@/lib/utils";
+import { CLOSED_STATUSES, PRE_PICKUP_STATUSES, taskStatusLabel } from "@/lib/task-status";
 import type { PerDiemClaim } from "@/lib/api/logistics";
 import { PerDiemCard } from "@/components/tasks/per-diem-card";
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  pending: "Pending",
-  assigned: "Assigned",
-  accepted: "Accepted",
-  en_route: "En Route",
-  en_route_pickup: "En Route to Pickup",
-  arrived_pickup: "Arrived at Pickup",
-  picked_up: "Picked Up",
-  en_route_dropoff: "En Route to Dropoff",
-  arrived_dropoff: "Arrived at Dropoff",
-  delivered: "Delivered",
-  completed: "Completed",
-  failed: "Failed",
-  cancelled: "Cancelled",
-};
-
-const ASSIGNABLE_STATUSES: TaskStatus[] = ["pending"];
-/** The order is still at the outlet, so the job can move to another rider. */
-const PRE_PICKUP_STATUSES: TaskStatus[] = ["assigned", "accepted", "en_route_pickup", "arrived_pickup"];
-const CLOSED_STATUSES: TaskStatus[] = ["delivered", "completed", "failed", "cancelled"];
-
-function errorText(err: unknown, fallback: string) {
-  const e = err as { response?: { data?: unknown }; message?: string };
-  const body = e?.response?.data;
-  if (typeof body === "string" && body.trim()) return body.trim();
-  return e?.message || fallback;
-}
 
 function formatTime(ts: string) {
   return new Date(ts).toLocaleString("en-KE", {
@@ -118,7 +91,7 @@ export default function TaskDetailPage() {
           setSelectedMemberId("");
           setReassigning(false);
         },
-        onError: (err) => toast.error(errorText(err, "Could not assign the rider")),
+        onError: (err) => toast.error(apiErrorText(err, "Could not assign the rider")),
       }
     );
   };
@@ -132,7 +105,7 @@ export default function TaskDetailPage() {
             toast.success("Rider taken off the job");
             setConfirm(null);
           },
-          onError: (err) => toast.error(errorText(err, "Could not unassign")),
+          onError: (err) => toast.error(apiErrorText(err, "Could not unassign")),
         }
       );
     } else if (confirm === "cancel") {
@@ -143,7 +116,7 @@ export default function TaskDetailPage() {
             toast.success("Delivery cancelled");
             setConfirm(null);
           },
-          onError: (err) => toast.error(errorText(err, "Could not cancel the delivery")),
+          onError: (err) => toast.error(apiErrorText(err, "Could not cancel the delivery")),
         }
       );
     }
@@ -174,7 +147,7 @@ export default function TaskDetailPage() {
     );
   }
 
-  const canAssign = ASSIGNABLE_STATUSES.includes(task.status);
+  const canAssign = task.status === "pending";
   const canReassign = !!task.assigned_rider_id && PRE_PICKUP_STATUSES.includes(task.status);
   const canCancel = !CLOSED_STATUSES.includes(task.status);
 
@@ -195,7 +168,7 @@ export default function TaskDetailPage() {
               {task.tracking_code || task.id.slice(0, 8)}
             </h1>
             <Badge variant={task.status === "pending" ? "warning" : "default"}>
-              {STATUS_LABELS[task.status] ?? task.status}
+              {taskStatusLabel(task.status)}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground capitalize">

@@ -3,12 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import {
+  cancelShift,
   createShift,
   deleteShift,
   endShift,
   fetchShifts,
   startShift,
-  updateShiftStatus,
   type ShiftsParams,
 } from "@/lib/api/logistics";
 import type { CreateShiftRequest } from "@/types/logistics";
@@ -36,16 +36,6 @@ export function useCreateShift() {
   });
 }
 
-export function useUpdateShiftStatus() {
-  const tenantSlug = useTenantSlug();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ shiftId, status }: { shiftId: string; status: string }) =>
-      updateShiftStatus(tenantSlug, shiftId, status),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
-  });
-}
-
 export function useStartShift() {
   const tenantSlug = useTenantSlug();
   const qc = useQueryClient();
@@ -60,6 +50,15 @@ export function useEndShift() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (shiftId: string) => endShift(tenantSlug, shiftId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
+  });
+}
+
+export function useCancelShift() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (shiftId: string) => cancelShift(tenantSlug, shiftId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
   });
 }

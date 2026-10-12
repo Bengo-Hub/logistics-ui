@@ -191,7 +191,7 @@ export default function RiderDetailPage() {
               </div>
               <div>
                 <p className="font-semibold">{member.first_name} {member.last_name}</p>
-                <p className="text-sm text-muted-foreground">{member.phone || "—"}</p>
+                <p className="text-sm text-muted-foreground">{member.phone || "Not set"}</p>
                 <Badge variant={statusVariant[member.status]} className="mt-1">
                   {member.status}
                 </Badge>
@@ -263,7 +263,7 @@ export default function RiderDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Compliance</p>
-                    <p className="font-medium capitalize">{vehicle.compliance_status || "—"}</p>
+                    <p className="font-medium capitalize">{vehicle.compliance_status || "Not checked"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Status</p>

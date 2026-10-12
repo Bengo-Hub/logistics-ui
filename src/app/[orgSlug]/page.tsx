@@ -8,6 +8,7 @@ import { useTasks } from "@/hooks/use-tasks";
 import { useTelemetry } from "@/hooks/use-telemetry";
 import { useParams } from "next/navigation";
 import { orgRoute } from "@/lib/utils";
+import { taskStatusLabel, timeAgo } from "@/lib/task-status";
 import Link from "next/link";
 import type { Task } from "@/types/logistics";
 import { FleetMapPanel } from "@/components/fleet-map-panel";
@@ -26,20 +27,6 @@ const statusColor: Record<string, string> = {
   failed: "bg-destructive",
   cancelled: "bg-destructive",
 };
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function formatStatus(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function formatMinutes(mins: number): string {
   if (!mins || isNaN(mins)) return "—";
@@ -227,7 +214,7 @@ export default function DashboardPage() {
                         {task.tracking_code || task.id.slice(0, 8).toUpperCase()}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatStatus(task.status)} · {timeAgo(task.updated_at)}
+                        {taskStatusLabel(task.status)} · {timeAgo(task.updated_at)}
                       </p>
                     </div>
                   </Link>
@@ -241,8 +228,8 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Create Task", href: "/tasks", icon: Package },
-          { label: "Add Rider", href: "/riders", icon: Users },
+          { label: "New delivery", href: "/tasks?new=1", icon: Package },
+          { label: "Add rider", href: "/riders?invite=1", icon: Users },
           { label: "View Tracking", href: "/tracking", icon: MapPin },
           { label: "Analytics", href: "/analytics", icon: TrendingUp },
         ].map((action) => {

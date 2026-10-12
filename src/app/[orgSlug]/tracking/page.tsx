@@ -24,6 +24,7 @@ import { useTelemetry } from "@/hooks/use-telemetry";
 import { useTaskStream } from "@/hooks/use-task-stream";
 import { useQueryClient } from "@tanstack/react-query";
 import { orgRoute } from "@/lib/utils";
+import { taskStatusLabel, timeAgo } from "@/lib/task-status";
 import type { Task } from "@/types/logistics";
 import type { FleetRider } from "@bengo-hub/maps";
 import { FleetMapPanel } from "@/components/fleet-map-panel";
@@ -31,24 +32,11 @@ import { FleetMapPanel } from "@/components/fleet-map-panel";
 
 const ACTIVE_STATUSES = ["assigned", "accepted", "en_route", "en_route_pickup", "arrived_pickup", "picked_up", "en_route_dropoff", "arrived_dropoff"] as const;
 
-function statusLabel(s: string) {
-  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 function statusBadgeClass(s: string) {
   if (["delivered", "completed"].includes(s)) return "bg-success/15 text-success";
   if (["failed", "cancelled"].includes(s)) return "bg-destructive/15 text-destructive";
   if (s === "pending") return "bg-warning/15 text-warning";
   return "bg-primary/15 text-primary";
-}
-
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const h = Math.floor(mins / 60);
-  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
 // ─── Stream Panel ─────────────────────────────────────────────────────────────
@@ -80,7 +68,7 @@ function TaskStreamPanel({
         {
           id: `${Date.now()}-${Math.random()}`,
           type: evt.event,
-          message: evt.data.status ? `Status → ${statusLabel(evt.data.status)}` : evt.event,
+          message: evt.data.status ? `Status: ${taskStatusLabel(evt.data.status)}` : evt.event,
           ts: evt.data.timestamp || new Date().toISOString(),
         },
       ]);
@@ -161,11 +149,11 @@ function ActiveTaskRow({
           {task.tracking_code || task.id.slice(0, 8).toUpperCase()}
         </p>
         <p className="text-xs text-muted-foreground">
-          {statusLabel(task.status)} · {timeAgo(task.updated_at)}
+          {taskStatusLabel(task.status)} · {timeAgo(task.updated_at)}
         </p>
       </div>
       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadgeClass(task.status)}`}>
-        {statusLabel(task.status)}
+        {taskStatusLabel(task.status)}
       </span>
       <Button
         variant="ghost"

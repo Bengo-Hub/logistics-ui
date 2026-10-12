@@ -70,14 +70,14 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "riders", label: "Riders", href: "/riders", icon: Users, permission: "logistics.fleet.view" },
       { id: "vehicles", label: "Vehicles", href: "/vehicles", icon: Truck, moduleKey: "vehicles" },
-      { id: "shifts", label: "Shifts", href: "/shifts", icon: Timer, moduleKey: "fleet" },
+      { id: "shifts", label: "Shifts", href: "/shifts", icon: Timer, moduleKey: "shifts", permission: "logistics.fleet.view" },
       { id: "zones", label: "Zones", href: "/zones", icon: Hexagon, permission: "logistics.zones.view" },
     ],
   },
   {
     label: "Delivery",
     items: [
-      { id: "tasks", label: "Tasks", href: "/tasks", icon: ClipboardList, permission: "logistics.tasks.view" },
+      { id: "tasks", label: "Deliveries", href: "/tasks", icon: ClipboardList, permission: "logistics.tasks.view" },
       { id: "tracking", label: "Tracking", href: "/tracking", icon: MapPin, permission: "logistics.telemetry.view", feature: "live_tracking" },
     ],
   },

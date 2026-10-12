@@ -14,7 +14,7 @@ export interface EarningStatement {
   /** ent field/JSON key is deduction_amount, not deductions (schema/earningsstatement.go) */
   deduction_amount: number;
   net_amount: number;
-  /** "processing" is set by SettleEarningsStatement once a treasury payout is dispatched —
+  /** "processing" is set by SettleEarningsStatement once a treasury payout is dispatched;
    * only a "draft" statement can be settled. */
   status: "draft" | "confirmed" | "processing" | "paid";
   created_at: string;
@@ -127,8 +127,9 @@ export function useGenerateStatements() {
   const tenantSlug = useTenantSlug();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { period_start: string; period_end: string }) => {
-      const { data } = await api.post(`${tenantSlug}/earnings/statements/generate`, body);
+    /** One day's statements (YYYY-MM-DD). The API also makes yesterday's every day on its own. */
+    mutationFn: async (date: string) => {
+      const { data } = await api.post(`${tenantSlug}/earnings/statements/generate?date=${encodeURIComponent(date)}`, {});
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["earnings-statements"] }),
@@ -141,7 +142,7 @@ export interface SettleStatementResult {
   payout_reference: string;
 }
 
-/** Settles a draft statement — dispatches a real payout via treasury-api
+/** Settles a draft statement: dispatches a real payout via treasury-api
  * (SettleEarningsStatement). Only "draft" statements are eligible; the backend 409s otherwise. */
 export function useSettleStatement() {
   const tenantSlug = useTenantSlug();

@@ -1,485 +1,456 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
+import { Banknote, CalendarPlus, CircleDollarSign, Clock, Loader2, Pencil, Plus, Trash2, Wallet } from "lucide-react";
+import { Badge, Button, Card, CardContent, Input } from "@/components/ui/base";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { CircleDollarSign, DollarSign, FileText, Loader2, Pencil, Plus, RefreshCw, Trash2, Wallet } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PermissionGate } from "@/components/ui/module-gate";
+import { useFleetMembers } from "@/hooks/use-fleet";
 import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/base";
-import {
-  useEarningStatements,
   useBillingEvents,
-  usePricingRules,
   useCreatePricingRule,
-  useUpdatePricingRule,
   useDeletePricingRule,
+  useEarningStatements,
   useGenerateStatements,
+  usePricingRules,
   useSettleStatement,
+  useUpdatePricingRule,
+  type EarningStatement,
   type PricingRule,
 } from "@/hooks/use-earnings";
+import { useMyPermissions } from "@/hooks/use-module-access";
+import { apiErrorText, orgRoute } from "@/lib/utils";
 
-type Tab = "overview" | "pricing" | "events";
+// Freelance riders earn per delivery: the delivery fee on the order, or these pay rules when the
+// order carries none. Statements are made every day for the day before; paying one sends the
+// money through treasury to the rider's payout method. Staff riders are paid by HR payroll.
 
-const TABS: { label: string; value: Tab }[] = [
-  { label: "Statements", value: "overview" },
-  { label: "Rider pay rules", value: "pricing" },
-  { label: "Billing Events", value: "events" },
+type Tab = "statements" | "rules" | "activity";
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: "statements", label: "Statements" },
+  { value: "rules", label: "Pay rules" },
+  { value: "activity", label: "Earnings log" },
 ];
 
-const STATUS_VARIANT: Record<string, "success" | "secondary" | "warning"> = {
-  paid: "success",
-  confirmed: "secondary",
-  processing: "secondary",
-  draft: "warning",
+const STATEMENT_STATUS: Record<string, { label: string; tone: "warning" | "secondary" | "success" }> = {
+  draft: { label: "To pay", tone: "warning" },
+  confirmed: { label: "To pay", tone: "warning" },
+  processing: { label: "Being paid", tone: "secondary" },
+  paid: { label: "Paid", tone: "success" },
 };
 
-function formatKES(amount: number) {
-  return `KES ${amount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
+const kes = (n: number) => `KES ${n.toLocaleString("en-KE", { maximumFractionDigits: 2 })}`;
+const dayLabel = (s: string) => new Date(s).toLocaleDateString("en-KE", { weekday: "short", day: "numeric", month: "short" });
+
+function yesterday() {
+  const d = new Date(Date.now() - 86_400_000);
+  return d.toISOString().slice(0, 10);
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-KE", { month: "short", day: "numeric", year: "numeric" });
-}
+type RuleForm = { name: string; rule_type: "flat" | "distance"; base_fee: number; per_km_rate: number; surge_multiplier: number; priority: number; is_active: boolean };
+const EMPTY_RULE: RuleForm = { name: "", rule_type: "distance", base_fee: 0, per_km_rate: 0, surge_multiplier: 1, priority: 0, is_active: true };
 
-const EMPTY_RULE: Omit<PricingRule, "id" | "tenant_id" | "created_at" | "updated_at"> = {
-  name: "",
-  rule_type: "distance",
-  base_fee: 0,
-  per_km_rate: 0,
-  surge_multiplier: 1,
-  priority: 0,
-  is_active: true,
-};
+function RuleDialog({ rule, open, onClose }: { rule: PricingRule | null; open: boolean; onClose: () => void }) {
+  const create = useCreatePricingRule();
+  const update = useUpdatePricingRule();
+  const [form, setForm] = useState<RuleForm>(EMPTY_RULE);
+  const [loadedFor, setLoadedFor] = useState<string | null | undefined>(undefined);
+  // Load the rule once each time the dialog opens for it.
+  if (open && loadedFor !== (rule?.id ?? null)) {
+    setLoadedFor(rule?.id ?? null);
+    setForm(
+      rule
+        ? {
+            name: rule.name,
+            rule_type: rule.rule_type === "flat" ? "flat" : "distance",
+            base_fee: rule.base_fee,
+            per_km_rate: rule.per_km_rate ?? 0,
+            surge_multiplier: rule.surge_multiplier ?? 1,
+            priority: rule.priority,
+            is_active: rule.is_active,
+          }
+        : EMPTY_RULE,
+    );
+  }
+  const close = () => {
+    setLoadedFor(undefined);
+    onClose();
+  };
+  const set = <K extends keyof RuleForm>(k: K, v: RuleForm[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const busy = create.isPending || update.isPending;
+  const sample = form.base_fee + (form.rule_type === "distance" ? form.per_km_rate * 5 : 0);
+
+  const save = () => {
+    const body = { ...form, per_km_rate: form.rule_type === "distance" ? form.per_km_rate : 0 };
+    const opts = {
+      onSuccess: () => {
+        toast.success(rule ? "Pay rule saved" : "Pay rule added");
+        close();
+      },
+      onError: (err: unknown) => toast.error(apiErrorText(err, "Could not save the pay rule")),
+    };
+    if (rule) update.mutate({ ruleId: rule.id, ...body }, opts);
+    else create.mutate(body, opts);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{rule ? "Edit pay rule" : "New pay rule"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <label className="block text-sm font-medium">
+            Name
+            <Input className="mt-1" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Standard town rate" />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["distance", "flat"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => set("rule_type", t)}
+                className={`rounded-lg border p-3 text-left text-sm ${form.rule_type === t ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}
+              >
+                <p className="font-medium">{t === "distance" ? "Base plus per km" : "Fixed amount"}</p>
+                <p className="text-xs text-muted-foreground">{t === "distance" ? "Pay grows with the trip" : "Same pay for every trip"}</p>
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-sm font-medium">
+              {form.rule_type === "flat" ? "Amount (KES)" : "Base (KES)"}
+              <Input className="mt-1" type="number" min={0} value={form.base_fee} onChange={(e) => set("base_fee", Number(e.target.value) || 0)} />
+            </label>
+            {form.rule_type === "distance" && (
+              <label className="text-sm font-medium">
+                Per km (KES)
+                <Input className="mt-1" type="number" min={0} step={0.5} value={form.per_km_rate} onChange={(e) => set("per_km_rate", Number(e.target.value) || 0)} />
+              </label>
+            )}
+            <label className="text-sm font-medium">
+              Multiplier
+              <Input
+                className="mt-1"
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={form.surge_multiplier}
+                onChange={(e) => set("surge_multiplier", Number(e.target.value) || 1)}
+              />
+            </label>
+            <label className="text-sm font-medium">
+              Order
+              <Input className="mt-1" type="number" value={form.priority} onChange={(e) => set("priority", Number(e.target.value) || 0)} />
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            The active rule with the highest order is used. A 5 km trip pays {kes(sample * (form.surge_multiplier || 1))}.
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} /> Active
+          </label>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={close}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={!form.name.trim() || busy}>
+            {busy ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
+            {rule ? "Save" : "Add rule"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function EarningsPage() {
-  const [tab, setTab] = useState<Tab>("overview");
-  const [showCreateRule, setShowCreateRule] = useState(false);
-  const [newRule, setNewRule] = useState({ ...EMPTY_RULE });
-  // Set when the rule modal edits an existing rule instead of creating one.
-  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [genPeriod, setGenPeriod] = useState({ start: "", end: "" });
+  const params = useParams();
+  const orgSlug = (params?.orgSlug as string) ?? "";
+  const [tab, setTab] = useState<Tab>("statements");
+  const { hasPermission } = useMyPermissions();
+  const canPay = hasPermission("logistics.earnings.manage");
 
-  const { data: statements = [], isLoading: loadingStmts } = useEarningStatements();
+  const { data: statements = [], isLoading: loadingStmts, error: stmtError } = useEarningStatements();
   const { data: events = [], isLoading: loadingEvents } = useBillingEvents();
   const { data: rules = [], isLoading: loadingRules } = usePricingRules();
-  const createRule = useCreatePricingRule();
-  const updateRule = useUpdatePricingRule();
-  const closeRuleModal = () => {
-    setShowCreateRule(false);
-    setEditingRuleId(null);
-    setNewRule({ ...EMPTY_RULE });
-  };
-  const saveRule = () => {
-    const done = { onSuccess: closeRuleModal };
-    if (editingRuleId) updateRule.mutate({ ruleId: editingRuleId, ...newRule }, done);
-    else createRule.mutate(newRule, done);
-  };
+  const { data: membersData } = useFleetMembers({ limit: 100 });
+  const names = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of membersData?.data ?? []) m.set(r.id, `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.phone || "Rider");
+    return m;
+  }, [membersData]);
+  const riderName = (id?: string) => (id && names.get(id)) || "Rider";
+
+  const generate = useGenerateStatements();
+  const settle = useSettleStatement();
   const deleteRule = useDeletePricingRule();
-  const generateStmts = useGenerateStatements();
-  const settleStatement = useSettleStatement();
-  const [settleId, setSettleId] = useState<string | null>(null);
+  const [genOpen, setGenOpen] = useState(false);
+  const [genDate, setGenDate] = useState(yesterday());
+  const [toSettle, setToSettle] = useState<EarningStatement | null>(null);
+  const [ruleDialog, setRuleDialog] = useState<{ open: boolean; rule: PricingRule | null }>({ open: false, rule: null });
   const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null);
 
-  function handleSettle(statementId: string) {
-    setSettleId(statementId);
-  }
-
-  function confirmSettle() {
-    if (!settleId) return;
-    settleStatement.mutate(settleId, {
-      onSettled: () => setSettleId(null),
-      onSuccess: (res) => toast.success(`Payout initiated. Reference: ${res.payout_reference}`),
-      onError: (err: any) =>
-        toast.error(err?.response?.data?.error ?? err?.response?.data ?? "Failed to settle statement."),
-    });
-  }
-
-  const totalPaid = statements.filter((s) => s.status === "paid").reduce((sum, s) => sum + s.net_amount, 0);
-  const totalPending = statements.filter((s) => s.status !== "paid").reduce((sum, s) => sum + s.net_amount, 0);
+  const sum = (pred: (s: EarningStatement) => boolean) => statements.filter(pred).reduce((t, s) => t + s.net_amount, 0);
+  const toPay = sum((s) => s.status === "draft" || s.status === "confirmed");
+  const beingPaid = sum((s) => s.status === "processing");
+  const paid = sum((s) => s.status === "paid");
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Wallet className="size-6" /> Earnings
-          </h1>
-          <p className="text-muted-foreground">Manage rider earnings, pricing rules, and billing events.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Rider earnings</h1>
+          <p className="text-sm text-muted-foreground">
+            What freelance riders earned and what is still owed. Statements are made every morning for the day before.
+          </p>
         </div>
-        <Button onClick={() => setShowGenerateModal(true)}>
-          <RefreshCw className="mr-2 size-4" /> Generate Statements
-        </Button>
+        <PermissionGate permission="logistics.earnings.manage">
+          <Button variant="outline" size="sm" onClick={() => setGenOpen(true)}>
+            <CalendarPlus className="size-4" /> Make statements for a day
+          </Button>
+        </PermissionGate>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex size-12 items-center justify-center rounded-full bg-green-100">
-              <DollarSign className="size-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Paid Out</p>
-              <p className="text-xl font-bold">{formatKES(totalPaid)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex size-12 items-center justify-center rounded-full bg-amber-100">
-              <DollarSign className="size-6 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Pending Payout</p>
-              <p className="text-xl font-bold">{formatKES(totalPending)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
-              <FileText className="size-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Statements</p>
-              <p className="text-xl font-bold">{statements.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-border pb-2">
-        {TABS.map((t) => (
-          <button
-            key={t.value}
-            onClick={() => setTab(t.value)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              tab === t.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            {t.label}
-          </button>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: "To pay", value: toPay, icon: Wallet, cls: "bg-warning/10 text-warning" },
+          { label: "Being paid", value: beingPaid, icon: Clock, cls: "bg-primary/10 text-primary" },
+          { label: "Paid", value: paid, icon: Banknote, cls: "bg-success/10 text-success" },
+        ].map((c) => (
+          <Card key={c.label}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className={`flex size-10 items-center justify-center rounded-full ${c.cls}`}>
+                <c.icon className="size-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{c.label}</p>
+                <p className="text-lg font-bold">{kes(c.value)}</p>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {/* Statements */}
-      {tab === "overview" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Earning Statements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingStmts ? (
-              <div className="flex justify-center py-8"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
-            ) : statements.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="pb-3 font-medium">Period</th>
-                      <th className="pb-3 font-medium">Gross</th>
-                      <th className="pb-3 font-medium">Net</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {statements.map((stmt) => (
-                      <tr key={stmt.id}>
-                        <td className="py-3">{formatDate(stmt.period_start)} – {formatDate(stmt.period_end)}</td>
-                        <td className="py-3">{formatKES(stmt.gross_amount)}</td>
-                        <td className="py-3 font-medium">{formatKES(stmt.net_amount)}</td>
-                        <td className="py-3">
-                          <Badge variant={STATUS_VARIANT[stmt.status] ?? "secondary"} className="text-xs capitalize">
-                            {stmt.status}
-                          </Badge>
-                        </td>
-                        <td className="py-3 text-right">
-                          {stmt.status === "draft" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={settleStatement.isPending}
-                              onClick={() => handleSettle(stmt.id)}
-                            >
-                              {settleStatement.isPending && settleStatement.variables === stmt.id ? (
-                                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                              ) : (
-                                <CircleDollarSign className="mr-1.5 size-3.5" />
-                              )}
-                              Settle
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="py-8 text-center text-muted-foreground">No statements yet. Use &ldquo;Generate Statements&rdquo; to create them.</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <div className="flex gap-1.5 overflow-x-auto">
+        {TABS.map((t) => (
+          <Button key={t.value} size="sm" className="shrink-0" variant={tab === t.value ? "default" : "outline"} onClick={() => setTab(t.value)}>
+            {t.label}
+          </Button>
+        ))}
+      </div>
 
-      {/* Pricing Rules */}
-      {tab === "pricing" && (
+      {tab === "statements" &&
+        (loadingStmts ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : stmtError ? (
+          <Card className="border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
+            {apiErrorText(stmtError, "Could not load statements.")}
+          </Card>
+        ) : statements.length === 0 ? (
+          <Card className="px-6 py-12 text-center text-sm text-muted-foreground">
+            No statements yet. They appear the morning after riders complete paid deliveries.
+          </Card>
+        ) : (
+          <Card className="divide-y divide-border p-0">
+            {statements.map((s) => {
+              const st = STATEMENT_STATUS[s.status] ?? STATEMENT_STATUS.draft!;
+              const payable = s.status === "draft" && s.net_amount > 0;
+              return (
+                <div key={s.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{riderName(s.fleet_member_id)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {dayLabel(s.period_start)}
+                      {s.deduction_amount > 0 ? ` · earned ${kes(s.gross_amount)}, less ${kes(s.deduction_amount)}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold">{kes(s.net_amount)}</span>
+                    <Badge variant={st.tone} className="text-xs">
+                      {st.label}
+                    </Badge>
+                    {canPay && payable && (
+                      <Button size="sm" variant="outline" disabled={settle.isPending} onClick={() => setToSettle(s)}>
+                        <CircleDollarSign className="mr-1 size-4" /> Pay
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        ))}
+
+      {tab === "rules" && (
         <div className="space-y-4">
-          <p className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-            These rules set what riders earn per delivery when an order carries no delivery fee. What customers pay is set under
-            Delivery areas, in the Pricing and geofence tab.
-          </p>
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => setShowCreateRule(true)}>
-              <Plus className="mr-2 size-4" /> New Rule
-            </Button>
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Used when an order carries no delivery fee. What customers pay is set in{" "}
+              <Link href={orgRoute(orgSlug, "/zones")} className="font-medium text-primary hover:underline">
+                Delivery areas
+              </Link>
+              .
+            </p>
+            <PermissionGate permission="logistics.pricing.manage">
+              <Button size="sm" onClick={() => setRuleDialog({ open: true, rule: null })}>
+                <Plus className="size-4" /> New rule
+              </Button>
+            </PermissionGate>
           </div>
           {loadingRules ? (
-            <div className="flex justify-center py-8"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
+            <div className="flex justify-center py-10">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : rules.length === 0 ? (
+            <Card className="px-6 py-12 text-center text-sm text-muted-foreground">
+              No pay rules. Riders earn the order&apos;s delivery fee; orders without one pay nothing until you add a rule.
+            </Card>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {rules.map((rule) => (
-                <Card key={rule.id}>
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold">{rule.name}</p>
-                        <Badge variant="secondary" className="text-xs capitalize mt-0.5">{rule.rule_type}</Badge>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[...rules]
+                .sort((a, b) => b.priority - a.priority)
+                .map((rule) => (
+                  <Card key={rule.id}>
+                    <CardContent className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold">{rule.name}</p>
+                          <p className="text-xs text-muted-foreground">Order {rule.priority}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Badge variant={rule.is_active ? "success" : "secondary"} className="text-xs">
+                            {rule.is_active ? "Active" : "Off"}
+                          </Badge>
+                          <PermissionGate permission="logistics.pricing.manage">
+                            <Button size="sm" variant="ghost" aria-label="Edit rule" onClick={() => setRuleDialog({ open: true, rule })}>
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" aria-label="Delete rule" onClick={() => setDeleteRuleId(rule.id)}>
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </PermissionGate>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={rule.is_active ? "success" : "secondary"} className="text-xs">
-                          {rule.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        <button
-                          onClick={() => {
-                            const { id, tenant_id: _t, created_at: _c, updated_at: _u, ...editable } = rule;
-                            setNewRule({ ...EMPTY_RULE, ...editable });
-                            setEditingRuleId(id);
-                            setShowCreateRule(true);
-                          }}
-                          aria-label="Edit rule"
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <Pencil className="size-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteRuleId(rule.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <p className="text-muted-foreground">Base Fee</p>
-                        <p className="font-medium">KES {rule.base_fee.toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Per km</p>
-                        <p className="font-medium">{rule.per_km_rate != null ? `KES ${rule.per_km_rate.toFixed(2)}` : "—"}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {rules.length === 0 && (
-                <p className="col-span-2 py-8 text-center text-muted-foreground">No pricing rules configured.</p>
-              )}
+                      <p className="text-sm">
+                        {rule.rule_type === "flat"
+                          ? `${kes(rule.base_fee)} per trip`
+                          : rule.rule_type === "distance"
+                            ? `${kes(rule.base_fee)} plus ${kes(rule.per_km_rate ?? 0)} per km`
+                            : "This rule type pays nothing on its own. Edit it to a fixed or per km rule."}
+                        {rule.surge_multiplier && rule.surge_multiplier !== 1 ? `, times ${rule.surge_multiplier}` : ""}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
             </div>
           )}
         </div>
       )}
 
-      {/* Billing Events */}
-      {tab === "events" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Billing Events</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingEvents ? (
-              <div className="flex justify-center py-8"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
-            ) : events.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="pb-3 font-medium">Event</th>
-                      <th className="pb-3 font-medium">Amount</th>
-                      <th className="pb-3 font-medium">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {events.map((ev) => (
-                      <tr key={ev.id}>
-                        <td className="py-3 capitalize">{ev.event_type.replace(/_/g, " ")}</td>
-                        <td className="py-3 font-medium text-green-600">+{formatKES(ev.amount)}</td>
-                        <td className="py-3 text-muted-foreground">{formatDate(ev.occurred_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      {tab === "activity" &&
+        (loadingEvents ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : events.length === 0 ? (
+          <Card className="px-6 py-12 text-center text-sm text-muted-foreground">No earnings recorded yet.</Card>
+        ) : (
+          <Card className="divide-y divide-border p-0">
+            {events.map((ev) => (
+              <div key={ev.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium">{riderName(ev.metadata?.fleet_member_id as string | undefined)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(ev.occurred_at).toLocaleString("en-KE", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                    {ev.task_id ? (
+                      <>
+                        {" · "}
+                        <Link href={orgRoute(orgSlug, `/tasks/${ev.task_id}`)} className="text-primary hover:underline">
+                          the delivery
+                        </Link>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+                <span className="font-semibold text-success">+{kes(ev.amount)}</span>
               </div>
-            ) : (
-              <p className="py-8 text-center text-muted-foreground">No billing events recorded.</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Create Pricing Rule Modal */}
-      {showCreateRule && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>{editingRuleId ? "Edit Pricing Rule" : "New Pricing Rule"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <label className="text-sm font-medium">Name</label>
-                <input
-                  value={newRule.name}
-                  onChange={(e) => setNewRule((r) => ({ ...r, name: e.target.value }))}
-                  placeholder="e.g., Standard City Rate"
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Rule Type</label>
-                <select
-                  value={newRule.rule_type}
-                  onChange={(e) => setNewRule((r) => ({ ...r, rule_type: e.target.value as PricingRule["rule_type"] }))}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="flat">Flat Rate</option>
-                  <option value="distance">Distance-Based</option>
-                  <option value="surge">Surge</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { key: "base_fee", label: "Base Fee (KES)" },
-                  { key: "per_km_rate", label: "Per km Rate" },
-                  { key: "surge_multiplier", label: "Surge Multiplier" },
-                  { key: "priority", label: "Priority" },
-                ].map(({ key, label }) => (
-                  <div key={key}>
-                    <label className="text-xs font-medium text-muted-foreground">{label}</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={(newRule as Record<string, number | string | boolean>)[key] as number}
-                      onChange={(e) => setNewRule((r) => ({ ...r, [key]: parseFloat(e.target.value) || 0 }))}
-                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                  </div>
-                ))}
-              </div>
-              {(createRule.isError || updateRule.isError) && (
-                <p className="text-sm text-destructive">Failed to save the rule. Please try again.</p>
-              )}
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" className="flex-1" onClick={closeRuleModal}>
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={!newRule.name || createRule.isPending || updateRule.isPending}
-                  onClick={saveRule}
-                >
-                  {createRule.isPending || updateRule.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                  {editingRuleId ? "Save" : "Create"}
-                </Button>
-              </div>
-            </CardContent>
+            ))}
           </Card>
-        </div>
-      )}
+        ))}
 
-      {/* Generate Statements Modal */}
-      {showGenerateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <Card className="w-full max-w-sm">
-            <CardHeader>
-              <CardTitle>Generate Statements</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Period Start</label>
-                <input
-                  type="date"
-                  value={genPeriod.start}
-                  onChange={(e) => setGenPeriod((p) => ({ ...p, start: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Period End</label>
-                <input
-                  type="date"
-                  value={genPeriod.end}
-                  onChange={(e) => setGenPeriod((p) => ({ ...p, end: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              {generateStmts.isError && (
-                <p className="text-sm text-destructive">Failed to generate. Please try again.</p>
-              )}
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowGenerateModal(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={!genPeriod.start || !genPeriod.end || generateStmts.isPending}
-                  onClick={() =>
-                    generateStmts.mutate(
-                      { period_start: genPeriod.start, period_end: genPeriod.end },
-                      { onSuccess: () => { setShowGenerateModal(false); setGenPeriod({ start: "", end: "" }); } },
-                    )
-                  }
-                >
-                  {generateStmts.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                  Generate
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <Dialog open={genOpen} onOpenChange={setGenOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Make statements for a day</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Statements are made every morning for the day before. Use this for a day that was missed. Riders who already have a
+            statement for that day are skipped.
+          </p>
+          <Input type="date" max={yesterday()} value={genDate} onChange={(e) => setGenDate(e.target.value)} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGenOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!genDate || generate.isPending}
+              onClick={() =>
+                generate.mutate(genDate, {
+                  onSuccess: () => {
+                    toast.success("Statements made");
+                    setGenOpen(false);
+                  },
+                  onError: (err) => toast.error(apiErrorText(err, "Could not make the statements")),
+                })
+              }
+            >
+              {generate.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
+              Make statements
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <RuleDialog open={ruleDialog.open} rule={ruleDialog.rule} onClose={() => setRuleDialog({ open: false, rule: null })} />
+
       <ConfirmDialog
-        open={settleId !== null}
-        onOpenChange={(open) => !open && setSettleId(null)}
-        title="Settle this statement?"
-        description="This sends a real payout to the rider through treasury."
-        confirmLabel="Settle and pay"
+        open={!!toSettle}
+        onOpenChange={(open) => !open && setToSettle(null)}
+        title={toSettle ? `Pay ${riderName(toSettle.fleet_member_id)} ${kes(toSettle.net_amount)}?` : "Pay this statement?"}
+        description="This sends real money to the rider's payout method through treasury."
+        confirmLabel="Pay now"
         variant="warning"
-        pending={settleStatement.isPending}
-        onConfirm={confirmSettle}
+        pending={settle.isPending}
+        onConfirm={() => {
+          if (!toSettle) return;
+          settle.mutate(toSettle.id, {
+            onSettled: () => setToSettle(null),
+            onSuccess: (res) => toast.success(`Payment sent. Reference ${res.payout_reference}`),
+            onError: (err) => toast.error(apiErrorText(err, "The payment did not go through")),
+          });
+        }}
       />
       <ConfirmDialog
         open={deleteRuleId !== null}
         onOpenChange={(open) => !open && setDeleteRuleId(null)}
-        title="Delete this pricing rule?"
-        description="Deliveries already paid keep their amounts. This cannot be undone."
+        title="Delete this pay rule?"
+        description="Deliveries already paid keep their amounts."
         confirmLabel="Delete rule"
         pending={deleteRule.isPending}
         onConfirm={() => {
           if (!deleteRuleId) return;
           deleteRule.mutate(deleteRuleId, {
             onSettled: () => setDeleteRuleId(null),
-            onError: () => toast.error("Could not delete the pricing rule."),
+            onError: (err) => toast.error(apiErrorText(err, "Could not delete the pay rule")),
           });
         }}
       />

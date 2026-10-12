@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { isAxiosError } from "axios";
+import { apiErrorText } from "@/lib/utils";
 import { Banknote, Loader2, Phone, RefreshCw } from "lucide-react";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui/base";
 import {
@@ -29,13 +29,6 @@ function since(iso?: string) {
   if (hrs < 1) return "under an hour";
   if (hrs < 24) return `${hrs}h`;
   return `${Math.floor(hrs / 24)}d`;
-}
-
-function errorText(err: unknown, fallback: string) {
-  if (isAxiosError(err) && typeof err.response?.data === "string" && err.response.data.trim()) {
-    return err.response.data.trim();
-  }
-  return err instanceof Error ? err.message : fallback;
 }
 
 export default function RiderCashPage() {
@@ -143,7 +136,7 @@ function RemitDialog({ rider, onClose }: { rider: RiderCash; onClose: () => void
           }
           onClose();
         },
-        onError: (err) => toast.error(errorText(err, "Could not record the hand-in")),
+        onError: (err) => toast.error(apiErrorText(err, "Could not record the hand-in")),
       },
     );
   };

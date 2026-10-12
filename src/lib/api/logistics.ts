@@ -43,14 +43,15 @@ import type {
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 
 export interface TasksParams extends PaginationParams {
-  /** A single TaskStatus, "all", or several comma-joined (e.g.
-   * "en_route_pickup,en_route_dropoff") to OR-match a coarse UI grouping — see
-   * logistics-api's ListTasksFilter.Statuses. Plain string to allow the joined form. */
+  /** A single TaskStatus, "all", or several comma-joined to OR-match a board filter (see
+   * logistics-api's ListTasksFilter.Statuses). Plain string to allow the joined form. */
   status?: string;
+  /** RFC3339 */
   date_from?: string;
   date_to?: string;
   search?: string;
-  today?: boolean;
+  /** Fleet member id: jobs this rider was assigned. */
+  rider_id?: string;
 }
 
 export async function fetchTasks(
@@ -64,7 +65,7 @@ export async function fetchTasks(
   if (params?.search) qs.set("search", params.search);
   if (params?.page) qs.set("page", String(params.page));
   if (params?.limit) qs.set("limit", String(params.limit));
-  if (params?.today) qs.set("today", "true");
+  if (params?.rider_id) qs.set("rider_id", params.rider_id);
   const query = qs.toString() ? `?${qs.toString()}` : "";
   const { data } = await api.get(`${tenantSlug}/tasks${query}`);
   if (Array.isArray(data)) {
@@ -78,16 +79,27 @@ export async function fetchTask(tenantSlug: string, taskId: string): Promise<Tas
   return data;
 }
 
-export async function createTask(
-  tenantSlug: string,
-  body: {
-    external_reference?: string;
-    source_service?: string;
-    task_type?: string;
-    priority?: number;
-    metadata?: Record<string, unknown>;
-  }
-): Promise<Task> {
+/** tasks.CreateTaskRequest. The pickup_* and dropoff_* fields create the task's stops. */
+export interface CreateTaskBody {
+  external_reference?: string;
+  source_service?: string;
+  task_type?: string;
+  priority?: number;
+  metadata?: Record<string, unknown>;
+  pickup_address?: string;
+  pickup_lat?: number;
+  pickup_lng?: number;
+  pickup_contact?: string;
+  dropoff_address?: string;
+  dropoff_lat?: number;
+  dropoff_lng?: number;
+  dropoff_contact?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  instructions?: string;
+}
+
+export async function createTask(tenantSlug: string, body: CreateTaskBody): Promise<Task> {
   const { data } = await api.post(`${tenantSlug}/tasks`, body);
   return data;
 }
@@ -275,10 +287,17 @@ export async function deleteMember(tenantSlug: string, memberId: string): Promis
   await api.delete(`${tenantSlug}/fleet/members/${memberId}`);
 }
 
+/** One row of a batch invite: the API answers 200 with an error on rows it could not invite. */
+export interface BatchInviteResult {
+  email: string;
+  member?: FleetMember;
+  error?: string;
+}
+
 export async function batchInviteMembers(
   tenantSlug: string,
-  members: Array<{ first_name: string; last_name: string; email: string; phone: string }>
-): Promise<FleetMember[]> {
+  members: InviteMemberBody[]
+): Promise<BatchInviteResult[]> {
   const { data } = await api.post(`${tenantSlug}/fleet/members/batch`, { members });
   return data;
 }
@@ -674,8 +693,11 @@ export async function updateModulesConfig(
 export interface ShiftsParams {
   fleet_member_id?: string;
   status?: string;
-  date_from?: string;
-  date_to?: string;
+  /** RFC3339; shifts overlapping [from, to]. */
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export async function fetchShifts(
@@ -685,8 +707,10 @@ export async function fetchShifts(
   const qs = new URLSearchParams();
   if (params?.fleet_member_id) qs.set("fleet_member_id", params.fleet_member_id);
   if (params?.status) qs.set("status", params.status);
-  if (params?.date_from) qs.set("date_from", params.date_from);
-  if (params?.date_to) qs.set("date_to", params.date_to);
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.offset) qs.set("offset", String(params.offset));
   const query = qs.toString() ? `?${qs.toString()}` : "";
   const { data } = await api.get(`${tenantSlug}/shifts${query}`);
   return Array.isArray(data) ? { data, total: data.length } : data;
@@ -700,15 +724,6 @@ export async function createShift(
   return data;
 }
 
-export async function updateShiftStatus(
-  tenantSlug: string,
-  shiftId: string,
-  status: string
-): Promise<RiderShift> {
-  const { data } = await api.patch(`${tenantSlug}/shifts/${shiftId}/status`, { status });
-  return data;
-}
-
 export async function startShift(tenantSlug: string, shiftId: string): Promise<RiderShift> {
   const { data } = await api.post(`${tenantSlug}/shifts/${shiftId}/start`, {});
   return data;
@@ -716,6 +731,11 @@ export async function startShift(tenantSlug: string, shiftId: string): Promise<R
 
 export async function endShift(tenantSlug: string, shiftId: string): Promise<RiderShift> {
   const { data } = await api.post(`${tenantSlug}/shifts/${shiftId}/end`, {});
+  return data;
+}
+
+export async function cancelShift(tenantSlug: string, shiftId: string): Promise<RiderShift> {
+  const { data } = await api.post(`${tenantSlug}/shifts/${shiftId}/cancel`, {});
   return data;
 }
 
