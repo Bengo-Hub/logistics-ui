@@ -70,7 +70,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "riders", label: "Riders", href: "/riders", icon: Users, permission: "logistics.fleet.view" },
       { id: "vehicles", label: "Vehicles", href: "/vehicles", icon: Truck, moduleKey: "vehicles" },
-      { id: "shifts", label: "Shifts", href: "/shifts", icon: Timer, moduleKey: "shifts", permission: "logistics.fleet.view" },
+      { id: "shifts", label: "Shifts", href: "/shifts", icon: Timer, moduleKey: "shifts", feature: "rider_shifts", permission: "logistics.fleet.view" },
       { id: "zones", label: "Zones", href: "/zones", icon: Hexagon, permission: "logistics.zones.view" },
     ],
   },
@@ -93,7 +93,7 @@ const navGroups: NavGroup[] = [
     defaultCollapsed: true,
     items: [
       { id: "cash", label: "Rider Cash", href: "/cash", icon: Banknote, permission: "logistics.tasks.manage" },
-      { id: "earnings", label: "Earnings", href: "/earnings", icon: Wallet, permission: "logistics.earnings.view", moduleKey: "earnings" },
+      { id: "earnings", label: "Earnings", href: "/earnings", icon: Wallet, permission: "logistics.earnings.view", moduleKey: "earnings", feature: "rider_payouts" },
       { id: "reporting", label: "Reports", href: "/reporting", icon: FileText, moduleKey: "reporting", feature: "performance_reports", permission: "logistics.tasks.view" },
     ],
   },

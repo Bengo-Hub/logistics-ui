@@ -33,6 +33,7 @@ import {
 import { useCancelTask, useTaskPod, useUnassignTask } from "@/hooks/use-tasks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
+import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { apiErrorText } from "@/lib/utils";
 import { CLOSED_STATUSES, PRE_PICKUP_STATUSES, taskStatusLabel } from "@/lib/task-status";
 import type { PerDiemClaim } from "@/lib/api/logistics";
@@ -183,18 +184,20 @@ export default function TaskDetailPage() {
         </div>
         {canAssign && (
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => dispatchMutation.mutate(taskId)}
-              disabled={dispatchMutation.isPending}
-            >
-              {dispatchMutation.isPending ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Zap className="mr-2 size-4" />
-              )}
-              Auto-Dispatch
-            </Button>
+            <FeatureLock feature="auto_dispatch" mode="overlay">
+              <Button
+                variant="outline"
+                onClick={() => dispatchMutation.mutate(taskId)}
+                disabled={dispatchMutation.isPending}
+              >
+                {dispatchMutation.isPending ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Zap className="mr-2 size-4" />
+                )}
+                Nearest rider
+              </Button>
+            </FeatureLock>
             <Button onClick={() => setShowAssignPanel(true)}>
               <Truck className="mr-2 size-4" />
               Assign Rider

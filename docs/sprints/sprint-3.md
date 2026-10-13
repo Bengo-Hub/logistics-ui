@@ -60,5 +60,6 @@ Done:
 - [x] One `apiErrorText` helper (cash and task pages had copies) so API messages reach the toast.
 
 Open, in priority order:
-- [ ] Analytics page design pass; `SubscriptionGate` on each gated page; `NavFeatureLock` badges on all gated sidebar items.
+- [x] Gating like treasury (2026-10-13): Shifts page and nav (`rider_shifts`), Earnings nav, Statements tab and "Make statements" (`rider_payouts`), "Nearest rider" on the board and task page and the Settings auto-assign switch (`auto_dispatch`) use the shared `FeatureLock`/`SubscriptionGate` (show, don't hide), matching the API gates.
+- [x] Analytics rebuilt on real data: the daily charts were random numbers spread from one total; now KPIs, an hourly/daily stacked series, a rider table and deliveries by area from the API, with a 90 day period.
 - [ ] Rider marker layer and task route overlay (above).

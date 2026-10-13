@@ -17,6 +17,7 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/base";
 import { useServiceConfig, useUpdateServiceConfig } from "@/hooks/use-service-config";
 import { useModuleAccess, useModulesConfig, useMyPermissions, useUpdateModules } from "@/hooks/use-module-access";
@@ -133,8 +134,8 @@ function OperationsCard({ canManage }: { canManage: boolean }) {
           OPS.map(({ key, icon: Icon, title, on, off }) => {
             // Both default to on when never saved (the API's defaults).
             const value = form[key] ?? true;
-            return (
-              <div key={key} className="flex items-start gap-4 rounded-xl border border-border p-4">
+            const row = (
+              <div className="flex items-start gap-4 rounded-xl border border-border p-4">
                 <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="size-4" />
                 </span>
@@ -149,6 +150,14 @@ function OperationsCard({ canManage }: { canManage: boolean }) {
                   label={title}
                 />
               </div>
+            );
+            // Auto-assign is a plan feature (tier 2); without it jobs wait on the board.
+            return key === "auto_assign_enabled" ? (
+              <FeatureLock key={key} feature="auto_dispatch" mode="overlay">
+                {row}
+              </FeatureLock>
+            ) : (
+              <div key={key}>{row}</div>
             );
           })
         )}

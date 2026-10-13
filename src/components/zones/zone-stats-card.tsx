@@ -13,9 +13,13 @@ const PERIODS = [
   { v: "90d", l: "90 days" },
 ];
 
-/** Deliveries, fees and timing per area (aggregated server-side). */
-export function ZoneStatsCard() {
-  const [period, setPeriod] = useState("30d");
+/**
+ * Deliveries, fees and timing per area (aggregated server-side). Pass period to follow a page's
+ * own period picker (the card's picker is then hidden).
+ */
+export function ZoneStatsCard({ period: fixedPeriod }: { period?: string } = {}) {
+  const [ownPeriod, setPeriod] = useState("30d");
+  const period = fixedPeriod ?? ownPeriod;
   const { data = [], isLoading } = useZoneStats(period);
 
   return (
@@ -26,7 +30,7 @@ export function ZoneStatsCard() {
             <CardTitle>Deliveries by area</CardTitle>
             <CardDescription>Where orders go, what they earn and how fast they arrive.</CardDescription>
           </div>
-          <div className="flex gap-1 rounded-lg border p-1">
+          <div className={`flex gap-1 rounded-lg border p-1 ${fixedPeriod ? "hidden" : ""}`}>
             {PERIODS.map((p) => (
               <button
                 key={p.v}

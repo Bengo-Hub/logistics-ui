@@ -1,197 +1,111 @@
 "use client";
 
+import { Suspense, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { CheckCircle, Clock, Loader2, Package, Star, Timer, TrendingUp, Users, XCircle } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/base";
 import { SubscriptionGate } from "@/components/subscription/subscription-gate";
-
-import { Suspense, useState } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { BarChart3, CheckCircle, Clock, Loader2, Package, TrendingUp, Users, Zap } from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/base";
-import { useTelemetry } from "@/hooks/use-telemetry";
-import { useKPIs } from "@/hooks/use-analytics";
+import { ZoneStatsCard } from "@/components/zones/zone-stats-card";
+import { useKPIs, useRiderStats, useSeries } from "@/hooks/use-analytics";
 import type { KPIPeriod } from "@/lib/api/logistics";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Every number here comes from the API: KPIs, the hourly or daily series and the rider table are
+// aggregated in SQL over the tenant's tasks, with days counted in the business's time zone.
 
-const PERIODS = [
+const PERIODS: Array<{ value: KPIPeriod; label: string }> = [
   { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-] as const;
-
-type Period = (typeof PERIODS)[number]["value"];
-
-// ─── Chart Colours ────────────────────────────────────────────────────────────
-
-const COLORS = {
-  primary: "hsl(var(--primary))",
-  success: "hsl(var(--success, 142 71% 45%))",
-  warning: "hsl(var(--warning, 38 92% 50%))",
-  destructive: "hsl(var(--destructive, 0 84% 60%))",
-  muted: "hsl(var(--muted-foreground))",
-};
-
-const STATUS_PIE_DATA = (completed: number, failed: number, pending: number) => [
-  { name: "Completed", value: completed, color: COLORS.success },
-  { name: "Failed", value: failed, color: COLORS.destructive },
-  { name: "Pending", value: pending, color: COLORS.warning },
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "90d", label: "90 days" },
 ];
 
-// Simulated daily breakdown from a single-period telemetry snapshot
-// (real implementation would use a time-series endpoint)
-function buildDailyData(period: Period, total: number, completed: number, failed: number) {
-  const days = period === "today" ? 1 : period === "week" ? 7 : 30;
-  const basePerDay = Math.max(1, Math.round(total / days));
-  const completedPerDay = Math.max(0, Math.round(completed / days));
-  const failedPerDay = Math.max(0, Math.round(failed / days));
+const COLORS = {
+  delivered: "hsl(var(--success, 142 71% 45%))",
+  failed: "hsl(var(--destructive, 0 84% 60%))",
+  cancelled: "hsl(var(--muted-foreground))",
+};
 
-  return Array.from({ length: days }, (_, i) => {
-    const jitter = () => Math.floor((Math.random() - 0.5) * basePerDay * 0.4);
-    const dayTotal = Math.max(0, basePerDay + jitter());
-    const dayCompleted = Math.min(dayTotal, Math.max(0, completedPerDay + jitter()));
-    const dayFailed = Math.min(dayTotal - dayCompleted, Math.max(0, failedPerDay + jitter()));
-    const label =
-      period === "today"
-        ? "Today"
-        : period === "week"
-        ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i]
-        : `${i + 1}`;
-    return { day: label, total: dayTotal, completed: dayCompleted, failed: dayFailed };
-  });
+const tooltipStyle = {
+  background: "hsl(var(--background))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: "8px",
+  fontSize: "12px",
+};
+
+const pct = (n: number) => `${Math.round(n)}%`;
+const mins = (n: number) => (n > 0 ? (n >= 60 ? `${Math.floor(n / 60)}h ${Math.round(n % 60)}m` : `${Math.round(n)} min`) : "No data");
+
+function Stat({ label, value, hint, icon: Icon, tone }: { label: string; value: string; hint?: string; icon: typeof Package; tone: string }) {
+  return (
+    <Card>
+      <CardContent className="flex items-start gap-3 p-4">
+        <div className={`rounded-lg p-2 ${tone}`}>
+          <Icon className="size-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-xl font-bold">{value}</p>
+          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
-
-// ─── Inner Page ───────────────────────────────────────────────────────────────
 
 function AnalyticsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const period = (searchParams.get("period") as Period) ?? "today";
+  const raw = searchParams.get("period");
+  const period: KPIPeriod = PERIODS.some((p) => p.value === raw) ? (raw as KPIPeriod) : "7d";
 
-  function setPeriod(p: Period) {
+  const setPeriod = (p: KPIPeriod) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("period", p);
     router.push(`${pathname}?${params.toString()}`);
-  }
+  };
 
-  const { data: telemetry, isLoading } = useTelemetry({ period });
+  const kpis = useKPIs(period);
+  const series = useSeries(period);
+  const riders = useRiderStats(period);
+  const k = kpis.data;
 
-  // Map UI period to KPI API period
-  const kpiPeriod: KPIPeriod = period === "month" ? "30d" : period === "week" ? "7d" : "today";
-  const { data: kpis } = useKPIs(kpiPeriod);
+  const chart = useMemo(() => {
+    const unit = series.data?.unit ?? "day";
+    return (series.data?.points ?? []).map((p) => {
+      const d = new Date(p.start);
+      return {
+        label:
+          unit === "hour"
+            ? d.toLocaleTimeString("en-KE", { hour: "numeric" })
+            : d.toLocaleDateString("en-KE", { day: "numeric", month: "short" }),
+        delivered: p.delivered,
+        failed: p.failed,
+        cancelled: p.cancelled,
+        open: Math.max(0, p.total - p.delivered - p.failed - p.cancelled),
+      };
+    });
+  }, [series.data]);
 
-  const total = kpis?.total_tasks ?? telemetry?.total_tasks ?? 0;
-  const completed = kpis?.completed_tasks ?? telemetry?.completed_tasks ?? 0;
-  const failed = kpis?.failed_tasks ?? telemetry?.failed_tasks ?? 0;
-  const pending = kpis?.pending_tasks ?? Math.max(0, total - completed - failed);
-  const successRate = telemetry?.success_rate ? Math.round(telemetry.success_rate * 100) : (total > 0 ? Math.round((completed / total) * 100) : 0);
-  const avgTime = kpis?.avg_delivery_minutes ?? telemetry?.avg_delivery_time_minutes ?? 0;
-  const onTimePct = kpis?.on_time_percent ?? 0;
-  const activeRiders = kpis?.active_riders ?? 0;
-  const totalRiders = kpis?.total_riders ?? 0;
-  const utilizationPct = kpis?.utilization_percent ?? 0;
-
-  const dailyData = buildDailyData(period, total, completed, failed);
-  const pieData = STATUS_PIE_DATA(completed, failed, pending).filter((d) => d.value > 0);
-
-  const metrics = [
-    {
-      label: "Total Deliveries",
-      value: total,
-      icon: Package,
-      color: "text-primary",
-      bg: "bg-primary/10",
-    },
-    {
-      label: "Completed",
-      value: completed,
-      icon: CheckCircle,
-      color: "text-success",
-      bg: "bg-success/10",
-    },
-    {
-      label: "On-Time Rate",
-      value: `${Math.round(onTimePct)}%`,
-      icon: TrendingUp,
-      color: "text-primary",
-      bg: "bg-primary/10",
-    },
-    {
-      label: "Avg Delivery Time",
-      value: avgTime ? `${Math.round(avgTime)}m` : "—",
-      icon: Clock,
-      color: "text-warning",
-      bg: "bg-warning/10",
-    },
-  ];
-
-  const fleetMetrics = [
-    {
-      label: "Active Riders",
-      value: `${activeRiders} / ${totalRiders}`,
-      icon: Users,
-      color: "text-primary",
-      bg: "bg-primary/10",
-    },
-    {
-      label: "Fleet Utilization",
-      value: `${Math.round(utilizationPct)}%`,
-      icon: Zap,
-      color: "text-success",
-      bg: "bg-success/10",
-    },
-    {
-      label: "Success Rate",
-      value: `${successRate}%`,
-      icon: TrendingUp,
-      color: "text-primary",
-      bg: "bg-primary/10",
-    },
-    {
-      label: "Failed / Cancelled",
-      value: `${failed + (kpis?.cancelled_tasks ?? 0)}`,
-      icon: Clock,
-      color: "text-destructive",
-      bg: "bg-destructive/10",
-    },
-  ];
+  const finished = (k?.completed_tasks ?? 0) + (k?.failed_tasks ?? 0);
+  const successRate = finished > 0 ? ((k?.completed_tasks ?? 0) / finished) * 100 : 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-muted-foreground">Delivery performance and fleet metrics.</p>
+          <p className="text-sm text-muted-foreground">How deliveries went and how the fleet performed.</p>
         </div>
-        <div className="flex gap-1 rounded-lg border border-border p-0.5 bg-muted/20">
+        <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-muted/20 p-0.5">
           {PERIODS.map((p) => (
             <button
               key={p.value}
               type="button"
               onClick={() => setPeriod(p.value)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                period === p.value
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+              className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                period === p.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {p.label}
@@ -200,189 +114,110 @@ function AnalyticsPageInner() {
         </div>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      {kpis.isLoading ? (
+        <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 size-5 animate-spin" /> Loading analytics...
         </div>
-      )}
-
-      {!isLoading && (
+      ) : kpis.isError || !k ? (
+        <Card className="border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">Could not load analytics. Try again shortly.</Card>
+      ) : (
         <>
-          {/* Delivery KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {metrics.map((m) => {
-              const Icon = m.icon;
-              return (
-                <Card key={m.label} className="border-border">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <div className={`p-2 rounded-lg ${m.bg}`}>
-                      <Icon className={`size-4 ${m.color}`} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">{m.label}</p>
-                      <p className="text-xl font-bold">{m.value}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat label="Deliveries" value={k.total_tasks.toLocaleString()} hint={`${k.pending_tasks} waiting, ${k.active_tasks} on the way`} icon={Package} tone="bg-primary/10 text-primary" />
+            <Stat label="Delivered" value={k.completed_tasks.toLocaleString()} hint={finished > 0 ? `${pct(successRate)} of finished jobs` : undefined} icon={CheckCircle} tone="bg-success/10 text-success" />
+            <Stat label="On time" value={k.on_time_percent > 0 ? pct(k.on_time_percent) : "No data"} hint="Delivered before the deadline" icon={TrendingUp} tone="bg-primary/10 text-primary" />
+            <Stat label="Average delivery time" value={mins(k.avg_delivery_minutes)} hint="Order to proof of delivery" icon={Clock} tone="bg-warning/10 text-warning" />
+            <Stat label="Failed" value={k.failed_tasks.toLocaleString()} icon={XCircle} tone="bg-destructive/10 text-destructive" />
+            <Stat label="Cancelled" value={k.cancelled_tasks.toLocaleString()} icon={XCircle} tone="bg-muted text-muted-foreground" />
+            <Stat label="Active riders" value={`${k.active_riders} of ${k.total_riders}`} hint="Approved and able to take jobs" icon={Users} tone="bg-primary/10 text-primary" />
+            <Stat label="Riders who worked" value={`${k.riders_working}`} hint={k.active_riders > 0 ? `${pct(k.utilization_percent)} of active riders` : undefined} icon={Timer} tone="bg-success/10 text-success" />
           </div>
 
-          {/* Fleet KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {fleetMetrics.map((m) => {
-              const Icon = m.icon;
-              return (
-                <Card key={m.label} className="border-border">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <div className={`p-2 rounded-lg ${m.bg}`}>
-                      <Icon className={`size-4 ${m.color}`} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">{m.label}</p>
-                      <p className="text-xl font-bold">{m.value}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          {/* Charts Row */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Delivery Volume (Area) */}
-            <Card className="lg:col-span-2 border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <BarChart3 className="size-4 text-primary" />
-                  Delivery Volume
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={240}>
-                  <AreaChart data={dailyData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gradCompleted" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={COLORS.success} stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gradFailed" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={COLORS.destructive} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={COLORS.destructive} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip
-                      contentStyle={{
-                        background: "hsl(var(--background))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="completed"
-                      name="Completed"
-                      stroke={COLORS.success}
-                      fill="url(#gradCompleted)"
-                      strokeWidth={2}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="failed"
-                      name="Failed"
-                      stroke={COLORS.destructive}
-                      fill="url(#gradFailed)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Status Breakdown (Pie) */}
-            <Card className="border-border">
-              <CardHeader>
-                <CardTitle className="text-base">Status Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {pieData.length === 0 ? (
-                  <div className="flex h-60 items-center justify-center">
-                    <p className="text-sm text-muted-foreground">No data for period.</p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={240}>
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="45%"
-                        innerRadius={55}
-                        outerRadius={80}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry, i) => (
-                          <Cell key={i} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          background: "hsl(var(--background))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                        }}
-                      />
-                      <Legend
-                        iconType="circle"
-                        iconSize={8}
-                        wrapperStyle={{ fontSize: "11px" }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Daily Bar Chart */}
-          <Card className="border-border">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp className="size-4 text-primary" />
-                Daily Task Totals
-              </CardTitle>
+              <CardTitle className="text-base">Deliveries {period === "today" ? "by hour" : "by day"}</CardTitle>
+              <CardDescription>By when the job was created. Open jobs are still waiting or on the way.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={dailyData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--background))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                  />
-                  <Bar dataKey="total" name="Total" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {series.isLoading ? (
+                <div className="h-64 animate-pulse rounded-lg bg-muted/40" />
+              ) : chart.every((c) => c.delivered + c.failed + c.cancelled + c.open === 0) ? (
+                <p className="py-16 text-center text-sm text-muted-foreground">No deliveries in this period.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={chart} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={16} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Area type="monotone" stackId="1" dataKey="delivered" name="Delivered" stroke={COLORS.delivered} fill={COLORS.delivered} fillOpacity={0.35} />
+                    <Area type="monotone" stackId="1" dataKey="failed" name="Failed" stroke={COLORS.failed} fill={COLORS.failed} fillOpacity={0.35} />
+                    <Area type="monotone" stackId="1" dataKey="cancelled" name="Cancelled" stroke={COLORS.cancelled} fill={COLORS.cancelled} fillOpacity={0.2} />
+                    <Area type="monotone" stackId="1" dataKey="open" name="Open" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.15} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Riders</CardTitle>
+              <CardDescription>Jobs each rider held in the period, most deliveries first.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {riders.isLoading ? (
+                <div className="m-4 h-32 animate-pulse rounded-lg bg-muted/40" />
+              ) : (riders.data ?? []).length === 0 ? (
+                <p className="px-6 py-10 text-center text-sm text-muted-foreground">No rider jobs in this period.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-border bg-muted/30 text-left text-xs text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-2 font-medium">Rider</th>
+                        <th className="px-4 py-2 text-right font-medium">Jobs</th>
+                        <th className="px-4 py-2 text-right font-medium">Delivered</th>
+                        <th className="px-4 py-2 text-right font-medium">Failed</th>
+                        <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">Avg time</th>
+                        <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">On time</th>
+                        <th className="px-4 py-2 text-right font-medium">Rating</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {riders.data!.map((r) => (
+                        <tr key={r.fleet_member_id}>
+                          <td className="px-4 py-2 font-medium">{r.name || "Rider"}</td>
+                          <td className="px-4 py-2 text-right">{r.jobs}</td>
+                          <td className="px-4 py-2 text-right text-success">{r.delivered}</td>
+                          <td className="px-4 py-2 text-right text-destructive">{r.failed || ""}</td>
+                          <td className="hidden px-4 py-2 text-right sm:table-cell">{r.avg_delivery_minutes > 0 ? mins(r.avg_delivery_minutes) : ""}</td>
+                          <td className="hidden px-4 py-2 text-right sm:table-cell">{r.on_time_percent > 0 ? pct(r.on_time_percent) : ""}</td>
+                          <td className="px-4 py-2 text-right">
+                            {r.ratings > 0 ? (
+                              <span className="inline-flex items-center gap-1">
+                                <Star className="size-3 fill-warning text-warning" />
+                                {r.average_rating.toFixed(1)}
+                              </span>
+                            ) : (
+                              ""
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <ZoneStatsCard period={period} />
         </>
       )}
     </div>
   );
 }
-
-// ─── Export ───────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
   return (

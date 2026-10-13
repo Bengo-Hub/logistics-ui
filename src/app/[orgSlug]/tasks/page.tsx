@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowRight, Banknote, ChevronRight, Clock, Loader2, MapPin, Plus, Search, UserCheck, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { Badge, Button, Card, Input } from "@/components/ui/base";
 import { Pagination } from "@/components/ui/pagination";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -396,10 +397,12 @@ function TasksContent() {
                               {assignTask.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
                               Assign
                             </Button>
-                            <Button size="sm" variant="outline" onClick={handleDispatch} disabled={dispatchTask.isPending}>
-                              {dispatchTask.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Zap className="mr-1 size-4" />}
-                              Nearest rider
-                            </Button>
+                            <FeatureLock feature="auto_dispatch" mode="overlay">
+                              <Button size="sm" variant="outline" className="w-full" onClick={handleDispatch} disabled={dispatchTask.isPending}>
+                                {dispatchTask.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Zap className="mr-1 size-4" />}
+                                Nearest rider
+                              </Button>
+                            </FeatureLock>
                           </div>
                         </>
                       )}

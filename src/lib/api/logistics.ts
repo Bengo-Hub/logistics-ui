@@ -745,7 +745,8 @@ export async function deleteShift(tenantSlug: string, shiftId: string): Promise<
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
-export type KPIPeriod = "today" | "7d" | "30d";
+/** Report periods: calendar days in the business's time zone, today included. */
+export type KPIPeriod = "today" | "7d" | "30d" | "90d";
 
 export interface KPIResponse {
   period: KPIPeriod;
@@ -758,8 +759,49 @@ export interface KPIResponse {
   on_time_percent: number;
   active_riders: number;
   total_riders: number;
+  /** Riders who held at least one job created in the period. */
+  riders_working: number;
+  /** riders_working as a share of active riders. */
   utilization_percent: number;
   avg_delivery_minutes: number;
+}
+
+/** One hour (today) or day of task outcomes. */
+export interface SeriesPoint {
+  start: string;
+  total: number;
+  delivered: number;
+  failed: number;
+  cancelled: number;
+}
+
+export interface SeriesResponse {
+  period: KPIPeriod;
+  unit: "hour" | "day";
+  points: SeriesPoint[];
+}
+
+export async function fetchSeries(tenantSlug: string, period: KPIPeriod): Promise<SeriesResponse> {
+  const { data } = await api.get(`${tenantSlug}/analytics/series`, { params: { period } });
+  return data;
+}
+
+/** One rider's jobs in the period (top 50 by deliveries). */
+export interface RiderStat {
+  fleet_member_id: string;
+  name: string;
+  jobs: number;
+  delivered: number;
+  failed: number;
+  avg_delivery_minutes: number;
+  on_time_percent: number;
+  average_rating: number;
+  ratings: number;
+}
+
+export async function fetchRiderStats(tenantSlug: string, period: KPIPeriod): Promise<RiderStat[]> {
+  const { data } = await api.get(`${tenantSlug}/analytics/riders`, { params: { period } });
+  return Array.isArray(data) ? data : [];
 }
 
 export async function fetchKPIs(tenantSlug: string, period?: KPIPeriod): Promise<KPIResponse> {

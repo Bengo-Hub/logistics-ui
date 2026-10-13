@@ -11,6 +11,7 @@ import { useCancelShift, useCreateShift, useDeleteShift, useEndShift, useShifts,
 import { useFleetMembers } from "@/hooks/use-fleet";
 import { useZones } from "@/hooks/use-zones";
 import { apiErrorText } from "@/lib/utils";
+import { SubscriptionGate } from "@/components/subscription/subscription-gate";
 import type { RiderShift, ShiftStatus } from "@/types/logistics";
 
 // Riders go online in the rider app (that starts their scheduled shift, or an open-ended one);
@@ -394,7 +395,9 @@ export default function ShiftsPage() {
           </div>
         }
       >
-        <ShiftsContent />
+        <SubscriptionGate feature="rider_shifts">
+          <ShiftsContent />
+        </SubscriptionGate>
       </Suspense>
     </ModuleGate>
   );
