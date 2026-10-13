@@ -32,7 +32,11 @@ export interface FleetMember {
   };
 }
 
-export type FleetMemberStatus = "pending" | "active" | "suspended" | "rejected";
+/** invited (not signed in yet), pending (signed up, no documents), pending_review (documents sent). */
+export type FleetMemberStatus = "invited" | "pending" | "pending_review" | "active" | "suspended" | "rejected";
+
+/** Statuses of riders waiting for the business to approve them. */
+export const AWAITING_APPROVAL: FleetMemberStatus[] = ["pending", "pending_review"];
 
 export interface FleetMembership {
   id: string;

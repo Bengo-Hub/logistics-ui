@@ -35,21 +35,26 @@ import { useTasks } from "@/hooks/use-tasks";
 import { memberEmployment, type EmploymentType } from "@/lib/api/logistics";
 import { taskStatusLabel, taskStatusTone, timeAgo } from "@/lib/task-status";
 import { apiErrorText, orgRoute } from "@/lib/utils";
-import type { FleetMember, FleetMemberStatus } from "@/types/logistics";
+import { AWAITING_APPROVAL, type FleetMember, type FleetMemberStatus } from "@/types/logistics";
 
 const PAGE_SIZE = 20;
 
 const STATUS: Record<FleetMemberStatus, { label: string; tone: "success" | "warning" | "destructive" | "secondary" }> = {
   active: { label: "Active", tone: "success" },
-  pending: { label: "Waiting for approval", tone: "warning" },
+  invited: { label: "Invited", tone: "secondary" },
+  pending: { label: "Signed up, no documents", tone: "warning" },
+  pending_review: { label: "Documents to review", tone: "warning" },
   suspended: { label: "Suspended", tone: "destructive" },
   rejected: { label: "Rejected", tone: "secondary" },
 };
 
-const FILTERS: Array<{ value: FleetMemberStatus | "all"; label: string }> = [
+const WAITING = AWAITING_APPROVAL.join(",");
+
+const FILTERS: Array<{ value: string; label: string }> = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
-  { value: "pending", label: "Waiting for approval" },
+  { value: WAITING, label: "Waiting for approval" },
+  { value: "invited", label: "Invited" },
   { value: "suspended", label: "Suspended" },
   { value: "rejected", label: "Rejected" },
 ];
@@ -243,7 +248,7 @@ function RidersContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const activeFilter = (searchParams.get("status") as FleetMemberStatus | "all") || "all";
+  const activeFilter = searchParams.get("status") || "all";
   const page = Number(searchParams.get("page") ?? 1);
   const search = searchParams.get("q") ?? "";
   const [searchInput, setSearchInput] = useState(search);
@@ -266,7 +271,7 @@ function RidersContent() {
     page,
     limit: PAGE_SIZE,
   });
-  const { data: pendingData } = useFleetMembers({ status: "pending", limit: 1 });
+  const { data: pendingData } = useFleetMembers({ status: WAITING, limit: 1 });
   const { data: activeShifts } = useShifts({ status: "active", limit: 100 });
   const onShift = useMemo(() => new Set((activeShifts?.data ?? []).map((s) => s.fleet_member_id)), [activeShifts]);
 
@@ -337,7 +342,7 @@ function RidersContent() {
               onClick={() => setParam("status", f.value === "all" ? null : f.value)}
             >
               {f.label}
-              {f.value === "pending" && waiting > 0 ? ` (${waiting})` : ""}
+              {f.value === WAITING && waiting > 0 ? ` (${waiting})` : ""}
             </Button>
           ))}
         </div>
@@ -413,7 +418,7 @@ function RidersContent() {
                     </div>
                   </button>
                   <PermissionGate permission="logistics.fleet.manage">
-                    {m.status === "pending" && (
+                    {AWAITING_APPROVAL.includes(m.status) && (
                       <div className="flex shrink-0 gap-1">
                         <Button size="sm" variant="outline" onClick={() => setConfirm({ type: "approve", member: m })}>
                           <CheckCircle className="size-4 text-success" /> <span className="hidden sm:inline">Approve</span>
@@ -524,7 +529,7 @@ function RidersContent() {
 
                 <div className="space-y-2 border-t border-border pt-4">
                   <PermissionGate permission="logistics.fleet.manage">
-                    {selected.status === "pending" && (
+                    {AWAITING_APPROVAL.includes(selected.status) && (
                       <div className="grid grid-cols-2 gap-2">
                         <Button size="sm" onClick={() => setConfirm({ type: "approve", member: selected })}>
                           <CheckCircle className="size-4" /> Approve

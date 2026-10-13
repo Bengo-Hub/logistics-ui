@@ -28,11 +28,13 @@ import {
   useSuspendMember,
   useRejectMember,
 } from "@/hooks/use-logistics";
-import type { FleetMemberStatus } from "@/types/logistics";
+import { AWAITING_APPROVAL, type FleetMemberStatus } from "@/types/logistics";
 
 const statusVariant: Record<FleetMemberStatus, "success" | "warning" | "destructive" | "secondary"> = {
   active: "success",
+  invited: "secondary",
   pending: "warning",
+  pending_review: "warning",
   suspended: "destructive",
   rejected: "secondary",
 };
@@ -121,7 +123,7 @@ export default function RiderDetailPage() {
 
   const initials = `${member.first_name?.[0] ?? ""}${member.last_name?.[0] ?? ""}`.toUpperCase() || "?";
   const vehicle = member.edges?.vehicles?.[0];
-  const isPending = member.status === "pending";
+  const isPending = AWAITING_APPROVAL.includes(member.status);
   const isActive = member.status === "active";
 
   return (
