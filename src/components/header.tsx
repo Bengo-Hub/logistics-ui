@@ -38,7 +38,8 @@ const SERVICE_URLS: Partial<Record<ServiceKey, string>> = {
   marketflow: process.env.NEXT_PUBLIC_MARKETFLOW_UI_URL ?? "https://marketflow.codevertexafrica.com",
   erp: process.env.NEXT_PUBLIC_ERP_UI_URL ?? "https://erp.codevertexafrica.com",
   ordering: process.env.NEXT_PUBLIC_ORDERING_UI_URL ?? "https://ordering.codevertexafrica.com",
-  auth: process.env.NEXT_PUBLIC_SSO_URL ?? "https://sso.codevertexafrica.com",
+  // Account Portal is the auth-ui site; sso.* is the auth API and has no pages.
+  auth: process.env.NEXT_PUBLIC_AUTH_UI_URL ?? "https://accounts.codevertexafrica.com",
   subscriptions: process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL ?? "https://pricing.codevertexafrica.com",
   projects: process.env.NEXT_PUBLIC_PROJECTS_UI_URL ?? "https://projects.codevertexafrica.com",
   afya: process.env.NEXT_PUBLIC_HOSPITAL_UI_URL ?? "https://afya.codevertexafrica.com",

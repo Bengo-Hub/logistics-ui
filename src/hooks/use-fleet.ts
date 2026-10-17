@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import {
   approveMember,
@@ -12,13 +12,17 @@ import {
   fetchFleet,
   fetchMember,
   fetchMembers,
+  fetchVehicles,
   inviteMember,
+  onboardRider,
   rejectMember,
   setMemberEmployment,
   suspendMember,
   updateVehicle,
   type Employment,
   type MembersParams,
+  type OnboardRiderBody,
+  type VehiclesParams,
 } from "@/lib/api/logistics";
 import type { CreateVehicleRequest, FleetMember, PaginatedResponse, VehicleStatus } from "@/types/logistics";
 
@@ -132,15 +136,38 @@ export function useBatchInviteMembers() {
   });
 }
 
+// Riders and vehicles show each other, so a change to either refreshes both lists.
+function invalidateFleet(qc: QueryClient) {
+  for (const key of ["fleet", "fleet-members", "fleet-member", "fleet-vehicles"]) {
+    qc.invalidateQueries({ queryKey: [key] });
+  }
+}
+
+export function useFleetVehicles(params?: VehiclesParams, enabled = true) {
+  const tenantSlug = useTenantSlug();
+  return useQuery({
+    queryKey: ["fleet-vehicles", tenantSlug, params ?? {}],
+    queryFn: () => fetchVehicles(tenantSlug, params),
+    enabled: !!tenantSlug && enabled,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useOnboardRider() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: OnboardRiderBody) => onboardRider(tenantSlug, body),
+    onSuccess: () => invalidateFleet(qc),
+  });
+}
+
 export function useCreateVehicle() {
   const tenantSlug = useTenantSlug();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateVehicleRequest) => createVehicle(tenantSlug, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["fleet"] });
-      qc.invalidateQueries({ queryKey: ["fleet-members"] });
-    },
+    onSuccess: () => invalidateFleet(qc),
   });
 }
 
@@ -148,12 +175,9 @@ export function useAssignVehicle() {
   const tenantSlug = useTenantSlug();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ memberId, vehicleId }: { memberId: string; vehicleId: string }) =>
+    mutationFn: ({ memberId, vehicleId }: { memberId: string; vehicleId: string | null }) =>
       assignVehicle(tenantSlug, memberId, vehicleId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["fleet-members"] });
-      qc.invalidateQueries({ queryKey: ["fleet-member"] });
-    },
+    onSuccess: () => invalidateFleet(qc),
   });
 }
 
@@ -167,10 +191,7 @@ export function useUpdateVehicle() {
     }: { vehicleId: string } & Partial<
       Pick<CreateVehicleRequest, "vehicle_type" | "make" | "model" | "license_plate">
     > & { status?: VehicleStatus }) => updateVehicle(tenantSlug, vehicleId, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["fleet"] });
-      qc.invalidateQueries({ queryKey: ["fleet-members"] });
-    },
+    onSuccess: () => invalidateFleet(qc),
   });
 }
 
@@ -179,9 +200,6 @@ export function useDeleteVehicle() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vehicleId: string) => deleteVehicle(tenantSlug, vehicleId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["fleet"] });
-      qc.invalidateQueries({ queryKey: ["fleet-members"] });
-    },
+    onSuccess: () => invalidateFleet(qc),
   });
 }

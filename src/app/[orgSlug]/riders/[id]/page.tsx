@@ -22,12 +22,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/base";
+import { toast } from "sonner";
+import { EmploymentControl } from "@/components/riders/employment-control";
+import { RiderVehicleLink } from "@/components/riders/rider-vehicle-link";
+import { PermissionGate } from "@/components/ui/module-gate";
 import {
   useFleetMember,
   useApproveMember,
   useSuspendMember,
   useRejectMember,
 } from "@/hooks/use-logistics";
+import { useAssignVehicle } from "@/hooks/use-fleet";
+import { memberEmployment } from "@/lib/api/logistics";
+import { apiErrorText } from "@/lib/utils";
 import { AWAITING_APPROVAL, type FleetMemberStatus } from "@/types/logistics";
 
 const statusVariant: Record<FleetMemberStatus, "success" | "warning" | "destructive" | "secondary"> = {
@@ -42,15 +49,18 @@ const statusVariant: Record<FleetMemberStatus, "success" | "warning" | "destruct
 function DocRow({
   label,
   url,
+  optional,
 }: {
   label: string;
   url?: string;
+  /** Internal riders are vetted by HR: an upload is welcome but never required. */
+  optional?: boolean;
 }) {
   if (!url) {
     return (
       <div className="flex items-center justify-between rounded-md border border-border p-3">
         <span className="text-sm">{label}</span>
-        <Badge variant="secondary" className="text-xs">Not uploaded</Badge>
+        <Badge variant="secondary" className="text-xs">{optional ? "Optional" : "Not uploaded"}</Badge>
       </div>
     );
   }
@@ -84,6 +94,7 @@ export default function RiderDetailPage() {
   const approveMutation = useApproveMember();
   const suspendMutation = useSuspendMember();
   const rejectMutation = useRejectMember();
+  const assignVehicle = useAssignVehicle();
 
   const handleApprove = () => {
     approveMutation.mutate(riderId);
@@ -123,6 +134,7 @@ export default function RiderDetailPage() {
 
   const initials = `${member.first_name?.[0] ?? ""}${member.last_name?.[0] ?? ""}`.toUpperCase() || "?";
   const vehicle = member.edges?.vehicles?.[0];
+  const internal = memberEmployment(member).type === "staff";
   const isPending = AWAITING_APPROVAL.includes(member.status);
   const isActive = member.status === "active";
 
@@ -210,6 +222,10 @@ export default function RiderDetailPage() {
                   {new Date(member.created_at).toLocaleDateString("en-KE", { month: "short", year: "numeric" })}
                 </p>
               </div>
+              <div className="col-span-2">
+                <p className="text-xs text-muted-foreground">Engagement</p>
+                <EmploymentControl member={member} />
+              </div>
               {member.emergency_contact_name && (
                 <div className="col-span-2">
                   <p className="text-xs text-muted-foreground">Emergency Contact</p>
@@ -232,13 +248,24 @@ export default function RiderDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <DocRow label="ID / Passport" url={member.id_passport_attachment} />
-              <DocRow label="Rider Photo" url={member.rider_photo} />
-              {member.id_passport_number && (
+              <DocRow label="ID / Passport" url={member.id_passport_attachment} optional={internal} />
+              <DocRow label="Rider Photo" url={member.rider_photo} optional={internal} />
+              {member.id_passport_number ? (
                 <div className="rounded-md border border-border p-3">
                   <p className="text-xs text-muted-foreground">ID / Passport Number</p>
                   <p className="mt-0.5 font-mono text-sm">{member.id_passport_number}</p>
                 </div>
+              ) : (
+                internal && (
+                  <p className="text-xs text-destructive">
+                    ID number missing. Internal riders need it on file; the rider is asked for it on their next profile save.
+                  </p>
+                )
+              )}
+              {internal && (
+                <p className="text-xs text-muted-foreground">
+                  Internal riders skip KYC review. Uploads are optional once the ID number is captured.
+                </p>
               )}
             </div>
           </CardContent>
@@ -272,6 +299,24 @@ export default function RiderDetailPage() {
                     <p className="font-medium capitalize">{vehicle.status}</p>
                   </div>
                 </div>
+                <PermissionGate permission="logistics.fleet.manage">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={assignVehicle.isPending}
+                    onClick={() =>
+                      assignVehicle.mutate(
+                        { memberId: riderId, vehicleId: null },
+                        {
+                          onSuccess: () => toast.success("Vehicle unlinked"),
+                          onError: (err) => toast.error(apiErrorText(err, "Could not unlink the vehicle")),
+                        },
+                      )
+                    }
+                  >
+                    Unlink vehicle
+                  </Button>
+                </PermissionGate>
                 {vehicle.image_license_plate && (
                   <div className="mt-2">
                     <p className="mb-1 text-xs text-muted-foreground">License Plate Photo</p>
@@ -286,7 +331,7 @@ export default function RiderDetailPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <Truck className="mb-2 size-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">No vehicle assigned</p>
+                <RiderVehicleLink member={member} />
               </div>
             )}
           </CardContent>

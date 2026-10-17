@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CheckCircle, Loader2, Radio, Search, Star, Trash2, Truck, UserPlus, Users, UserX, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle, Loader2, Radio, Search, Star, Trash2, UserPlus, Users, UserX, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Button, Card, Input } from "@/components/ui/base";
 import { Pagination } from "@/components/ui/pagination";
@@ -20,14 +20,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PermissionGate } from "@/components/ui/module-gate";
+import { EmploymentControl } from "@/components/riders/employment-control";
 import { InviteRiderDialog } from "@/components/riders/invite-rider-dialog";
+import { RiderVehicleLink } from "@/components/riders/rider-vehicle-link";
 import {
   useApproveMember,
   useBatchInviteMembers,
   useDeleteMember,
   useFleetMembers,
   useRejectMember,
-  useSetMemberEmployment,
   useSuspendMember,
 } from "@/hooks/use-fleet";
 import { useShifts } from "@/hooks/use-shifts";
@@ -92,31 +93,6 @@ function Rating({ member }: { member: FleetMember }) {
       {member.average_rating.toFixed(1)}
       <span className="text-muted-foreground">({member.total_ratings})</span>
     </span>
-  );
-}
-
-// Freelance riders earn per delivery; staff are on HR payroll (per diem is claimed in HR).
-function EmploymentToggle({ member }: { member: FleetMember }) {
-  const setEmployment = useSetMemberEmployment();
-  const current = memberEmployment(member).type;
-  const change = (type: EmploymentType) => {
-    setEmployment.mutate(
-      { memberId: member.id, type },
-      {
-        onSuccess: () => toast.success(type === "staff" ? "Marked as staff (payroll)" : "Marked as freelance"),
-        onError: (err) => toast.error(apiErrorText(err, "Could not change how this rider is engaged")),
-      },
-    );
-  };
-  return (
-    <div className="mt-1 flex items-center gap-2">
-      <Badge variant={current === "staff" ? "secondary" : "success"}>{current === "staff" ? "Staff (payroll)" : "Freelance"}</Badge>
-      <PermissionGate permission="logistics.fleet.manage">
-        <Button size="sm" variant="ghost" disabled={setEmployment.isPending} onClick={() => change(current === "staff" ? "freelance" : "staff")}>
-          {current === "staff" ? "Make freelance" : "Make staff"}
-        </Button>
-      </PermissionGate>
-    </div>
   );
 }
 
@@ -492,7 +468,7 @@ function RidersContent() {
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">Engagement</p>
-                    <EmploymentToggle member={selected} />
+                    <EmploymentControl member={selected} />
                   </div>
                   {selected.emergency_contact_name && (
                     <div className="col-span-2">
@@ -507,19 +483,7 @@ function RidersContent() {
 
                 <div>
                   <p className="mb-2 text-xs text-muted-foreground">Vehicle</p>
-                  {selected.edges?.vehicles?.length ? (
-                    selected.edges.vehicles.map((v) => (
-                      <div key={v.id} className="flex items-center gap-2 rounded-xl border border-border p-3 text-sm">
-                        <Truck className="size-4 text-primary" />
-                        <span className="font-medium">
-                          {[v.make, v.model].filter(Boolean).join(" ") || v.vehicle_type}
-                        </span>
-                        <span className="ml-auto font-mono text-xs text-muted-foreground">{v.license_plate}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No vehicle assigned.</p>
-                  )}
+                  <RiderVehicleLink member={selected} />
                 </div>
 
                 <div>

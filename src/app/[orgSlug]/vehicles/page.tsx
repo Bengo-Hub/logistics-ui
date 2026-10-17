@@ -22,25 +22,21 @@ import {
   CardTitle,
   Input,
 } from "@/components/ui/base";
+import { Pagination } from "@/components/ui/pagination";
 import {
   useFleetMembers,
+  useFleetVehicles,
   useCreateVehicle,
   useAssignVehicle,
   useUpdateVehicle,
   useDeleteVehicle,
 } from "@/hooks/use-fleet";
-import type { CreateVehicleRequest, FleetMember, Vehicle, VehicleType, VehicleStatus } from "@/types/logistics";
+import type { FleetVehicle } from "@/lib/api/logistics";
+import { apiErrorText } from "@/lib/utils";
+import { VEHICLE_TYPES } from "@/lib/vehicle-types";
+import type { CreateVehicleRequest, VehicleType, VehicleStatus } from "@/types/logistics";
 
-type VehicleWithMember = Vehicle & { edges?: { fleet_member?: FleetMember } };
-
-const VEHICLE_TYPES: { value: VehicleType; label: string }[] = [
-  { value: "motorcycle", label: "Motorcycle" },
-  { value: "bicycle", label: "Bicycle" },
-  { value: "car", label: "Car" },
-  { value: "van", label: "Van" },
-  { value: "truck", label: "Truck" },
-  { value: "other", label: "Other" },
-];
+const PAGE_SIZE = 30;
 
 function VehicleIcon({ type }: { type: VehicleType }) {
   if (type === "motorcycle" || type === "bicycle") return <Bike className="size-4 text-primary" />;
@@ -86,8 +82,8 @@ function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
       await createVehicle(form as CreateVehicleRequest);
       toast.success("Vehicle added successfully.");
       onClose();
-    } catch {
-      toast.error("Failed to add vehicle.");
+    } catch (err) {
+      toast.error(apiErrorText(err, "Failed to add vehicle."));
     }
   }
 
@@ -164,7 +160,9 @@ function AssignRiderPanel({
   onClose: () => void;
 }) {
   const [memberId, setMemberId] = useState("");
-  const { data: membersData } = useFleetMembers({ status: "active", limit: 100 });
+  const [riderSearch, setRiderSearch] = useState("");
+  // Server-side search keeps this fast however many riders the fleet has.
+  const { data: membersData } = useFleetMembers({ status: "active", search: riderSearch.trim() || undefined, limit: 20 });
   const { mutateAsync: assignVehicle, isPending } = useAssignVehicle();
   const members = membersData?.data ?? [];
 
@@ -177,14 +175,20 @@ function AssignRiderPanel({
       await assignVehicle({ memberId, vehicleId });
       toast.success("Vehicle assigned to rider.");
       onClose();
-    } catch {
-      toast.error("Failed to assign vehicle.");
+    } catch (err) {
+      toast.error(apiErrorText(err, "Failed to assign vehicle."));
     }
   }
 
   return (
     <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3 space-y-2">
       <p className="text-xs font-medium">Assign to rider</p>
+      <Input
+        placeholder="Search riders by name, phone or email"
+        value={riderSearch}
+        onChange={(e) => setRiderSearch(e.target.value)}
+        className="h-8 text-sm"
+      />
       <div className="flex gap-2">
         <select
           className="flex h-8 flex-1 rounded-md border border-border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -213,11 +217,13 @@ function AssignRiderPanel({
 
 const VEHICLE_STATUSES: VehicleStatus[] = ["active", "maintenance", "inactive"];
 
-function VehicleCard({ vehicle }: { vehicle: VehicleWithMember }) {
+function VehicleCard({ vehicle }: { vehicle: FleetVehicle }) {
   const [showAssign, setShowAssign] = useState(false);
   const updateVehicle = useUpdateVehicle();
   const deleteVehicle = useDeleteVehicle();
-  const isAssigned = !!vehicle.edges?.fleet_member;
+  const unlink = useAssignVehicle();
+  const assignee = vehicle.assigned_to;
+  const isAssigned = !!assignee;
 
   function handleStatusChange(status: VehicleStatus) {
     updateVehicle.mutate(
@@ -258,12 +264,27 @@ function VehicleCard({ vehicle }: { vehicle: VehicleWithMember }) {
             <p className="text-xs text-muted-foreground mt-0.5">
               {vehicle.make} {vehicle.model}
             </p>
-            {vehicle.edges?.fleet_member && (
+            {assignee && (
               <p className="text-xs text-primary mt-1 font-medium">
-                Assigned: {`${vehicle.edges.fleet_member.first_name} ${vehicle.edges.fleet_member.last_name}`.trim() || `Rider ${vehicle.edges.fleet_member.id.slice(0, 6)}`}
+                Assigned: {assignee.name || `Rider ${assignee.member_id.slice(0, 6)}`}
+                <button
+                  className="ml-2 font-normal text-muted-foreground underline hover:text-destructive"
+                  disabled={unlink.isPending}
+                  onClick={() =>
+                    unlink.mutate(
+                      { memberId: assignee.member_id, vehicleId: null },
+                      {
+                        onSuccess: () => toast.success("Vehicle unlinked."),
+                        onError: (err) => toast.error(apiErrorText(err, "Could not unlink the vehicle.")),
+                      },
+                    )
+                  }
+                >
+                  Unlink
+                </button>
               </p>
             )}
-            {!vehicle.edges?.fleet_member && !showAssign && (
+            {!assignee && !showAssign && (
               <button
                 className="mt-1.5 text-xs text-muted-foreground underline hover:text-primary"
                 onClick={() => setShowAssign(true)}
@@ -316,30 +337,14 @@ function VehicleCard({ vehicle }: { vehicle: VehicleWithMember }) {
 export default function VehiclesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: membersData, isLoading } = useFleetMembers({ limit: 200 });
-
-  // Extract vehicles from member edges — deduplicate by vehicle.id
-  const vehicles = (membersData?.data ?? [])
-    .flatMap((m) => {
-      const memberVehicles = m.edges?.vehicles ?? [];
-      return memberVehicles.map((v) => ({ ...v, edges: { ...v.edges, fleet_member: m } }));
-    })
-    .filter(
-      (v, i, arr) => arr.findIndex((x) => x.id === v.id) === i
-    )
-    .filter(
-      (v) =>
-        v.license_plate.toLowerCase().includes(search.toLowerCase()) ||
-        v.make.toLowerCase().includes(search.toLowerCase()) ||
-        v.model.toLowerCase().includes(search.toLowerCase())
-    );
-
-  const statusCounts = {
-    active: vehicles.filter((v) => v.status === "active").length,
-    maintenance: vehicles.filter((v) => v.status === "maintenance").length,
-    inactive: vehicles.filter((v) => v.status === "inactive").length,
-  };
+  // The API lists every vehicle, rider or not, with the rider it is linked to, and counts the
+  // whole fleet in SQL, so the page and the totals stay right however large the fleet grows.
+  const { data, isLoading } = useFleetVehicles({ search: search.trim() || undefined, page, limit: PAGE_SIZE });
+  const vehicles = data?.data ?? [];
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
+  const statusCounts = data?.summary ?? { active: 0, maintenance: 0, inactive: 0, assigned: 0, unassigned: 0 };
 
   return (
     <div className="space-y-6">
@@ -383,7 +388,10 @@ export default function VehiclesPage() {
           <Input
             placeholder="Search by plate, make, model…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
       </div>
@@ -400,7 +408,7 @@ export default function VehiclesPage() {
           <Car className="mx-auto size-10 text-muted-foreground/40" />
           <p className="mt-3 text-sm font-medium text-muted-foreground">No vehicles found.</p>
           <p className="text-xs text-muted-foreground/70 mt-1">
-            Add a vehicle to get started. Vehicles are linked to fleet members.
+            Add a vehicle to get started, then link it to a rider.
           </p>
           <Button
             variant="outline"
@@ -416,9 +424,10 @@ export default function VehiclesPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {vehicles.map((v) => (
-          <VehicleCard key={v.id} vehicle={v as VehicleWithMember} />
+          <VehicleCard key={v.id} vehicle={v} />
         ))}
       </div>
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }

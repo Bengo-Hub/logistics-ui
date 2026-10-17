@@ -36,6 +36,7 @@ import type {
   UserRoleAssignment,
   Vehicle,
   VehicleStatus,
+  VehicleType,
   ZoneInput,
   ZoneStat,
 } from "@/types/logistics";
@@ -226,13 +227,24 @@ export async function fetchMember(tenantSlug: string, memberId: string): Promise
   return data;
 }
 
-/** freelance riders are paid per delivery; staff riders are salaried in erp-api payroll. */
+/** freelance riders are external; staff riders are internal employees HR has already vetted. */
 export type EmploymentType = "freelance" | "staff";
+
+/**
+ * How a rider is paid. Payroll riders draw a salary in HR payroll (no per-delivery pay); earning
+ * rules riders are paid per delivery from the rider pricing rules. Freelance is always earning rules.
+ */
+export type PayBasis = "payroll" | "earning_rules";
 
 export interface Employment {
   type: EmploymentType;
-  per_task_earnings?: boolean;
+  pay_basis?: PayBasis;
 }
+
+export const PAY_BASIS_LABEL: Record<PayBasis, string> = {
+  payroll: "Salary (payroll)",
+  earning_rules: "Per delivery (earning rules)",
+};
 
 export interface InviteMemberBody {
   email: string;
@@ -258,10 +270,34 @@ export async function setMemberEmployment(
   return data;
 }
 
-/** Reads a member's employment terms from metadata; members without terms are freelance. */
-export function memberEmployment(m: Pick<FleetMember, "metadata">): Employment {
-  const raw = (m.metadata?.employment ?? {}) as Partial<Employment>;
-  return { type: raw.type === "staff" ? "staff" : "freelance", per_task_earnings: raw.per_task_earnings };
+/** Reads a member's employment terms from metadata; members without terms are freelance on earning rules. */
+export function memberEmployment(m: Pick<FleetMember, "metadata">): Required<Employment> {
+  const raw = (m.metadata?.employment ?? {}) as Partial<Employment> & { per_task_earnings?: boolean };
+  if (raw.type !== "staff") return { type: "freelance", pay_basis: "earning_rules" };
+  // per_task_earnings is the flag pay_basis replaced; riders saved with it keep their pay.
+  const rules = raw.pay_basis === "earning_rules" || (raw.pay_basis == null && raw.per_task_earnings === true);
+  return { type: "staff", pay_basis: rules ? "earning_rules" : "payroll" };
+}
+
+/** A direct onboarding of an internal rider: the admin fills everything in, no invite needed. */
+export interface OnboardRiderBody {
+  first_name: string;
+  last_name?: string;
+  email: string;
+  phone: string;
+  id_number: string;
+  license_no?: string;
+  pay_basis: PayBasis;
+  /** Link an existing fleet vehicle, or register a new one; never both. */
+  vehicle_id?: string;
+  vehicle?: { vehicle_type: VehicleType; make?: string; model?: string; license_plate: string };
+  /** Also email the rider the sign-up link. */
+  send_invite?: boolean;
+}
+
+export async function onboardRider(tenantSlug: string, body: OnboardRiderBody): Promise<FleetMember> {
+  const { data } = await api.post(`${tenantSlug}/fleet/members/onboard`, body);
+  return data;
 }
 
 export async function approveMember(tenantSlug: string, memberId: string): Promise<FleetMember> {
@@ -312,12 +348,41 @@ export async function createVehicle(
   return data;
 }
 
+/** A fleet vehicle with the rider it is linked to (absent when it is free). */
+export interface FleetVehicle extends Vehicle {
+  assigned_to?: { member_id: string; name: string; phone?: string };
+}
+
+/** Whole-fleet counts, computed by the API (not just the loaded page). */
+export interface VehicleSummary {
+  active: number;
+  maintenance: number;
+  inactive: number;
+  assigned: number;
+  unassigned: number;
+}
+
+export interface VehiclesParams extends PaginationParams {
+  search?: string;
+  status?: VehicleStatus;
+  assigned?: boolean;
+}
+
+export async function fetchVehicles(
+  tenantSlug: string,
+  params?: VehiclesParams
+): Promise<PaginatedResponse<FleetVehicle> & { summary: VehicleSummary }> {
+  const { data } = await api.get(`${tenantSlug}/fleet/vehicles`, { params });
+  return data;
+}
+
+/** Links a vehicle to a rider; null unlinks the rider's vehicle. */
 export async function assignVehicle(
   tenantSlug: string,
   memberId: string,
-  vehicleId: string
+  vehicleId: string | null
 ): Promise<void> {
-  await api.post(`${tenantSlug}/fleet/members/${memberId}/vehicle`, { vehicle_id: vehicleId });
+  await api.post(`${tenantSlug}/fleet/members/${memberId}/vehicle`, { vehicle_id: vehicleId ?? "" });
 }
 
 export async function updateVehicle(
