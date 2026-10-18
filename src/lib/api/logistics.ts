@@ -16,6 +16,8 @@ import type {
   DeliveryQuote,
   GeoFence,
   GeoPlace,
+  InsuranceInput,
+  InsuranceView,
   LogisticsNotification,
   LogisticsPermission,
   LogisticsRole,
@@ -290,7 +292,8 @@ export interface OnboardRiderBody {
   pay_basis: PayBasis;
   /** Link an existing fleet vehicle, or register a new one; never both. */
   vehicle_id?: string;
-  vehicle?: { vehicle_type: VehicleType; make?: string; model?: string; license_plate: string };
+  /** A new vehicle, with its insurance when recorded now (member_id is set by the API). */
+  vehicle?: Omit<CreateVehicleRequest, "member_id">;
   /** Email the rider their sign-in details, with the temporary password for a new account. */
   send_invite?: boolean;
 }
@@ -354,7 +357,7 @@ export async function batchInviteMembers(
 export async function createVehicle(
   tenantSlug: string,
   body: CreateVehicleRequest
-): Promise<Vehicle> {
+): Promise<FleetVehicle> {
   const { data } = await api.post(`${tenantSlug}/fleet/vehicles`, body);
   return data;
 }
@@ -362,6 +365,8 @@ export async function createVehicle(
 /** A fleet vehicle with the rider it is linked to (absent when it is free). */
 export interface FleetVehicle extends Vehicle {
   assigned_to?: { member_id: string; name: string; phone?: string };
+  chassis_no?: string;
+  insurance?: InsuranceView;
 }
 
 /** Whole-fleet counts, computed by the API (not just the loaded page). */
@@ -371,6 +376,29 @@ export interface VehicleSummary {
   inactive: number;
   assigned: number;
   unassigned: number;
+  insurance_expired: number;
+  insurance_expiring: number;
+  insurance_missing: number;
+}
+
+/** Records or renews a vehicle's policy; a vehicle deactivated for an expired policy is reactivated. */
+export async function recordVehicleInsurance(
+  tenantSlug: string,
+  vehicleId: string,
+  body: InsuranceInput
+): Promise<FleetVehicle> {
+  const { data } = await api.put(`${tenantSlug}/fleet/vehicles/${vehicleId}/insurance`, body);
+  return data;
+}
+
+/** Uploads a photo or PDF (max 5 MB) and returns its reference. */
+export async function uploadMedia(tenantSlug: string, file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post(`${tenantSlug}/media/upload`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data?.url ?? "";
 }
 
 export interface VehiclesParams extends PaginationParams {
@@ -649,6 +677,22 @@ export async function updateServiceConfig(
     )
   );
   return fetchServiceConfig(tenantSlug);
+}
+
+/** Settings rows as stored: the tenant's own value (is_override) or the platform default. */
+export async function fetchSettingRows(tenantSlug: string): Promise<ServiceConfigEntry[]> {
+  const { data } = await api.get(`${tenantSlug}/settings`);
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
+/** Saves the tenant's own value for one setting key (full key, e.g. logistics.block_expired_insurance). */
+export async function saveSetting(tenantSlug: string, key: string, value: string): Promise<void> {
+  await api.put(`${tenantSlug}/settings/${key}`, { config_value: value });
+}
+
+/** Drops the tenant's own value so the platform default applies again. */
+export async function resetSetting(tenantSlug: string, key: string): Promise<void> {
+  await api.delete(`${tenantSlug}/settings/${key}`);
 }
 
 // ─── RBAC ─────────────────────────────────────────────────────────────────────

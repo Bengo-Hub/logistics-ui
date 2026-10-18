@@ -19,7 +19,8 @@ import {
 import { toast } from "sonner";
 import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/base";
-import { useServiceConfig, useUpdateServiceConfig } from "@/hooks/use-service-config";
+import { useServiceConfig, useSetSetting, useSettingRows, useUpdateServiceConfig } from "@/hooks/use-service-config";
+import { apiErrorText } from "@/lib/utils";
 import { useModuleAccess, useModulesConfig, useMyPermissions, useUpdateModules } from "@/hooks/use-module-access";
 import type { ServiceConfigMap } from "@/types/logistics";
 
@@ -62,6 +63,7 @@ export default function SettingsPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
           <OperationsCard canManage={canManage} />
+          <InsuranceCard canManage={canManage} />
           <ModulesCard />
         </div>
         <ElsewhereCard orgSlug={orgSlug} />
@@ -170,6 +172,139 @@ function OperationsCard({ canManage }: { canManage: boolean }) {
             Save
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Vehicle insurance ───────────────────────────────────────────────────────
+
+// Each rule follows the platform default unless the business sets its own value. The API reads
+// them in fleet/insurance.go (LoadInsurancePolicy); both default to block.
+const INSURANCE_RULES: Array<{ key: string; title: string; block: string; allow: string }> = [
+  {
+    key: "logistics.block_expired_insurance",
+    title: "Expired insurance",
+    block: "The vehicle is deactivated on expiry and its rider gets no jobs until the renewed policy is recorded.",
+    allow: "The vehicle stays on jobs after expiry; the rider and you are still reminded.",
+  },
+  {
+    key: "logistics.block_uninsured_vehicles",
+    title: "No insurance recorded",
+    block: "A motorised vehicle with no policy recorded gets no jobs. Bicycles never need one.",
+    allow: "Vehicles without a recorded policy still get jobs; they show a warning.",
+  },
+];
+const REMINDER_KEY = "logistics.insurance_reminder_days";
+
+function InsuranceCard({ canManage }: { canManage: boolean }) {
+  const { data: rows, isLoading } = useSettingRows();
+  const setSetting = useSetSetting();
+  const byKey = new Map((rows ?? []).map((r) => [r.config_key, r]));
+  const reminder = byKey.get(REMINDER_KEY);
+  const [days, setDays] = useState("");
+  useEffect(() => {
+    if (reminder) setDays(reminder.config_value);
+  }, [reminder?.config_value]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = (key: string, value: string | null, message: string) =>
+    setSetting.mutate(
+      { key, value },
+      {
+        onSuccess: () => toast.success(message),
+        onError: (err) => toast.error(apiErrorText(err, "Could not save the setting")),
+      },
+    );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ShieldCheck className="size-4" /> Vehicle insurance
+        </CardTitle>
+        <CardDescription>
+          Riders and you get an email and WhatsApp reminder before a vehicle&apos;s insurance expires. Riders or admins renew it
+          by recording the new policy, which puts the vehicle back on jobs.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-6 text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Loading settings...
+          </div>
+        ) : (
+          <>
+            {INSURANCE_RULES.map((rule) => {
+              const row = byKey.get(rule.key);
+              // Platform value: the row itself when not overridden, else its default_value.
+              const platformValue = row?.is_override ? row.default_value : row?.config_value;
+              const platformBlocks = (platformValue ?? "true") === "true";
+              const mode = row?.is_override ? (row.config_value === "true" ? "block" : "allow") : "default";
+              const effectiveBlock = mode === "default" ? platformBlocks : mode === "block";
+              return (
+                <div key={rule.key} className="rounded-xl border border-border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{rule.title}</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">{effectiveBlock ? rule.block : rule.allow}</p>
+                    </div>
+                    <select
+                      className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                      value={mode}
+                      disabled={!canManage || setSetting.isPending}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (next === "default") apply(rule.key, null, "Following the platform default");
+                        else apply(rule.key, next === "block" ? "true" : "false", "Setting saved");
+                      }}
+                    >
+                      <option value="default">Platform default ({platformBlocks ? "block" : "allow"})</option>
+                      <option value="block">Block jobs</option>
+                      <option value="allow">Allow jobs</option>
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Reminder</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Days before expiry the rider and you are reminded
+                  {reminder?.is_override ? ` (platform default ${reminder.default_value ?? 7})` : " (platform default)"}.
+                </p>
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                className="h-9 w-20 rounded-md border border-border bg-background px-2 text-sm"
+                value={days}
+                disabled={!canManage}
+                onChange={(e) => setDays(e.target.value)}
+              />
+              <Button
+                size="sm"
+                disabled={!canManage || setSetting.isPending || !days || days === reminder?.config_value}
+                onClick={() => {
+                  const n = Number(days);
+                  if (!Number.isInteger(n) || n < 1 || n > 60) {
+                    toast.error("Enter a whole number of days from 1 to 60");
+                    return;
+                  }
+                  apply(REMINDER_KEY, String(n), "Reminder saved");
+                }}
+              >
+                Save
+              </Button>
+              {reminder?.is_override && (
+                <Button size="sm" variant="ghost" disabled={!canManage || setSetting.isPending} onClick={() => apply(REMINDER_KEY, null, "Following the platform default")}>
+                  Use default
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

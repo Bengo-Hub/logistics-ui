@@ -15,6 +15,7 @@ import {
   fetchVehicles,
   inviteMember,
   onboardRider,
+  recordVehicleInsurance,
   rejectMember,
   setMemberEmployment,
   suspendMember,
@@ -24,7 +25,7 @@ import {
   type OnboardRiderBody,
   type VehiclesParams,
 } from "@/lib/api/logistics";
-import type { CreateVehicleRequest, FleetMember, PaginatedResponse, VehicleStatus } from "@/types/logistics";
+import type { CreateVehicleRequest, FleetMember, InsuranceInput, PaginatedResponse, VehicleStatus } from "@/types/logistics";
 
 function useTenantSlug(): string {
   const params = useParams();
@@ -158,6 +159,16 @@ export function useOnboardRider() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: OnboardRiderBody) => onboardRider(tenantSlug, body),
+    onSuccess: () => invalidateFleet(qc),
+  });
+}
+
+export function useRecordVehicleInsurance() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ vehicleId, ...body }: { vehicleId: string } & InsuranceInput) =>
+      recordVehicleInsurance(tenantSlug, vehicleId, body),
     onSuccess: () => invalidateFleet(qc),
   });
 }

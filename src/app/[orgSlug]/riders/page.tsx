@@ -36,7 +36,7 @@ import { useTasks } from "@/hooks/use-tasks";
 import { memberEmployment, type EmploymentType } from "@/lib/api/logistics";
 import { taskStatusLabel, taskStatusTone, timeAgo } from "@/lib/task-status";
 import { apiErrorText, orgRoute } from "@/lib/utils";
-import { AWAITING_APPROVAL, type FleetMember, type FleetMemberStatus } from "@/types/logistics";
+import { AWAITING_APPROVAL, type DispatchBlock, type FleetMember, type FleetMemberStatus } from "@/types/logistics";
 
 const PAGE_SIZE = 20;
 
@@ -50,6 +50,13 @@ const STATUS: Record<FleetMemberStatus, { label: string; tone: "success" | "warn
 };
 
 const WAITING = AWAITING_APPROVAL.join(",");
+
+// Why an active rider gets no jobs because of their vehicle (the API's dispatch_block).
+const BLOCK_LABEL: Record<DispatchBlock, string> = {
+  vehicle_inactive: "No jobs: vehicle inactive",
+  no_insurance: "No jobs: no insurance",
+  insurance_expired: "No jobs: insurance expired",
+};
 
 const FILTERS: Array<{ value: string; label: string }> = [
   { value: "all", label: "All" },
@@ -383,6 +390,11 @@ function RidersContent() {
                         {m.status !== "active" && (
                           <Badge variant={st.tone} className="text-[10px]">
                             {st.label}
+                          </Badge>
+                        )}
+                        {m.dispatch_block && (
+                          <Badge variant="destructive" className="text-[10px]" title={m.dispatch_block_message}>
+                            {BLOCK_LABEL[m.dispatch_block]}
                           </Badge>
                         )}
                       </div>

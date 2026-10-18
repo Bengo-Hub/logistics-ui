@@ -30,6 +30,11 @@ export interface FleetMember {
   edges?: {
     vehicles?: Vehicle[];
   };
+  /** The linked vehicle's insurance (list and detail responses). */
+  vehicle_insurance?: InsuranceView;
+  /** Set when an active rider gets no jobs because of their vehicle. */
+  dispatch_block?: DispatchBlock;
+  dispatch_block_message?: string;
 }
 
 /** invited (not signed in yet), pending (signed up, no documents), pending_review (documents sent). */
@@ -92,10 +97,49 @@ export type VehicleStatus = "active" | "inactive" | "maintenance";
 
 export interface CreateVehicleRequest {
   vehicle_type: VehicleType;
-  make: string;
-  model: string;
+  /** Optional: stored as "Unknown" when blank (insurance certificates rarely show them). */
+  make?: string;
+  model?: string;
   license_plate: string;
-  metadata?: Record<string, unknown>;
+  chassis_no?: string;
+  /** Record the policy with the vehicle (a motorised vehicle needs one to carry jobs by default). */
+  insurance?: InsuranceInput;
+  /** Link the new vehicle to this rider at once. */
+  member_id?: string;
+}
+
+/** A policy as entered from the certificate. Dates are YYYY-MM-DD. */
+export interface InsuranceInput {
+  policy_no: string;
+  certificate_no?: string;
+  insurer?: string;
+  cover?: string;
+  starts_on?: string;
+  expires_on: string;
+  /** Uploaded certificate (photo or PDF). */
+  document?: string;
+}
+
+/** valid, expiring (within the reminder days), expired, missing (motorised, none recorded), not_required (bicycle). */
+export type InsuranceStatus = "valid" | "expiring" | "expired" | "missing" | "not_required";
+
+/** Why a rider gets no jobs because of their vehicle (the API's fleet.VehicleBlock). */
+export type DispatchBlock = "vehicle_inactive" | "no_insurance" | "insurance_expired";
+
+/** A vehicle's insurance as the API reports it under the tenant's policy. */
+export interface InsuranceView {
+  policy_no?: string;
+  certificate_no?: string;
+  insurer?: string;
+  cover?: string;
+  starts_on?: string;
+  expires_on?: string;
+  document?: string;
+  updated_by?: string;
+  updated_at?: string;
+  status: InsuranceStatus;
+  days_left?: number;
+  block?: DispatchBlock;
 }
 
 /**
@@ -483,6 +527,8 @@ export interface ServiceConfigEntry {
   description: string;
   is_secret: boolean;
   is_override: boolean;
+  /** The platform value under a tenant override. */
+  default_value?: string;
   created_at: string;
   updated_at: string;
 }

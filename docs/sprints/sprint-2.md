@@ -47,6 +47,13 @@
 - Vehicles page lists from `GET /fleet/vehicles` (free vehicles show; search, totals and paging are server side). Vehicle types come from `lib/vehicle-types.ts`.
 - App switcher Account Portal now opens auth-ui (`NEXT_PUBLIC_AUTH_UI_URL`), not the SSO API host.
 
+## Vehicle insurance (2026-10-18)
+- Linking a rider to a vehicle: the rider's sheet and detail page share `RiderVehicleLink` (pick a free vehicle and Link, or "Register this rider's vehicle" with its insurance in one step); the Vehicles page card has "Assign to rider".
+- One vehicle form (`components/vehicles/vehicle-form.tsx`: plate, type, make, model, chassis, insurance) used by the Vehicles page, the rider panel and the add-rider dialog; insurance fields with certificate upload (`components/ui/file-upload.tsx`); `RenewInsuranceDialog`; `InsuranceBadge`.
+- Vehicles page: insurance badge, policy, deactivation note and Renew/Add insurance on every card; totals for insurance expiring, expired and missing.
+- Riders list: "No jobs: ..." badge for riders blocked by their vehicle.
+- Settings: Vehicle insurance card, each rule on the platform default, block or allow, and the reminder days.
+
 ## Remaining / Next Sprint
 
 → See sprint-3.md:

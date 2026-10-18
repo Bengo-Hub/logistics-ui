@@ -22,19 +22,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/base";
-import { toast } from "sonner";
 import { EmploymentControl } from "@/components/riders/employment-control";
 import { RiderVehicleLink } from "@/components/riders/rider-vehicle-link";
-import { PermissionGate } from "@/components/ui/module-gate";
+import { formatDay } from "@/components/vehicles/insurance-badge";
 import {
   useFleetMember,
   useApproveMember,
   useSuspendMember,
   useRejectMember,
 } from "@/hooks/use-logistics";
-import { useAssignVehicle } from "@/hooks/use-fleet";
 import { memberEmployment } from "@/lib/api/logistics";
-import { apiErrorText } from "@/lib/utils";
 import { AWAITING_APPROVAL, type FleetMemberStatus } from "@/types/logistics";
 
 const statusVariant: Record<FleetMemberStatus, "success" | "warning" | "destructive" | "secondary"> = {
@@ -94,7 +91,6 @@ export default function RiderDetailPage() {
   const approveMutation = useApproveMember();
   const suspendMutation = useSuspendMember();
   const rejectMutation = useRejectMember();
-  const assignVehicle = useAssignVehicle();
 
   const handleApprove = () => {
     approveMutation.mutate(riderId);
@@ -279,44 +275,36 @@ export default function RiderDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {vehicle ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{vehicle.license_plate}</span>
-                  <Badge variant="secondary" className="text-xs capitalize">{vehicle.vehicle_type}</Badge>
-                </div>
+            {/* One panel for link, unlink, register and insurance, shared with the riders sheet. */}
+            <RiderVehicleLink member={member} />
+            {vehicle && (
+              <div className="mt-3 space-y-3">
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Make / Model</p>
-                    <p className="font-medium">{vehicle.make} {vehicle.model}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Compliance</p>
-                    <p className="font-medium capitalize">{vehicle.compliance_status || "Not checked"}</p>
-                  </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Status</p>
                     <p className="font-medium capitalize">{vehicle.status}</p>
                   </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Insurance expiry</p>
+                    <p className="font-medium">{formatDay(member.vehicle_insurance?.expires_on) || "Not recorded"}</p>
+                  </div>
+                  {member.vehicle_insurance?.insurer && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Insurer</p>
+                      <p className="font-medium">
+                        {member.vehicle_insurance.insurer}
+                        {member.vehicle_insurance.cover ? ` (${member.vehicle_insurance.cover})` : ""}
+                      </p>
+                    </div>
+                  )}
+                  {member.vehicle_insurance?.document && (
+                    <div className="col-span-2">
+                      <a href={member.vehicle_insurance.document} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                        View insurance certificate <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                  )}
                 </div>
-                <PermissionGate permission="logistics.fleet.manage">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={assignVehicle.isPending}
-                    onClick={() =>
-                      assignVehicle.mutate(
-                        { memberId: riderId, vehicleId: null },
-                        {
-                          onSuccess: () => toast.success("Vehicle unlinked"),
-                          onError: (err) => toast.error(apiErrorText(err, "Could not unlink the vehicle")),
-                        },
-                      )
-                    }
-                  >
-                    Unlink vehicle
-                  </Button>
-                </PermissionGate>
                 {vehicle.image_license_plate && (
                   <div className="mt-2">
                     <p className="mb-1 text-xs text-muted-foreground">License Plate Photo</p>
@@ -327,11 +315,6 @@ export default function RiderDetailPage() {
                     />
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Truck className="mb-2 size-8 text-muted-foreground/40" />
-                <RiderVehicleLink member={member} />
               </div>
             )}
           </CardContent>

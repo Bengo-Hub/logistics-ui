@@ -7,22 +7,21 @@ import {
   Car,
   Loader2,
   Plus,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldOff,
   Trash2,
   Truck,
   Wrench,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-} from "@/components/ui/base";
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui/base";
 import { Pagination } from "@/components/ui/pagination";
+import { PermissionGate } from "@/components/ui/module-gate";
+import { InsuranceBadge } from "@/components/vehicles/insurance-badge";
+import { RenewInsuranceDialog } from "@/components/vehicles/renew-insurance-dialog";
+import { EMPTY_VEHICLE, VehicleForm, vehicleMissing, vehicleRequest, type VehicleDraft } from "@/components/vehicles/vehicle-form";
 import {
   useFleetMembers,
   useFleetVehicles,
@@ -33,8 +32,7 @@ import {
 } from "@/hooks/use-fleet";
 import type { FleetVehicle } from "@/lib/api/logistics";
 import { apiErrorText } from "@/lib/utils";
-import { VEHICLE_TYPES } from "@/lib/vehicle-types";
-import type { CreateVehicleRequest, VehicleType, VehicleStatus } from "@/types/logistics";
+import type { VehicleType, VehicleStatus } from "@/types/logistics";
 
 const PAGE_SIZE = 30;
 
@@ -59,28 +57,27 @@ function statusBadge(status: VehicleStatus) {
   );
 }
 
-// ─── Create Vehicle Dialog ────────────────────────────────────────────────────
+/** Make and model without the "Unknown" placeholder the API stores for blanks. */
+function makeModel(v: FleetVehicle) {
+  return [v.make, v.model].filter((p) => p && p !== "Unknown").join(" ");
+}
+
+// ─── Add vehicle ──────────────────────────────────────────────────────────────
 
 function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
   const { mutateAsync: createVehicle, isPending } = useCreateVehicle();
-
-  const [form, setForm] = useState<Partial<CreateVehicleRequest>>({
-    vehicle_type: "motorcycle",
-  });
-
-  function set<K extends keyof CreateVehicleRequest>(k: K, v: CreateVehicleRequest[K]) {
-    setForm((p) => ({ ...p, [k]: v }));
-  }
+  const [draft, setDraft] = useState<VehicleDraft>(EMPTY_VEHICLE);
+  const missing = vehicleMissing(draft);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.license_plate || !form.make || !form.model || !form.vehicle_type) {
-      toast.error("Fill in all required fields.");
+    if (missing) {
+      toast.error(`Add the ${missing}.`);
       return;
     }
     try {
-      await createVehicle(form as CreateVehicleRequest);
-      toast.success("Vehicle added successfully.");
+      await createVehicle(vehicleRequest(draft));
+      toast.success("Vehicle added. Link it to a rider from its card or the rider's sheet.");
       onClose();
     } catch (err) {
       toast.error(apiErrorText(err, "Failed to add vehicle."));
@@ -90,55 +87,18 @@ function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
   return (
     <Card className="border-primary/40 bg-primary/5">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-sm">Add New Vehicle</CardTitle>
+        <CardTitle className="text-sm">Add vehicle</CardTitle>
         <Button variant="ghost" size="icon" className="size-6" onClick={onClose}>
           <X className="size-3.5" />
         </Button>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">License Plate *</label>
-            <Input
-              placeholder="KCA 123A"
-              value={form.license_plate ?? ""}
-              onChange={(e) => set("license_plate", e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Vehicle Type *</label>
-            <select
-              className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={form.vehicle_type}
-              onChange={(e) => set("vehicle_type", e.target.value as VehicleType)}
-            >
-              {VEHICLE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Make *</label>
-            <Input
-              placeholder="Honda"
-              value={form.make ?? ""}
-              onChange={(e) => set("make", e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Model *</label>
-            <Input
-              placeholder="CB125F"
-              value={form.model ?? ""}
-              onChange={(e) => set("model", e.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-2 flex gap-2 pt-2">
-            <Button type="submit" disabled={isPending}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <VehicleForm value={draft} onChange={setDraft} />
+          <div className="flex gap-2">
+            <Button type="submit" disabled={isPending || !!missing} title={missing ? `Add the ${missing}` : undefined}>
               {isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              {isPending ? "Adding…" : "Add Vehicle"}
+              {isPending ? "Adding..." : "Add vehicle"}
             </Button>
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
@@ -150,15 +110,9 @@ function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Assign Rider Panel ───────────────────────────────────────────────────────
+// ─── Assign rider ─────────────────────────────────────────────────────────────
 
-function AssignRiderPanel({
-  vehicleId,
-  onClose,
-}: {
-  vehicleId: string;
-  onClose: () => void;
-}) {
+function AssignRiderPanel({ vehicleId, onClose }: { vehicleId: string; onClose: () => void }) {
   const [memberId, setMemberId] = useState("");
   const [riderSearch, setRiderSearch] = useState("");
   // Server-side search keeps this fast however many riders the fleet has.
@@ -181,7 +135,7 @@ function AssignRiderPanel({
   }
 
   return (
-    <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+    <div className="mt-2 space-y-2 rounded-lg border border-border bg-muted/30 p-3">
       <p className="text-xs font-medium">Assign to rider</p>
       <Input
         placeholder="Search riders by name, phone or email"
@@ -195,10 +149,11 @@ function AssignRiderPanel({
           value={memberId}
           onChange={(e) => setMemberId(e.target.value)}
         >
-          <option value="">Select rider…</option>
+          <option value="">Select rider...</option>
           {members.map((m) => (
             <option key={m.id} value={m.id}>
               {`${m.first_name} ${m.last_name}`.trim() || `Rider ${m.id.slice(0, 6)}`}
+              {m.edges?.vehicles?.length ? ` (has ${m.edges.vehicles[0].license_plate})` : ""}
             </option>
           ))}
         </select>
@@ -213,37 +168,34 @@ function AssignRiderPanel({
   );
 }
 
-// ─── Vehicle Card ─────────────────────────────────────────────────────────────
+// ─── Vehicle card ─────────────────────────────────────────────────────────────
 
 const VEHICLE_STATUSES: VehicleStatus[] = ["active", "maintenance", "inactive"];
 
 function VehicleCard({ vehicle }: { vehicle: FleetVehicle }) {
   const [showAssign, setShowAssign] = useState(false);
+  const [showRenew, setShowRenew] = useState(false);
   const updateVehicle = useUpdateVehicle();
   const deleteVehicle = useDeleteVehicle();
   const unlink = useAssignVehicle();
   const assignee = vehicle.assigned_to;
-  const isAssigned = !!assignee;
+  const ins = vehicle.insurance;
+  // Deactivated by the insurance monitor: renewing reactivates it.
+  const offForInsurance = vehicle.metadata?.inactive_reason === "insurance_expired";
 
   function handleStatusChange(status: VehicleStatus) {
-    updateVehicle.mutate(
-      { vehicleId: vehicle.id, status },
-      {
-        onError: () => toast.error("Failed to update vehicle status."),
-      }
-    );
+    updateVehicle.mutate({ vehicleId: vehicle.id, status }, { onError: (err) => toast.error(apiErrorText(err, "Failed to update vehicle status.")) });
   }
 
   function handleDelete() {
-    if (isAssigned) {
-      toast.error("Unassign this vehicle from its rider before deleting it.");
+    if (assignee) {
+      toast.error("Unlink this vehicle from its rider before deleting it.");
       return;
     }
     if (!confirm(`Delete vehicle ${vehicle.license_plate}? This cannot be undone.`)) return;
     deleteVehicle.mutate(vehicle.id, {
       onSuccess: () => toast.success("Vehicle deleted."),
-      onError: (err: any) =>
-        toast.error(err?.response?.data ?? "Failed to delete vehicle."),
+      onError: (err) => toast.error(apiErrorText(err, "Failed to delete vehicle.")),
     });
   }
 
@@ -251,83 +203,94 @@ function VehicleCard({ vehicle }: { vehicle: FleetVehicle }) {
     <Card className="border-border">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="p-2.5 rounded-lg bg-primary/10 shrink-0">
+          <div className="shrink-0 rounded-lg bg-primary/10 p-2.5">
             <VehicleIcon type={vehicle.vehicle_type} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold font-mono">
-                {vehicle.license_plate}
-              </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-mono text-sm font-semibold">{vehicle.license_plate}</p>
               {statusBadge(vehicle.status)}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {vehicle.make} {vehicle.model}
-            </p>
+            {makeModel(vehicle) && <p className="mt-0.5 text-xs text-muted-foreground">{makeModel(vehicle)}</p>}
+            {vehicle.chassis_no && <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">Chassis {vehicle.chassis_no}</p>}
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <InsuranceBadge view={ins} />
+              {ins?.policy_no && <span className="text-[11px] text-muted-foreground">Policy {ins.policy_no}</span>}
+            </div>
+            {offForInsurance && (
+              <p className="mt-1 text-[11px] text-destructive">Deactivated: insurance expired. Renewing reactivates it.</p>
+            )}
+            {ins?.block && ins.block !== "vehicle_inactive" && (
+              <p className="mt-1 text-[11px] text-destructive">Its rider gets no jobs until the insurance is recorded.</p>
+            )}
+
             {assignee && (
-              <p className="text-xs text-primary mt-1 font-medium">
+              <p className="mt-1 text-xs font-medium text-primary">
                 Assigned: {assignee.name || `Rider ${assignee.member_id.slice(0, 6)}`}
-                <button
-                  className="ml-2 font-normal text-muted-foreground underline hover:text-destructive"
-                  disabled={unlink.isPending}
-                  onClick={() =>
-                    unlink.mutate(
-                      { memberId: assignee.member_id, vehicleId: null },
-                      {
-                        onSuccess: () => toast.success("Vehicle unlinked."),
-                        onError: (err) => toast.error(apiErrorText(err, "Could not unlink the vehicle.")),
-                      },
-                    )
-                  }
-                >
-                  Unlink
-                </button>
+                <PermissionGate permission="logistics.fleet.manage">
+                  <button
+                    className="ml-2 font-normal text-muted-foreground underline hover:text-destructive"
+                    disabled={unlink.isPending}
+                    onClick={() =>
+                      unlink.mutate(
+                        { memberId: assignee.member_id, vehicleId: null },
+                        {
+                          onSuccess: () => toast.success("Vehicle unlinked."),
+                          onError: (err) => toast.error(apiErrorText(err, "Could not unlink the vehicle.")),
+                        },
+                      )
+                    }
+                  >
+                    Unlink
+                  </button>
+                </PermissionGate>
               </p>
             )}
-            {!assignee && !showAssign && (
-              <button
-                className="mt-1.5 text-xs text-muted-foreground underline hover:text-primary"
-                onClick={() => setShowAssign(true)}
-              >
-                Assign to rider
-              </button>
-            )}
-            {showAssign && (
-              <AssignRiderPanel
-                vehicleId={vehicle.id}
-                onClose={() => setShowAssign(false)}
-              />
-            )}
-            <div className="mt-2 flex items-center gap-2">
-              <select
-                value={vehicle.status}
-                disabled={updateVehicle.isPending}
-                onChange={(e) => handleStatusChange(e.target.value as VehicleStatus)}
-                className="h-7 rounded-md border border-border bg-background px-2 text-xs capitalize focus:outline-none focus:ring-1 focus:ring-primary/30"
-              >
-                {VEHICLE_STATUSES.map((s) => (
-                  <option key={s} value={s} className="capitalize">
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </option>
-                ))}
-              </select>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                disabled={deleteVehicle.isPending}
-                onClick={handleDelete}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </div>
+            <PermissionGate permission="logistics.fleet.manage">
+              {!assignee && !showAssign && (
+                <button className="mt-1.5 text-xs text-muted-foreground underline hover:text-primary" onClick={() => setShowAssign(true)}>
+                  Assign to rider
+                </button>
+              )}
+              {showAssign && <AssignRiderPanel vehicleId={vehicle.id} onClose={() => setShowAssign(false)} />}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <select
+                  value={vehicle.status}
+                  disabled={updateVehicle.isPending}
+                  onChange={(e) => handleStatusChange(e.target.value as VehicleStatus)}
+                  className="h-7 rounded-md border border-border bg-background px-2 text-xs capitalize focus:outline-none focus:ring-1 focus:ring-primary/30"
+                >
+                  {VEHICLE_STATUSES.map((s) => (
+                    <option key={s} value={s} className="capitalize">
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </option>
+                  ))}
+                </select>
+                {ins && ins.status !== "not_required" && (
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setShowRenew(true)}>
+                    {ins.policy_no ? "Renew insurance" : "Add insurance"}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={deleteVehicle.isPending}
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            </PermissionGate>
           </div>
-          <Badge variant="outline" className="text-xs shrink-0 capitalize">
+          <Badge variant="outline" className="shrink-0 text-xs capitalize">
             {vehicle.vehicle_type}
           </Badge>
         </div>
       </CardContent>
+      <RenewInsuranceDialog vehicleId={vehicle.id} plate={vehicle.license_plate} current={ins} open={showRenew} onOpenChange={setShowRenew} />
     </Card>
   );
 }
@@ -339,41 +302,47 @@ export default function VehiclesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  // The API lists every vehicle, rider or not, with the rider it is linked to, and counts the
-  // whole fleet in SQL, so the page and the totals stay right however large the fleet grows.
+  // The API lists every vehicle, rider or not, with the rider it is linked to and its insurance,
+  // and counts the whole fleet in SQL, so the page and the totals stay right however large it grows.
   const { data, isLoading } = useFleetVehicles({ search: search.trim() || undefined, page, limit: PAGE_SIZE });
   const vehicles = data?.data ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
-  const statusCounts = data?.summary ?? { active: 0, maintenance: 0, inactive: 0, assigned: 0, unassigned: 0 };
+  const s = data?.summary;
+
+  const stats = [
+    { label: "Active", value: s?.active ?? 0, Icon: Car, color: "text-success", bg: "bg-success/10" },
+    { label: "In maintenance", value: s?.maintenance ?? 0, Icon: Wrench, color: "text-warning", bg: "bg-warning/10" },
+    { label: "Inactive", value: s?.inactive ?? 0, Icon: AlertTriangle, color: "text-muted-foreground", bg: "bg-muted" },
+    { label: "Insurance expiring", value: s?.insurance_expiring ?? 0, Icon: ShieldAlert, color: "text-warning", bg: "bg-warning/10" },
+    { label: "Insurance expired", value: s?.insurance_expired ?? 0, Icon: ShieldOff, color: "text-destructive", bg: "bg-destructive/10" },
+    { label: "No insurance recorded", value: s?.insurance_missing ?? 0, Icon: ShieldCheck, color: "text-muted-foreground", bg: "bg-muted" },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Vehicles</h1>
-          <p className="text-muted-foreground">Manage fleet vehicles and rider assignments.</p>
+          <p className="text-muted-foreground">Fleet vehicles, their insurance and which rider has each one.</p>
         </div>
-        <Button onClick={() => setShowCreate((v) => !v)}>
-          <Plus className="size-4" />
-          Add Vehicle
-        </Button>
+        <PermissionGate permission="logistics.fleet.manage">
+          <Button onClick={() => setShowCreate((v) => !v)}>
+            <Plus className="size-4" />
+            Add vehicle
+          </Button>
+        </PermissionGate>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          { label: "Active", value: statusCounts.active, color: "text-success", bg: "bg-success/10" },
-          { label: "In Maintenance", value: statusCounts.maintenance, color: "text-warning", bg: "bg-warning/10" },
-          { label: "Inactive", value: statusCounts.inactive, color: "text-muted-foreground", bg: "bg-muted" },
-        ].map((s) => (
-          <Card key={s.label} className="border-border">
+      <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+        {stats.map((st) => (
+          <Card key={st.label} className="border-border">
             <CardContent className="flex items-center gap-3 p-4">
-              <div className={`p-2 rounded-lg ${s.bg}`}>
-                <Car className={`size-4 ${s.color}`} />
+              <div className={`rounded-lg p-2 ${st.bg}`}>
+                <st.Icon className={`size-4 ${st.color}`} />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="text-lg font-bold">{s.value}</p>
+                <p className="text-xs text-muted-foreground">{st.label}</p>
+                <p className="text-lg font-bold">{st.value}</p>
               </div>
             </CardContent>
           </Card>
@@ -382,11 +351,10 @@ export default function VehiclesPage() {
 
       {showCreate && <CreateVehiclePanel onClose={() => setShowCreate(false)} />}
 
-      {/* Filter */}
       <div className="flex gap-3">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative max-w-sm flex-1">
           <Input
-            placeholder="Search by plate, make, model…"
+            placeholder="Search by plate, make, model..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -396,7 +364,6 @@ export default function VehiclesPage() {
         </div>
       </div>
 
-      {/* Vehicle Grid */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -407,18 +374,13 @@ export default function VehiclesPage() {
         <div className="rounded-xl border border-dashed border-border py-16 text-center">
           <Car className="mx-auto size-10 text-muted-foreground/40" />
           <p className="mt-3 text-sm font-medium text-muted-foreground">No vehicles found.</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Add a vehicle to get started, then link it to a rider.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4"
-            onClick={() => setShowCreate(true)}
-          >
-            <Plus className="size-3.5" />
-            Add First Vehicle
-          </Button>
+          <p className="mt-1 text-xs text-muted-foreground/70">Add a vehicle with its insurance, then link it to a rider.</p>
+          <PermissionGate permission="logistics.fleet.manage">
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => setShowCreate(true)}>
+              <Plus className="size-3.5" />
+              Add first vehicle
+            </Button>
+          </PermissionGate>
         </div>
       )}
 

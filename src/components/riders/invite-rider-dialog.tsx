@@ -24,8 +24,13 @@ import {
   type PayBasis,
 } from "@/lib/api/logistics";
 import { apiErrorText } from "@/lib/utils";
-import { VEHICLE_TYPES } from "@/lib/vehicle-types";
-import type { VehicleType } from "@/types/logistics";
+import {
+  EMPTY_VEHICLE,
+  VehicleForm,
+  vehicleMissing,
+  vehicleRequest,
+  type VehicleDraft,
+} from "@/components/vehicles/vehicle-form";
 
 // The one rider onboarding form. The riders page opens it, and other apps (the storefront's
 // staff area) link to /{org}/riders?invite=1 instead of keeping a copy.
@@ -42,13 +47,6 @@ const EMPTY = {
   phone: "",
   id_number: "",
   license_no: "",
-};
-
-const EMPTY_VEHICLE = {
-  vehicle_type: "motorcycle" as VehicleType,
-  make: "",
-  model: "",
-  license_plate: "",
 };
 
 type VehicleChoice = "none" | "existing" | "new";
@@ -96,7 +94,7 @@ export function InviteRiderDialog({
   const [payBasis, setPayBasis] = useState<PayBasis>("payroll");
   const [vehicleChoice, setVehicleChoice] = useState<VehicleChoice>("none");
   const [vehicleId, setVehicleId] = useState("");
-  const [vehicle, setVehicle] = useState(EMPTY_VEHICLE);
+  const [vehicle, setVehicle] = useState<VehicleDraft>(EMPTY_VEHICLE);
   const [sendInvite, setSendInvite] = useState(true);
   // The sign-in details of the rider just added, shown once (the password is never stored).
   const [created, setCreated] = useState<OnboardRiderResult | null>(null);
@@ -115,8 +113,6 @@ export function InviteRiderDialog({
 
   const set = (key: keyof typeof EMPTY, value: string) =>
     setForm((p) => ({ ...p, [key]: value }));
-  const setVeh = (key: keyof typeof EMPTY_VEHICLE, value: string) =>
-    setVehicle((p) => ({ ...p, [key]: value }));
 
   const reset = () => {
     setForm(EMPTY);
@@ -146,8 +142,7 @@ export function InviteRiderDialog({
     if (!form.phone.trim()) return "phone";
     if (!form.id_number.trim()) return "ID number";
     if (vehicleChoice === "existing" && !vehicleId) return "vehicle";
-    if (vehicleChoice === "new" && !vehicle.license_plate.trim())
-      return "number plate";
+    if (vehicleChoice === "new") return vehicleMissing(vehicle);
     return "";
   })();
 
@@ -175,14 +170,7 @@ export function InviteRiderDialog({
       send_invite: sendInvite,
     };
     if (vehicleChoice === "existing") body.vehicle_id = vehicleId;
-    if (vehicleChoice === "new") {
-      body.vehicle = {
-        vehicle_type: vehicle.vehicle_type,
-        make: vehicle.make.trim() || undefined,
-        model: vehicle.model.trim() || undefined,
-        license_plate: vehicle.license_plate.trim(),
-      };
-    }
+    if (vehicleChoice === "new") body.vehicle = vehicleRequest(vehicle);
     onboard.mutate(body, {
       onSuccess: (res) => {
         if (sendInvite && !res.email_sent)
@@ -344,46 +332,7 @@ export function InviteRiderDialog({
                       </>
                     )}
                     {vehicleChoice === "new" && (
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <Field label="Number plate *">
-                          <Input
-                            value={vehicle.license_plate}
-                            onChange={(e) =>
-                              setVeh("license_plate", e.target.value)
-                            }
-                            placeholder="KMFA 123X"
-                          />
-                        </Field>
-                        <Field label="Type *">
-                          <select
-                            className={SELECT_CLASS}
-                            value={vehicle.vehicle_type}
-                            onChange={(e) =>
-                              setVeh("vehicle_type", e.target.value)
-                            }
-                          >
-                            {VEHICLE_TYPES.map((t) => (
-                              <option key={t.value} value={t.value}>
-                                {t.label}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                        <Field label="Make">
-                          <Input
-                            value={vehicle.make}
-                            onChange={(e) => setVeh("make", e.target.value)}
-                            placeholder="Honda"
-                          />
-                        </Field>
-                        <Field label="Model">
-                          <Input
-                            value={vehicle.model}
-                            onChange={(e) => setVeh("model", e.target.value)}
-                            placeholder="CB125F"
-                          />
-                        </Field>
-                      </div>
+                      <VehicleForm value={vehicle} onChange={setVehicle} />
                     )}
                   </fieldset>
 
