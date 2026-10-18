@@ -114,8 +114,10 @@ export function QuoteTester({ coverage, authToken }: { coverage?: DeliveryCovera
               {r.breakdown?.adjusted && r.breakdown.adjusted_by && (
                 <p className="text-xs text-muted-foreground">
                   {r.breakdown.adjusted === "capped"
-                    ? `Held to ${r.breakdown.adjusted_by}'s fee: the furthest area on this route.`
-                    : `Raised to ${r.breakdown.adjusted_by}'s fee: a nearer area on this route.`}{" "}
+                    ? `Held to ${r.breakdown.adjusted_by}'s fee: the next area further along this route.`
+                    : r.breakdown.adjusted === "raised"
+                      ? `Raised to ${r.breakdown.adjusted_by}'s fee: a nearer area on this route.`
+                      : `Starts from ${r.breakdown.adjusted_by}'s fee, the furthest area on this route, plus the distance rate beyond its edge.`}{" "}
                   Fee {money(r.breakdown.adjusted_to ?? r.fee, r.currency)}.
                 </p>
               )}

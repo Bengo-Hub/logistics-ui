@@ -421,7 +421,7 @@ export interface DeliveryQuote {
   min_order: number;
   below_min_order?: boolean;
   outlet?: OutletPoint;
-  breakdown?: { base_fee: number; per_km_rate: number; raw: number; min_fee: number; rounding: number; adjusted?: "capped" | "raised"; adjusted_to?: number; adjusted_by?: string };
+  breakdown?: { base_fee: number; per_km_rate: number; raw: number; min_fee: number; rounding: number; adjusted?: "capped" | "raised" | "extended"; adjusted_to?: number; adjusted_by?: string };
   policy_version: string;
   cache_seconds: number;
 }

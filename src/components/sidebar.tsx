@@ -9,7 +9,6 @@ import {
   BarChart3,
   ChevronDown,
   ClipboardList,
-  Database,
   FileText,
   Hexagon,
   LayoutDashboard,
@@ -102,7 +101,6 @@ const navGroups: NavGroup[] = [
     defaultCollapsed: true,
     items: [
       { id: "rbac", label: "Roles & Perms", href: "/rbac", icon: Shield, moduleKey: "rbac", permission: "logistics.config.manage" },
-      { id: "backups", label: "Backups", href: "/backups", icon: Database },
       { id: "settings", label: "Settings", href: "/settings", icon: Settings, moduleKey: "settings", permission: "logistics.config.manage" },
     ],
   },
