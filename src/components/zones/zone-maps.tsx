@@ -126,6 +126,7 @@ export function PointPickerMap({
   defaultCenter,
   authToken,
   className,
+  zoom = 13,
 }: {
   value: LatLng | null;
   onChange: (p: LatLng) => void;
@@ -133,10 +134,11 @@ export function PointPickerMap({
   defaultCenter?: LatLng;
   authToken?: string;
   className?: string;
+  zoom?: number;
 }) {
   return (
     <LogisticsMapProvider authToken={authToken}>
-      <LocationPicker className={className} value={value} onChange={(p) => onChange(p)} zones={zones} defaultCenter={defaultCenter} zoom={13} />
+      <LocationPicker className={className} value={value} onChange={(p) => onChange(p)} zones={zones} defaultCenter={defaultCenter} zoom={zoom} />
     </LogisticsMapProvider>
   );
 }

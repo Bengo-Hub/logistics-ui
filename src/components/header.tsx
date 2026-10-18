@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useTenantOutlets } from "@/hooks/use-tenant-outlets";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/base";
@@ -11,6 +13,7 @@ import {
   Building2,
   Check,
   ChevronDown,
+  Loader2,
   LogIn,
   LogOut,
   MapPin,
@@ -65,52 +68,94 @@ function HeaderOutletChip() {
   const { selectedOutlet, outlets, selectOutlet } = useOutletFilterStore();
   const user = useAuthStore((s) => s.user);
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  // The dropdown portals to <body>: the header's overflow-hidden clipped an absolutely
+  // positioned panel (the chevron turned but nothing showed), same as pos-ui and treasury-ui.
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null);
+  // Loads the tenant's outlets from auth-api and preselects the last or the main outlet.
+  const { isLoading } = useTenantOutlets();
 
   const canSwitch = !!(
     (user as any)?.isPlatformOwner ||
     (user as any)?.isSuperUser ||
     user?.roles?.some((r: string) =>
-      ["admin", "superuser", "manager", "super_admin", "fleet_manager", "dispatcher"].includes(r),
+      ["admin", "superuser", "owner", "tenant_admin", "manager", "super_admin", "fleet_manager", "dispatcher"].includes(r),
     )
   );
 
-  // Only render when an outlet is actually selected (context chip, not full picker)
+  // Nothing to show until there is an outlet to name or a list to choose from.
   if (!selectedOutlet && outlets.length === 0) return null;
 
-  const activeName = selectedOutlet?.name ?? "All Branches";
+  const activeName = selectedOutlet?.name || (selectedOutlet ? "Outlet" : "All Branches");
   const chipBase =
-    "hidden lg:flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-1.5 text-sm font-medium text-muted-foreground shrink-0";
+    "flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-2.5 lg:px-3 py-1.5 text-sm font-medium text-muted-foreground shrink-0 min-w-0";
 
   if (!canSwitch) {
     return (
       <div className={chipBase}>
         <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="truncate max-w-[7.5rem]">{activeName}</span>
+        <span className="truncate max-w-18 sm:max-w-30">{activeName}</span>
       </div>
     );
   }
 
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const width = 272;
+      setPanelPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)) });
+    }
+    setSearch("");
+    setOpen((v) => !v);
+  };
+  const q = search.trim().toLowerCase();
+  const shown = outlets.filter((o) => !q || o.name.toLowerCase().includes(q) || (o.code ?? "").toLowerCase().includes(q));
+
   return (
-    <div className="relative hidden lg:block shrink-0">
+    <div className="relative block shrink-0 min-w-0">
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         className={cn(chipBase, "hover:bg-muted hover:text-foreground transition-colors cursor-pointer")}
         title="Switch branch"
       >
         <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="truncate max-w-[7.5rem]">{activeName}</span>
+        <span className="truncate max-w-18 sm:max-w-30">{activeName}</span>
         <ChevronDown className={cn("h-3.5 w-3.5 transition-transform shrink-0", open && "rotate-180")} />
       </button>
 
-      {open && outlets.length > 0 && (
+      {open && panelPos && typeof document !== "undefined" && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
-          <div className="absolute left-0 top-full mt-1 z-50 w-64 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
+          <div className="fixed inset-0 z-90" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            className="fixed z-91 w-68 rounded-xl border border-border bg-popover shadow-xl overflow-hidden"
+            style={{ top: panelPos.top, left: panelPos.left }}
+          >
             <div className="px-3 py-2 border-b border-border">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Switch Branch</p>
             </div>
-            <div className="max-h-56 overflow-y-auto py-1">
+            {outlets.length > 5 && (
+              <div className="p-2 border-b border-border">
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search branches..."
+                  className="w-full bg-accent/30 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            )}
+            {isLoading && outlets.length === 0 && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {!isLoading && outlets.length === 0 && (
+              <p className="px-3 py-4 text-center text-xs text-muted-foreground">No branches found for this organisation.</p>
+            )}
+            <div className="max-h-64 overflow-y-auto py-1">
               <button
                 type="button"
                 onClick={() => { selectOutlet(null); setOpen(false); }}
@@ -120,7 +165,7 @@ function HeaderOutletChip() {
                 <span className="flex-1">All Branches</span>
                 {!selectedOutlet && <Check className="h-3.5 w-3.5 shrink-0" />}
               </button>
-              {outlets.map((o) => {
+              {shown.map((o) => {
                 const isActive = selectedOutlet?.id === o.id;
                 return (
                   <button
@@ -133,7 +178,7 @@ function HeaderOutletChip() {
                       {o.code?.slice(0, 2).toUpperCase() ?? "??"}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{o.name}</p>
+                      <p className="text-xs font-medium truncate">{o.name}{o.isHq ? " (main)" : ""}</p>
                       {o.useCase && <p className="text-[10px] text-muted-foreground">{o.useCase.replace("_", " ")}</p>}
                     </div>
                     {isActive && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
@@ -142,7 +187,8 @@ function HeaderOutletChip() {
               })}
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );

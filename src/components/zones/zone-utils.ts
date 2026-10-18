@@ -124,6 +124,29 @@ export function draftRing(d: ZoneDraft): number[][] {
   return g.boundary;
 }
 
+function haversineM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const h =
+    Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/**
+ * The point and radius a delivery fee is suggested for: a circle's own centre and radius, or a
+ * polygon's box centre with the distance to its furthest corner. Null until the shape is drawn.
+ */
+export function suggestionTarget(g: ZoneGeometry): { center: { lat: number; lng: number }; radiusM: number } | null {
+  if (g.shape === "circle") {
+    return g.center ? { center: { lat: g.center.latitude, lng: g.center.longitude }, radiusM: g.radiusM } : null;
+  }
+  if (g.boundary.length < 3) return null;
+  const lngs = g.boundary.map((c) => c[0]);
+  const lats = g.boundary.map((c) => c[1]);
+  const center = { lat: (Math.min(...lats) + Math.max(...lats)) / 2, lng: (Math.min(...lngs) + Math.max(...lngs)) / 2 };
+  const radiusM = Math.max(...g.boundary.map(([lng, lat]) => haversineM(center, { lat, lng })));
+  return { center, radiusM };
+}
+
 export function money(v: number, currency = "KES"): string {
   return `${currency} ${Math.round(v).toLocaleString()}`;
 }

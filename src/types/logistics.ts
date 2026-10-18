@@ -358,7 +358,11 @@ export interface ZoneInput {
 /** Customer delivery pricing and geofence policy (logistics.delivery_quote_policy). */
 export interface DeliveryPolicy {
   fallback: "per_km" | "none";
+  /** Which pins outside every area are still served: up to the furthest area's far edge, or only near an area edge. */
+  coverage: "furthest_area" | "buffer";
   buffer_km: number;
+  /** Email the customer the area, distance and fee of a distance-priced delivery with their order confirmation. */
+  confirm_by_email: boolean;
   max_radius_km?: number | null;
   require_zones: boolean;
   base_fee: number;
@@ -401,6 +405,12 @@ export interface DeliveryQuote {
   zone?: ZoneRef;
   nearest_area?: ZoneRef;
   nearest_area_km?: number;
+  /** The area reaching furthest from the outlet and how far its far edge is (straight line). */
+  furthest_area?: ZoneRef;
+  furthest_area_km?: number;
+  /** Straight-line distance from the outlet to the pin. */
+  outlet_km?: number;
+  needs_confirmation?: boolean;
   distance_km: number;
   distance_type?: "road" | "estimated" | "straight";
   eta_minutes?: number;
@@ -420,8 +430,37 @@ export interface DeliveryCoverage {
   min_fee: number;
   has_free_zone: boolean;
   currency: string;
-  policy: { fallback: string; buffer_km: number; per_km_rate: number };
+  policy: { fallback: string; coverage: string; buffer_km: number; per_km_rate: number };
   policy_version: string;
+}
+
+/** Fee the tenant's own per-km rules give for a new area, measured from the dispatching outlet. */
+export interface FeeSuggestion {
+  outlet?: OutletPoint;
+  distance_km: number;
+  distance_type?: "road" | "estimated" | "straight";
+  near_km: number;
+  far_km: number;
+  suggested_fee: number;
+  near_fee: number;
+  far_fee: number;
+  outlet_inside: boolean;
+  currency: string;
+  reason?: string;
+}
+
+/** An outlet as auth-api (its owner) reports it, with its map pin. */
+export interface TenantOutlet {
+  id: string;
+  code: string;
+  name: string;
+  use_case?: string;
+  is_hq?: boolean;
+  status?: string;
+  address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  timezone?: string;
 }
 
 /** Place from the geocode proxy. */

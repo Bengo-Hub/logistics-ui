@@ -101,7 +101,19 @@ export function DeliveryPricingCard({
             </select>
           </div>
           <div className="space-y-1">
-            <p className={label}>Accept pins within (km of an area)</p>
+            <p className={label}>Places between the areas</p>
+            <select
+              className={selectCls}
+              value={p.coverage}
+              disabled={p.fallback === "none"}
+              onChange={(e) => setP({ ...p, coverage: e.target.value as DeliveryPolicy["coverage"] })}
+            >
+              <option value="furthest_area">Deliver anywhere up to the furthest area</option>
+              <option value="buffer">Only deliver close to an area</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <p className={label}>{p.coverage === "furthest_area" ? "Extra distance past the furthest area (km)" : "Accept pins within (km of an area)"}</p>
             <Input type="number" min={0} step={0.5} value={p.buffer_km} onChange={num("buffer_km")} disabled={p.fallback === "none"} />
           </div>
           <div className="space-y-1">
@@ -166,10 +178,34 @@ export function DeliveryPricingCard({
             <input type="checkbox" checked={p.require_zones} onChange={(e) => setP({ ...p, require_zones: e.target.checked })} />
             Refuse deliveries until at least one area exists
           </label>
+          <label className="mt-6 flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={p.confirm_by_email}
+              disabled={p.fallback === "none"}
+              onChange={(e) => setP({ ...p, confirm_by_email: e.target.checked })}
+            />
+            <span>
+              Send distance-priced deliveries to the customer for confirmation
+              <span className="block text-xs text-muted-foreground">
+                Their order confirmation email states the area, distance and fee, so they can confirm it.
+              </span>
+            </span>
+          </label>
         </section>
 
         {p.fallback === "per_km" && (
           <div className="rounded-xl bg-muted/50 p-4 text-sm">
+            <p className="font-medium">Where distance pricing applies</p>
+            <p className="mb-3 text-muted-foreground">
+              {p.coverage === "furthest_area"
+                ? `A drop-off outside every area is delivered by distance while it is no further from the outlet than the furthest area reaches${
+                    p.buffer_km > 0 ? ` (plus ${p.buffer_km} km)` : ""
+                  }. Beyond that it is marked out of the delivery area.`
+                : `A drop-off outside every area is delivered by distance only when it is within ${p.buffer_km} km of an area. Anything further is marked out of the delivery area.`}
+              {p.max_radius_km ? ` Nothing beyond ${p.max_radius_km} km from the outlet is delivered.` : ""}
+            </p>
             <p className="font-medium">How a distance quote works</p>
             <p className="text-muted-foreground">
               {money(p.base_fee, p.currency)} + {money(p.per_km_rate, p.currency)} per km, at least {money(p.min_fee, p.currency)}

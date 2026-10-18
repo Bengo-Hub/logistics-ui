@@ -41,9 +41,11 @@ api.interceptors.request.use((config) => {
         config.headers["X-Tenant-Slug"] = tenantSlug;
       }
     }
-    // Attach outlet ID if set (for outlet-scoped requests)
-    const outletId = outletIdGetter() || localStorage.getItem("logistics-selected-outlet-id");
-    if (outletId) {
+    // Attach the outlet the user switched to (outlet-scoped requests). "all" is a deliberate
+    // choice of every outlet, so it must never fall back to the last single outlet.
+    const stored = localStorage.getItem("logistics-selected-outlet-id");
+    const outletId = outletIdGetter() || (stored && stored !== "all" ? stored : "");
+    if (outletId && stored !== "all") {
       config.headers["X-Outlet-ID"] = outletId;
     }
   }

@@ -16,7 +16,7 @@ import { useMe } from "@/hooks/useMe";
 import { attachOutletIdGetter, setOn401, setOnSubscription403 } from "@/lib/api/client";
 import { SubscriptionEntitlementsProvider } from "@/providers/subscription-entitlements-provider";
 import { useAuthStore } from "@/store/auth";
-import { useOutletFilterStore } from "@/store/outlet-filter";
+import { ALL_OUTLETS, SELECTED_OUTLET_KEY, useOutletFilterStore } from "@/store/outlet-filter";
 
 const SUBSCRIPTIONS_UI_URL =
   process.env.NEXT_PUBLIC_SUBSCRIPTIONS_UI_URL || "https://pricing.codevertexafrica.com";
@@ -155,13 +155,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   // Rehydrate outlet from localStorage on mount (for page refreshes)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem('logistics-selected-outlet-id');
-    if (stored && !useOutletFilterStore.getState().selectedOutlet) {
-      useOutletFilterStore.getState().selectOutlet({
-        id: stored,
-        code: '',
-        name: '',
-      });
+    const stored = localStorage.getItem(SELECTED_OUTLET_KEY);
+    // Restore by id only so requests carry the outlet at once; the header fills in its name
+    // when the outlets load. "all" (every branch) restores nothing, and nothing is re-saved.
+    if (stored && stored !== ALL_OUTLETS && !useOutletFilterStore.getState().selectedOutlet) {
+      useOutletFilterStore.setState({ selectedOutlet: { id: stored, code: '', name: '' } });
     }
   }, []);
 

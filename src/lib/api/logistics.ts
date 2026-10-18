@@ -14,6 +14,7 @@ import type {
   DeliveryPolicy,
   DeliveryPolicyView,
   DeliveryQuote,
+  FeeSuggestion,
   GeoFence,
   GeoPlace,
   InsuranceInput,
@@ -462,8 +463,9 @@ export async function markAllNotificationsRead(tenantSlug: string): Promise<{ ma
 
 // ─── Zones, delivery policy, quotes and geocoding ─────────────────────────────
 
-export async function fetchZones(tenantSlug: string): Promise<GeoFence[]> {
-  const { data } = await api.get(`${tenantSlug}/zones`);
+/** Zones of the tenant; with an outlet, only those serving it (areas with no outlet scope serve every outlet). */
+export async function fetchZones(tenantSlug: string, outletId?: string): Promise<GeoFence[]> {
+  const { data } = await api.get(`${tenantSlug}/zones`, { params: outletId ? { outlet_id: outletId } : undefined });
   return Array.isArray(data) ? data : [];
 }
 
@@ -521,8 +523,23 @@ export async function fetchDeliveryQuote(
   return data;
 }
 
-export async function fetchDeliveryCoverage(tenantSlug: string): Promise<DeliveryCoverage> {
-  const { data } = await api.get(`${tenantSlug}/zones/coverage`);
+export async function fetchDeliveryCoverage(tenantSlug: string, outletId?: string): Promise<DeliveryCoverage> {
+  const { data } = await api.get(`${tenantSlug}/zones/coverage`, { params: outletId ? { outlet_id: outletId } : undefined });
+  return data;
+}
+
+/** The fee the tenant's own per-km rules give for an area centred on a point, from the dispatching outlet. */
+export async function fetchFeeSuggestion(
+  tenantSlug: string,
+  params: { lat: number; lng: number; radius_m?: number; outlet_id?: string },
+): Promise<FeeSuggestion> {
+  const { data } = await api.get(`${tenantSlug}/delivery-policy/suggest-fee`, { params });
+  return data;
+}
+
+/** Pulls the tenant's outlets and map pins from auth-api into logistics right now. */
+export async function refreshOutlets(tenantSlug: string): Promise<{ outlets_updated: number }> {
+  const { data } = await api.post(`${tenantSlug}/zones/outlets/refresh`);
   return data;
 }
 

@@ -8,6 +8,7 @@ import {
   fetchDeliveryCoverage,
   fetchDeliveryPolicy,
   fetchDeliveryQuote,
+  fetchFeeSuggestion,
   fetchZone,
   fetchZones,
   fetchZoneStats,
@@ -19,6 +20,7 @@ import {
   resetDeliveryPolicy,
   savePlatformDeliveryPolicy,
 } from "@/lib/api/logistics";
+import { useOutletFilterStore } from "@/store/outlet-filter";
 import type { DeliveryPolicy, ZoneInput } from "@/types/logistics";
 
 function useTenantSlug(): string {
@@ -30,18 +32,26 @@ function useTenantSlug(): string {
 function useInvalidateDelivery() {
   const qc = useQueryClient();
   return () => {
-    for (const key of ["zones", "zone", "delivery-coverage", "delivery-quote", "delivery-policy"]) {
+    for (const key of ["zones", "zone", "delivery-coverage", "delivery-quote", "delivery-policy", "fee-suggestion"]) {
       qc.invalidateQueries({ queryKey: [key] });
     }
   };
 }
 
+/** The outlet the user switched to in the header, "" for every branch. */
+function useSelectedOutletId(): string {
+  return useOutletFilterStore((s) => s.selectedOutlet?.id ?? "");
+}
+
+/** Areas of the tenant that serve the selected outlet (every area when "All Branches"). */
 export function useZones() {
   const tenantSlug = useTenantSlug();
+  const outletId = useSelectedOutletId();
   return useQuery({
-    queryKey: ["zones", tenantSlug],
-    queryFn: () => fetchZones(tenantSlug),
+    queryKey: ["zones", tenantSlug, outletId],
+    queryFn: () => fetchZones(tenantSlug, outletId || undefined),
     enabled: !!tenantSlug,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -128,10 +138,32 @@ export function useSavePlatformDeliveryPolicy() {
 /** Outlet pins and active areas (the same view customers get). */
 export function useDeliveryCoverage() {
   const tenantSlug = useTenantSlug();
+  const outletId = useSelectedOutletId();
   return useQuery({
-    queryKey: ["delivery-coverage", tenantSlug],
-    queryFn: () => fetchDeliveryCoverage(tenantSlug),
+    queryKey: ["delivery-coverage", tenantSlug, outletId],
+    queryFn: () => fetchDeliveryCoverage(tenantSlug, outletId || undefined),
     enabled: !!tenantSlug,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The delivery fee the tenant's own per-km rules give for an area centred here, measured from
+ * the selected outlet (else the nearest outlet with a map pin). Used to fill a new area's fee.
+ */
+export function useFeeSuggestion(center: { lat: number; lng: number } | null, radiusM: number) {
+  const tenantSlug = useTenantSlug();
+  const outletId = useSelectedOutletId();
+  // About 11 m and 10 m steps: dragging a circle does not ask for a new price on every pixel.
+  const lat = center ? Number(center.lat.toFixed(4)) : null;
+  const lng = center ? Number(center.lng.toFixed(4)) : null;
+  const radius = Math.round(radiusM / 10) * 10;
+  return useQuery({
+    queryKey: ["fee-suggestion", tenantSlug, outletId, lat, lng, radius],
+    queryFn: () => fetchFeeSuggestion(tenantSlug, { lat: lat!, lng: lng!, radius_m: radius, outlet_id: outletId || undefined }),
+    enabled: !!tenantSlug && lat !== null && lng !== null,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
   });
 }
 

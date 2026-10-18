@@ -103,6 +103,14 @@ drifted from it.
 - **Side panel**: Zone name, description, operating hours, dispatch priority
 - **Save**: Sends polygon GeoJSON + metadata to logistics-api
 
+### Delivery areas page, outlet scope and fees (2026-10-18)
+
+- **Branch switcher** (header chip): outlets load from auth-api; the last choice, else the main outlet, is preselected. "All Branches" is a deliberate choice that is remembered. The dropdown portals to the page body (the header clips absolute panels) and shows on mobile.
+- **Everything follows the branch**: the area list and map, the quote tester and the fee suggestion use the selected outlet. A new area is scoped to it when the tenant has more than one outlet (untick it to serve all).
+- **Outlets tab**: each outlet with its pin status, Set pin or Move pin (map picker, typed coordinates, pasted Google Maps link). Only tenant admins can save a pin; it is stored in auth-api and logistics refreshes at once.
+- **Area form, delivery fee**: a new area's fee is suggested from the distance between the selected outlet and the area, using the tenant's distance rates, with the near and far edge fees. It follows the shape until a fee is typed; "Use the suggestion" reapplies it. An area around the outlet suggests free delivery.
+- **Pricing card**: "Places between the areas" (deliver up to the furthest area, or only close to an area), the extra distance, and sending distance-priced deliveries to the customer for confirmation.
+
 ---
 
 ## Component library (Shadcn)

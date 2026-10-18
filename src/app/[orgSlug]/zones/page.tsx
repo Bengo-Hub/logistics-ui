@@ -9,6 +9,7 @@ import { Badge, Button, Card, CardContent, Input } from "@/components/ui/base";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeliveryPricingCard } from "@/components/zones/delivery-pricing-card";
+import { OutletPinsCard } from "@/components/zones/outlet-pins-card";
 import { QuoteTester } from "@/components/zones/quote-tester";
 import { ZoneFormSheet } from "@/components/zones/zone-form-sheet";
 import { ZoneStatsCard } from "@/components/zones/zone-stats-card";
@@ -25,6 +26,7 @@ import {
 import { useMyPermissions } from "@/hooks/use-module-access";
 import { useCreateZone, useDeleteZone, useDeliveryCoverage, useZones } from "@/hooks/use-zones";
 import { useAuthStore } from "@/store/auth";
+import { useOutletFilterStore } from "@/store/outlet-filter";
 import type { GeoFence } from "@/types/logistics";
 
 const ZonesOverviewMap = dynamic(() => import("@/components/zones/zone-maps").then((m) => m.ZonesOverviewMap), {
@@ -56,7 +58,12 @@ export default function ZonesPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const outlets = coverage?.outlets ?? [];
-  const defaultCenter = outlets[0] ? { latitude: outlets[0].location.lat, longitude: outlets[0].location.lng } : undefined;
+  // New areas start around the outlet the user is working in (else the first one with a pin).
+  const selectedOutlet = useOutletFilterStore((s) => s.selectedOutlet);
+  const workingOutlet = outlets.find((o) => o.id === selectedOutlet?.id) ?? outlets[0];
+  const defaultCenter = workingOutlet ? { latitude: workingOutlet.location.lat, longitude: workingOutlet.location.lng } : undefined;
+  // With several outlets a new area belongs to the one being worked on until it is widened.
+  const defaultOutletIds = outlets.length > 1 && selectedOutlet?.id ? [selectedOutlet.id] : [];
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -87,7 +94,7 @@ export default function ZonesPage() {
   );
 
   const openCreate = () => {
-    setDraft(emptyDraft(defaultCenter));
+    setDraft({ ...emptyDraft(defaultCenter), outletIds: defaultOutletIds });
     setSheetOpen(true);
   };
   const openEdit = (z: GeoFence) => {
@@ -136,6 +143,7 @@ export default function ZonesPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             Where you deliver and what it costs. Ordering, POS deliveries and riders all use these settings.
+            {selectedOutlet?.name ? ` Showing the areas that ${selectedOutlet.name} delivers to.` : " Showing every branch."}
           </p>
         </div>
         {canManageZones && (
@@ -148,6 +156,7 @@ export default function ZonesPage() {
       <Tabs defaultValue="areas" className="space-y-4">
         <TabsList>
           <TabsTrigger value="areas">Areas</TabsTrigger>
+          <TabsTrigger value="outlets">Outlets</TabsTrigger>
           <TabsTrigger value="pricing">Pricing and geofence</TabsTrigger>
           <TabsTrigger value="test">Test a location</TabsTrigger>
           <TabsTrigger value="stats">Performance</TabsTrigger>
@@ -174,8 +183,8 @@ export default function ZonesPage() {
                 </div>
                 {outlets.length === 0 && (
                   <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
-                    No outlet has a map location yet. Set it under Branches in the account settings, otherwise distance pricing and
-                    dispatch cannot start from the outlet.
+                    No outlet has a map location yet. Set it on the Outlets tab, otherwise distance pricing and dispatch cannot start from
+                    the outlet.
                   </p>
                 )}
 
@@ -242,6 +251,10 @@ export default function ZonesPage() {
               />
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="outlets">
+          <OutletPinsCard coverage={coverage} authToken={authToken} />
         </TabsContent>
 
         <TabsContent value="pricing">

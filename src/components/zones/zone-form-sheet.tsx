@@ -7,9 +7,9 @@ import { toast } from "sonner";
 import type { ZoneGeometry, ZoneShape } from "@bengo-hub/maps";
 import { Button, Input } from "@/components/ui/base";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useCreateZone, usePlaceSearch, useUpdateZone } from "@/hooks/use-zones";
-import type { GeoFence, OutletPoint } from "@/types/logistics";
-import { ZONE_COLORS, draftToInput, pointFromMapLink, type ZoneDraft } from "./zone-utils";
+import { useCreateZone, useFeeSuggestion, usePlaceSearch, useUpdateZone } from "@/hooks/use-zones";
+import type { FeeSuggestion, GeoFence, OutletPoint } from "@/types/logistics";
+import { ZONE_COLORS, draftToInput, money, pointFromMapLink, suggestionTarget, type ZoneDraft } from "./zone-utils";
 
 const ZoneEditorMap = dynamic(() => import("./zone-maps").then((m) => m.ZoneEditorMap), {
   ssr: false,
@@ -39,17 +39,35 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
   const [placeQuery, setPlaceQuery] = useState("");
   const [mapLink, setMapLink] = useState("");
   const places = usePlaceSearch(placeQuery);
+  // A saved area keeps its fee; a new one follows the suggestion until the admin types a fee.
+  const [feeTouched, setFeeTouched] = useState(false);
 
   useEffect(() => {
     if (open) {
       setError(null);
       setPlaceQuery("");
+      setFeeTouched(!!draft.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, draft.id]);
 
   const set = (patch: Partial<ZoneDraft>) => setDraft({ ...draft, ...patch });
   const setGeo = (g: ZoneGeometry) => set({ geometry: g });
   const g = draft.geometry;
+
+  // The delivery fee the tenant's per-km rules give for this area, from the selected outlet.
+  const target = open && draft.zoneType === "delivery" ? suggestionTarget(g) : null;
+  const suggestion = useFeeSuggestion(target?.center ?? null, target?.radiusM ?? 0).data;
+  const suggestedFee = suggestion && !suggestion.reason ? suggestion.suggested_fee : null;
+  // An area around the outlet is normally free (the town circle); anything else is priced by distance.
+  const suggestsFree = !!suggestion && !suggestion.reason && suggestion.outlet_inside;
+
+  useEffect(() => {
+    if (!open || feeTouched || !suggestion || suggestion.reason) return;
+    const next = suggestsFree ? { free: true, fee: "0" } : { free: false, fee: String(suggestion.suggested_fee) };
+    if (draft.free !== next.free || draft.fee !== next.fee) setDraft({ ...draft, ...next });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, feeTouched, suggestion, suggestsFree]);
 
   const otherZones = useMemo<ZoneShape[]>(
     () => zones.filter((z) => z.id !== draft.id).map((z) => ({ id: z.id, name: z.name, boundary: z.boundary, color: z.color, zoneType: z.zone_type })),
@@ -237,13 +255,43 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <p className={label}>Delivery fee</p>
-                    <Input type="number" min={0} disabled={draft.free} value={draft.free ? "0" : draft.fee} onChange={(e) => set({ fee: e.target.value })} placeholder="150" />
+                    <Input
+                      type="number"
+                      min={0}
+                      disabled={draft.free}
+                      value={draft.free ? "0" : draft.fee}
+                      onChange={(e) => {
+                        setFeeTouched(true);
+                        set({ fee: e.target.value });
+                      }}
+                      placeholder="150"
+                    />
                   </div>
                   <label className="mt-6 flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={draft.free} onChange={(e) => set({ free: e.target.checked })} />
+                    <input
+                      type="checkbox"
+                      checked={draft.free}
+                      onChange={(e) => {
+                        setFeeTouched(true);
+                        set({ free: e.target.checked });
+                      }}
+                    />
                     Free delivery
                   </label>
                 </div>
+                <FeeSuggestionNote
+                  suggestion={suggestion}
+                  applied={!feeTouched}
+                  matches={suggestsFree ? draft.free : !draft.free && draft.fee === String(suggestedFee)}
+                  onUse={() => {
+                    if (!suggestion || suggestion.reason) return;
+                    setFeeTouched(false);
+                    set(suggestsFree ? { free: true, fee: "0" } : { free: false, fee: String(suggestion.suggested_fee) });
+                  }}
+                />
+                {draft.zoneType === "delivery" && target === null && (
+                  <p className="text-xs text-muted-foreground">Place the area on the map to get a suggested fee.</p>
+                )}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <p className={label}>Min order</p>
@@ -318,6 +366,56 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * What the tenant's pricing rules give for this area and how: distance from the outlet it is
+ * delivered from, the fee at the centre and the range across the area. The admin can always
+ * type a different fee.
+ */
+function FeeSuggestionNote({
+  suggestion,
+  applied,
+  matches,
+  onUse,
+}: {
+  suggestion?: FeeSuggestion;
+  applied: boolean;
+  matches: boolean;
+  onUse: () => void;
+}) {
+  if (!suggestion) return null;
+  if (suggestion.reason) {
+    return (
+      <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+        No fee can be suggested: no outlet has a map location yet. Set the outlet pin under Delivery areas, Outlets, then the fee
+        follows your distance pricing.
+      </p>
+    );
+  }
+  const cur = suggestion.currency;
+  const range =
+    suggestion.near_fee !== suggestion.far_fee ? ` The area spans ${money(suggestion.near_fee, cur)} to ${money(suggestion.far_fee, cur)}.` : "";
+  return (
+    <div className="space-y-1 rounded-lg bg-muted/50 px-3 py-2 text-xs">
+      <p className="font-medium">
+        {suggestion.outlet_inside
+          ? `${suggestion.outlet?.name ?? "The outlet"} is inside this area, so delivery here is normally free.`
+          : `Suggested ${money(suggestion.suggested_fee, cur)}: ${suggestion.distance_km} km ${
+              suggestion.distance_type === "road" ? "by road" : "estimated"
+            } from ${suggestion.outlet?.name ?? "the outlet"}.${range}`}
+      </p>
+      <p className="text-muted-foreground">
+        Priced with your distance rates. Switch branch in the header to price from another outlet.
+        {applied ? " It follows the area until you type a fee." : ""}
+      </p>
+      {!matches && (
+        <button type="button" className="font-semibold text-primary hover:underline" onClick={onUse}>
+          Use the suggestion
+        </button>
+      )}
+    </div>
   );
 }
 

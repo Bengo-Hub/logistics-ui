@@ -6,6 +6,7 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import type { LatLng, ZoneShape } from "@bengo-hub/maps";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "@/components/ui/base";
 import { useDeliveryQuote, useReversePlace } from "@/hooks/use-zones";
+import { useOutletFilterStore } from "@/store/outlet-filter";
 import type { DeliveryCoverage } from "@/types/logistics";
 import { REASON_LABEL, money } from "./zone-utils";
 
@@ -19,7 +20,11 @@ export function QuoteTester({ coverage, authToken }: { coverage?: DeliveryCovera
   const [point, setPoint] = useState<LatLng | null>(null);
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
-  const [outletId, setOutletId] = useState("");
+  // Quotes start from the branch selected in the header; "Nearest outlet" is a deliberate choice.
+  const selectedOutletId = useOutletFilterStore((s) => s.selectedOutlet?.id ?? "");
+  const [pickedOutlet, setPickedOutlet] = useState<string | null>(null);
+  const outletId = pickedOutlet ?? selectedOutletId;
+  const setOutletId = setPickedOutlet;
   const [orderTotal, setOrderTotal] = useState("");
 
   const q = point ? { lat: point.latitude, lng: point.longitude } : null;
@@ -86,6 +91,15 @@ export function QuoteTester({ coverage, authToken }: { coverage?: DeliveryCovera
               {r.zone && <Row k="Area" v={r.zone.name} />}
               {r.method && <Row k="Priced by" v={r.method === "zone" ? "Area fee" : "Distance rate"} />}
               {!r.zone && r.nearest_area && <Row k="Nearest area" v={`${r.nearest_area.name} (${r.nearest_area_km} km away)`} />}
+              {!r.serviceable && r.furthest_area && r.furthest_area_km ? (
+                <Row
+                  k="Deliveries reach"
+                  v={`${r.furthest_area_km} km (${r.furthest_area.name})${r.outlet_km ? `, this pin is ${r.outlet_km} km out` : ""}`}
+                />
+              ) : null}
+              {r.serviceable && r.method === "per_km" && r.needs_confirmation && (
+                <p className="text-xs text-muted-foreground">The customer is sent the area, distance and fee to confirm with their order confirmation.</p>
+              )}
               {r.outlet && <Row k="From outlet" v={r.outlet.name} />}
               {r.distance_km > 0 && <Row k="Distance" v={`${r.distance_km} km (${r.distance_type ?? "estimated"})`} />}
               {r.eta_minutes ? <Row k="ETA" v={`${r.eta_minutes} min`} /> : null}
