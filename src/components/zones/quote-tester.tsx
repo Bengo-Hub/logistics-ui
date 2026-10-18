@@ -91,10 +91,10 @@ export function QuoteTester({ coverage, authToken }: { coverage?: DeliveryCovera
               {r.zone && <Row k="Area" v={r.zone.name} />}
               {r.method && <Row k="Priced by" v={r.method === "zone" ? "Area fee" : "Distance rate"} />}
               {!r.zone && r.nearest_area && <Row k="Nearest area" v={`${r.nearest_area.name} (${r.nearest_area_km} km away)`} />}
-              {!r.serviceable && r.furthest_area && r.furthest_area_km ? (
+              {r.route_area && r.outlet_km ? (
                 <Row
-                  k="Deliveries reach"
-                  v={`${r.furthest_area_km} km (${r.furthest_area.name})${r.outlet_km ? `, this pin is ${r.outlet_km} km out` : ""}`}
+                  k={r.serviceable ? "On the way to" : "Nearest route"}
+                  v={`${r.route_area.name}: ${r.outlet_km} km ${r.direction ?? ""} of the outlet, ${r.route_off_km ?? 0} km off the route`}
                 />
               ) : null}
               {r.serviceable && r.method === "per_km" && r.needs_confirmation && (
@@ -109,6 +109,14 @@ export function QuoteTester({ coverage, authToken }: { coverage?: DeliveryCovera
                 <p className="text-xs text-muted-foreground">
                   {money(r.breakdown.base_fee, r.currency)} + {r.breakdown.per_km_rate}/km = {money(r.breakdown.raw, r.currency)}, min{" "}
                   {money(r.breakdown.min_fee, r.currency)}, rounded to {r.breakdown.rounding}
+                </p>
+              )}
+              {r.breakdown?.adjusted && r.breakdown.adjusted_by && (
+                <p className="text-xs text-muted-foreground">
+                  {r.breakdown.adjusted === "capped"
+                    ? `Held to ${r.breakdown.adjusted_by}'s fee: the furthest area on this route.`
+                    : `Raised to ${r.breakdown.adjusted_by}'s fee: a nearer area on this route.`}{" "}
+                  Fee {money(r.breakdown.adjusted_to ?? r.fee, r.currency)}.
                 </p>
               )}
             </div>

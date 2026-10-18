@@ -108,12 +108,18 @@ export function DeliveryPricingCard({
               disabled={p.fallback === "none"}
               onChange={(e) => setP({ ...p, coverage: e.target.value as DeliveryPolicy["coverage"] })}
             >
-              <option value="furthest_area">Deliver anywhere up to the furthest area</option>
+              <option value="route">Deliver along the way to an area</option>
               <option value="buffer">Only deliver close to an area</option>
             </select>
           </div>
+          {p.coverage === "route" && (
+            <div className="space-y-1">
+              <p className={label}>Allowed deviation from a route (km)</p>
+              <Input type="number" min={0} max={100} step={0.5} value={p.corridor_km} onChange={num("corridor_km")} disabled={p.fallback === "none"} />
+            </div>
+          )}
           <div className="space-y-1">
-            <p className={label}>{p.coverage === "furthest_area" ? "Extra distance past the furthest area (km)" : "Accept pins within (km of an area)"}</p>
+            <p className={label}>Always accept pins within (km of an area)</p>
             <Input type="number" min={0} step={0.5} value={p.buffer_km} onChange={num("buffer_km")} disabled={p.fallback === "none"} />
           </div>
           <div className="space-y-1">
@@ -199,10 +205,8 @@ export function DeliveryPricingCard({
           <div className="rounded-xl bg-muted/50 p-4 text-sm">
             <p className="font-medium">Where distance pricing applies</p>
             <p className="mb-3 text-muted-foreground">
-              {p.coverage === "furthest_area"
-                ? `A drop-off outside every area is delivered by distance while it is no further from the outlet than the furthest area reaches${
-                    p.buffer_km > 0 ? ` (plus ${p.buffer_km} km)` : ""
-                  }. Beyond that it is marked out of the delivery area.`
+              {p.coverage === "route"
+                ? `A drop-off outside every area is delivered by distance when it lies on the way to one: within ${p.corridor_km} km of the straight route from the outlet to that area's far edge, or a little past it. A place in another direction, even if closer, is marked out of the delivery area.`
                 : `A drop-off outside every area is delivered by distance only when it is within ${p.buffer_km} km of an area. Anything further is marked out of the delivery area.`}
               {p.max_radius_km ? ` Nothing beyond ${p.max_radius_km} km from the outlet is delivered.` : ""}
             </p>

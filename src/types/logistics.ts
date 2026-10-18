@@ -358,8 +358,10 @@ export interface ZoneInput {
 /** Customer delivery pricing and geofence policy (logistics.delivery_quote_policy). */
 export interface DeliveryPolicy {
   fallback: "per_km" | "none";
-  /** Which pins outside every area are still served: up to the furthest area's far edge, or only near an area edge. */
-  coverage: "furthest_area" | "buffer";
+  /** Which pins outside every area are still served: along the route to an area (direction counts), or only near an area edge. */
+  coverage: "route" | "buffer";
+  /** How far to either side of a route (and past its end) a pin may sit, in km. */
+  corridor_km: number;
   buffer_km: number;
   /** Email the customer the area, distance and fee of a distance-priced delivery with their order confirmation. */
   confirm_by_email: boolean;
@@ -405,9 +407,11 @@ export interface DeliveryQuote {
   zone?: ZoneRef;
   nearest_area?: ZoneRef;
   nearest_area_km?: number;
-  /** The area reaching furthest from the outlet and how far its far edge is (straight line). */
-  furthest_area?: ZoneRef;
-  furthest_area_km?: number;
+  /** The area whose route from the outlet passes closest to the pin, how far that route goes, how far the pin is off it, and the pin's compass direction. */
+  route_area?: ZoneRef;
+  route_reach_km?: number;
+  route_off_km?: number;
+  direction?: string;
   /** Straight-line distance from the outlet to the pin. */
   outlet_km?: number;
   needs_confirmation?: boolean;
@@ -417,7 +421,7 @@ export interface DeliveryQuote {
   min_order: number;
   below_min_order?: boolean;
   outlet?: OutletPoint;
-  breakdown?: { base_fee: number; per_km_rate: number; raw: number; min_fee: number; rounding: number };
+  breakdown?: { base_fee: number; per_km_rate: number; raw: number; min_fee: number; rounding: number; adjusted?: "capped" | "raised"; adjusted_to?: number; adjusted_by?: string };
   policy_version: string;
   cache_seconds: number;
 }
