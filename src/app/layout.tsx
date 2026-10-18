@@ -28,7 +28,18 @@ export const metadata: Metadata = {
     template: "%s | Codevertex Logistics",
   },
   description: "Fleet management, delivery tracking, and logistics operations.",
+  applicationName: "Codevertex Logistics",
   manifest: "/manifest.json",
+  // The logistics mark for pages outside a tenant (landing, public tracking); tenant pages
+  // override these with the tenant's generated icons ([orgSlug]/layout.tsx).
+  icons: {
+    icon: [
+      { url: "/icons/logistics-icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/icons/logistics-icon.svg",
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

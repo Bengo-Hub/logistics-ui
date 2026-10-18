@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { VerifyEmailPrompt } from '@/components/auth/VerifyEmailPrompt';
-import { useParams } from "next/navigation";
 import { AuthProvider } from "@/providers/auth-provider";
 import { BrandingProvider } from "@/providers/branding-provider";
 import { Header } from "@/components/header";
@@ -14,31 +13,6 @@ import { PlatformScopeGuard } from "@/components/platform-scope-guard";
 import { Footer } from "@/components/footer";
 import { SubscriptionBanner } from "@/components/subscription/subscription-banner";
 
-/**
- * Client-side belt-and-suspenders for the tenant manifest link. The authoritative
- * link is emitted server-side via `generateMetadata` in this segment's layout.tsx
- * (so mobile install captures the correct tenant); this keeps it correct across
- * in-app (SPA) navigation between tenant scopes.
- */
-function ManifestInjector() {
-  const params = useParams();
-  const orgSlug = params?.orgSlug as string | undefined;
-  useEffect(() => {
-    if (!orgSlug) return;
-    const href = `/${orgSlug}/manifest.webmanifest`;
-    let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'manifest';
-      document.head.appendChild(link);
-    }
-    if (link.href !== new URL(href, window.location.href).href) {
-      link.href = href;
-    }
-  }, [orgSlug]);
-  return null;
-}
-
 export function OrgShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -46,7 +20,6 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <BrandingProvider>
-        <ManifestInjector />
         <PlatformScopeGuard />
         <PWAUpdateBanner />
         <PwaRegistration />

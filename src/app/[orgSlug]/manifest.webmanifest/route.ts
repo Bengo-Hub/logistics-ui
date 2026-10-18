@@ -1,123 +1,64 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import {
-  serviceBrandingEntry,
-  serviceFullName,
-  serviceShortName,
-  type ServiceBrandingEntry,
-} from '@bengo-hub/shared-ui-lib/branding';
+import { type NextRequest, NextResponse } from "next/server";
 
-const AUTH_API_BASE =
-  process.env.NEXT_PUBLIC_SSO_URL ||
-  process.env.NEXT_PUBLIC_AUTH_API_URL ||
-  'https://sso.codevertexafrica.com';
-
-const DEFAULT_PRIMARY = '#5B1C4D';
-const DEFAULT_BG = '#1a0a15';
-// This app's entry in tenant metadata service_branding (set in Accounts > Branding).
-const SERVICE_KEY = 'logistics';
-
-interface TenantResponse {
-  name?: string;
-  logo_url?: string;
-  brand_colors?: { primary?: string; secondary?: string };
-  metadata?: Record<string, unknown>;
-}
-
-async function fetchTenant(slug: string): Promise<TenantResponse | null> {
-  try {
-    const res = await fetch(
-      `${AUTH_API_BASE}/api/v1/tenants/by-slug/${encodeURIComponent(slug)}`,
-      { next: { revalidate: 600 } },
-    );
-    if (!res.ok) return null;
-    return res.json() as Promise<TenantResponse>;
-  } catch {
-    return null;
-  }
-}
-
-function metaString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
-  const v = metadata?.[key];
-  return typeof v === 'string' && v ? v : undefined;
-}
-
-/** Declared type of an icon URL; a wrong type makes browsers skip the icon. */
-function iconMime(url: string): string | undefined {
-  const data = /^data:(image\/[a-z0-9.+-]+)/i.exec(url);
-  if (data) return data[1];
-  const ext = url.split('?')[0]?.split('.').pop()?.toLowerCase();
-  if (ext === 'svg') return 'image/svg+xml';
-  if (ext === 'png') return 'image/png';
-  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-  if (ext === 'webp') return 'image/webp';
-  return undefined;
-}
-
-// Bundled square PNGs are always listed so the app stays installable when the
-// tenant icon is a wide logo; the tenant icon comes first so browsers prefer it.
-const BUNDLED_ICONS = [
-  { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-  { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-  { src: '/icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-  { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-];
+import { appIconPath, getAppBranding } from "@/lib/app-branding";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ orgSlug: string }> },
 ) {
   const { orgSlug } = await params;
-  const tenant = await fetchTenant(orgSlug);
-  const entry: ServiceBrandingEntry = serviceBrandingEntry(tenant?.metadata, SERVICE_KEY) ?? {};
+  // Name, colours and icon come from the tenant's logistics app branding (e.g. "Loft Dispatch"),
+  // else "<Business> Logistics" with the business logo, else generated initials
+  // (lib/app-branding, shared-ui-lib resolveAppIdentity). Never another tenant's identity.
+  const branding = await getAppBranding(orgSlug);
 
-  const businessName = tenant?.name ?? orgSlug;
-  // Shared naming rule (shared-ui-lib branding): the tenant's own app name (e.g. "Loft Dispatch")
-  // wins, else "<Business> Logistics" and a "<brand word> Logistics" home-screen label.
-  const name = serviceFullName(businessName, 'Logistics', 'Bengo', entry);
-  const shortName = serviceShortName(businessName, 'Logistics', 'Bengo', entry);
-  const primaryColor =
-    entry.theme_color ?? tenant?.brand_colors?.primary ?? metaString(tenant?.metadata, 'primary_color') ?? DEFAULT_PRIMARY;
-  const bgColor =
-    tenant?.brand_colors?.secondary ?? metaString(tenant?.metadata, 'secondary_color') ?? DEFAULT_BG;
-  const iconUrl = entry.icon_url || tenant?.logo_url || metaString(tenant?.metadata, 'logo_url');
-  const iconType = iconUrl ? iconMime(iconUrl) : undefined;
-
+  // Square PNGs generated for this tenant, so installs work whether the uploaded icon is an SVG,
+  // a wide logo or missing.
   const icons = [
-    ...(iconUrl
-      ? [{ src: iconUrl, sizes: iconType === 'image/svg+xml' ? 'any' : '512x512', ...(iconType ? { type: iconType } : {}), purpose: 'any' }]
-      : []),
-    ...BUNDLED_ICONS,
+    { src: appIconPath(orgSlug, 192), sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: appIconPath(orgSlug, 512), sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: appIconPath(orgSlug, 192, true), sizes: "192x192", type: "image/png", purpose: "maskable" },
+    { src: appIconPath(orgSlug, 512, true), sizes: "512x512", type: "image/png", purpose: "maskable" },
   ];
+  const shortcutIcon = [{ src: appIconPath(orgSlug, 96), sizes: "96x96", type: "image/png" }];
 
   const manifest = {
+    // id keeps each tenant's install distinct even though they share a host.
     id: `/${orgSlug}/`,
-    name,
-    short_name: shortName,
-    description: entry.tagline || 'Manage deliveries, routes and logistics operations.',
+    name: branding.appName,
+    short_name: branding.shortName,
+    description: branding.description,
     start_url: `/${orgSlug}/`,
     scope: `/${orgSlug}/`,
-    display: 'standalone',
-    orientation: 'portrait-primary',
-    background_color: bgColor,
-    theme_color: primaryColor,
-    categories: ['business', 'productivity'],
-    lang: 'en',
+    display: "standalone",
+    orientation: "portrait-primary",
+    background_color: branding.backgroundColor,
+    theme_color: branding.themeColor,
+    categories: ["business", "productivity"],
+    lang: "en",
     icons,
     shortcuts: [
       {
-        name: 'Active Tasks',
-        short_name: 'Tasks',
-        description: 'View active delivery tasks',
+        name: "Deliveries",
+        short_name: "Deliveries",
+        description: "Delivery jobs and their status",
         url: `/${orgSlug}/tasks`,
-        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+        icons: shortcutIcon,
+      },
+      {
+        name: "Riders",
+        short_name: "Riders",
+        description: "Your riders and their vehicles",
+        url: `/${orgSlug}/riders`,
+        icons: shortcutIcon,
       },
     ],
   };
 
   return NextResponse.json(manifest, {
     headers: {
-      'Content-Type': 'application/manifest+json',
-      'Cache-Control': 'public, max-age=600, stale-while-revalidate=86400',
+      "Content-Type": "application/manifest+json",
+      "Cache-Control": "public, max-age=600, stale-while-revalidate=86400",
     },
   });
 }

@@ -54,6 +54,12 @@
 - Riders list: "No jobs: ..." badge for riders blocked by their vehicle.
 - Settings: Vehicle insurance card, each rule on the platform default, block or allow, and the reminder days.
 
+## App icons and favicon (2026-10-18)
+- Tenant pages set the browser tab title, favicon, iOS home-screen icon and the tenant PWA manifest server-side from `lib/app-branding.ts` (shared-ui-lib `resolveAppIdentity`, service key `logistics`): the tenant's own logistics app name and icon, else "<Business> Logistics" with the business logo.
+- `/{slug}/app-icon/{size}[?maskable=1]` serves square PNGs from the tenant icon or logo, else initials (shared-ui-lib `appIconResponse`, the same code as ordering-frontend). The manifest lists only these.
+- Pages outside a tenant (landing, public tracking) use the logistics mark (`public/icons/logistics-icon.svg`, bundled PNGs); `public/manifest.json` fixed (start_url `/`, brand colours, maskable icons).
+- Removed the duplicate client manifest injector in `org-shell.tsx` (`PwaRegistration` already keeps the link right across navigation).
+
 ## Remaining / Next Sprint
 
 → See sprint-3.md:
