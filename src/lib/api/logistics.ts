@@ -291,11 +291,22 @@ export interface OnboardRiderBody {
   /** Link an existing fleet vehicle, or register a new one; never both. */
   vehicle_id?: string;
   vehicle?: { vehicle_type: VehicleType; make?: string; model?: string; license_plate: string };
-  /** Also email the rider the sign-up link. */
+  /** Email the rider their sign-in details, with the temporary password for a new account. */
   send_invite?: boolean;
 }
 
-export async function onboardRider(tenantSlug: string, body: OnboardRiderBody): Promise<FleetMember> {
+/**
+ * The new rider plus the sign-in details shown to the admin once. temp_password is present only
+ * when the platform account was created now (it is never stored); existing_account means the
+ * rider signs in with the password they already have.
+ */
+export interface OnboardRiderResult extends FleetMember {
+  temp_password?: string;
+  existing_account: boolean;
+  email_sent: boolean;
+}
+
+export async function onboardRider(tenantSlug: string, body: OnboardRiderBody): Promise<OnboardRiderResult> {
   const { data } = await api.post(`${tenantSlug}/fleet/members/onboard`, body);
   return data;
 }

@@ -40,6 +40,13 @@
 - `useTaskStream` SSE hook: connects to `GET /tasks/{id}/stream`, broadcasts `status_changed` events
 - Live indicator in task detail header when SSE is connected
 
+## Internal riders (2026-10-17/18)
+- Add rider dialog (`components/riders/invite-rider-dialog.tsx`) has two paths. Internal rider: the admin fills name, email, phone, ID number (required), pay basis (salary by payroll or per delivery by earning rules) and a vehicle (link a free one or register one), then `POST /fleet/members/onboard`. Freelance rider: the email invite as before.
+- A new account's temporary password is shown once in a "Rider added" panel with copy buttons; the rider is also emailed it when "Email them their sign-in details" is ticked (default). They must change it on first sign-in.
+- Rider sheet and detail page share `EmploymentControl` (engagement and pay basis) and `RiderVehicleLink` (link or unlink). KYC uploads show "Optional" for internal riders and the ID number is flagged when missing.
+- Vehicles page lists from `GET /fleet/vehicles` (free vehicles show; search, totals and paging are server side). Vehicle types come from `lib/vehicle-types.ts`.
+- App switcher Account Portal now opens auth-ui (`NEXT_PUBLIC_AUTH_UI_URL`), not the SSO API host.
+
 ## Remaining / Next Sprint
 
 → See sprint-3.md:
