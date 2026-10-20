@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTenantOutlets } from "@/hooks/use-tenant-outlets";
+import { useSubscription } from "@/hooks/use-subscription";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/base";
@@ -216,7 +217,16 @@ export function Header({ onMenuClick, onToggleSidebar, sidebarCollapsed }: Heade
   // The App Store shows every real service to every authenticated user in the tenant — each
   // destination service already enforces its own RBAC + subscription gating on arrival, so
   // pre-filtering the directory here just hid apps that were actually reachable.
-  const services = useVisibleServices({ orgSlug, urls: SERVICE_URLS, canManageLinks: true });
+  // A service outside the plan stays visible as "Not in your plan" with a link to the plans page
+  // (shared-ui-lib default), so tenants discover the rest of the suite without hitting a 403.
+  const { activeServiceTags } = useSubscription();
+  const services = useVisibleServices({
+    orgSlug,
+    urls: SERVICE_URLS,
+    canManageLinks: true,
+    activeServiceTags,
+    upgradeUrl: SERVICE_URLS.subscriptions ? `${SERVICE_URLS.subscriptions}/${orgSlug}` : null,
+  });
 
   return (
     <header className="h-14 sm:h-20 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center gap-4 shrink-0">
