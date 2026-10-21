@@ -17,6 +17,7 @@ import { TASK_FILTERS, DELIVERED_STATUSES, taskStatusLabel, taskStatusTone, time
 import { memberEmployment } from "@/lib/api/logistics";
 import { orgRoute } from "@/lib/utils";
 import type { FleetMember, Task } from "@/types/logistics";
+import { MediaImage } from '@bengo-hub/shared-ui-lib/media';
 
 const PAGE_SIZE = 20;
 
@@ -360,7 +361,7 @@ function TasksContent() {
                   <div>
                     <p className="mb-2 text-xs text-muted-foreground">Proof of delivery</p>
                     {pod.photo_url && (
-                      <img src={pod.photo_url} alt="Proof of delivery" className="max-h-48 w-full rounded-lg border border-border object-cover" />
+                      <MediaImage src={pod.photo_url} displayWidth={512} alt="Proof of delivery" className="max-h-48 w-full rounded-lg border border-border object-cover" />
                     )}
                     {pod.notes && <p className="mt-2 text-sm text-muted-foreground">{pod.notes}</p>}
                   </div>

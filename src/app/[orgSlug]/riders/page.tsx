@@ -37,6 +37,7 @@ import { memberEmployment, type EmploymentType } from "@/lib/api/logistics";
 import { taskStatusLabel, taskStatusTone, timeAgo } from "@/lib/task-status";
 import { apiErrorText, orgRoute } from "@/lib/utils";
 import { AWAITING_APPROVAL, type DispatchBlock, type FleetMember, type FleetMemberStatus } from "@/types/logistics";
+import { MediaImage } from '@bengo-hub/shared-ui-lib/media';
 
 const PAGE_SIZE = 20;
 
@@ -83,7 +84,7 @@ function fullName(m: Pick<FleetMember, "first_name" | "last_name" | "phone" | "e
 function Avatar({ member, size = "sm" }: { member: FleetMember; size?: "sm" | "lg" }) {
   const cls = size === "lg" ? "size-12 text-lg" : "size-9 text-sm";
   if (member.rider_photo) {
-    return <img src={member.rider_photo} alt="" className={`${cls} shrink-0 rounded-full object-cover`} />;
+    return <MediaImage src={member.rider_photo} displayWidth={64} fit="cover" aspect={1} alt="" className={`${cls} shrink-0 rounded-full object-cover`} />;
   }
   return (
     <div className={`${cls} flex shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold uppercase text-primary`}>
