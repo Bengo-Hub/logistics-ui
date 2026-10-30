@@ -366,6 +366,8 @@ export interface DeliveryPolicy {
   /** Email the customer the area, distance and fee of a distance-priced delivery with their order confirmation. */
   confirm_by_email: boolean;
   max_radius_km?: number | null;
+  /** A drop-off pin this close to the outlet (metres) is refused as at_outlet: the customer collects. 0 = off. */
+  pickup_only_radius_m?: number;
   require_zones: boolean;
   base_fee: number;
   per_km_rate: number;

@@ -18,6 +18,7 @@ export const REASON_LABEL: Record<string, string> = {
   no_delivery_coverage: "No delivery areas are set up",
   invalid_location: "Invalid location",
   below_min_order: "Below the area's minimum order",
+  at_outlet: "At the outlet itself (pickup only)",
 };
 
 /** Editable form state for one zone. */

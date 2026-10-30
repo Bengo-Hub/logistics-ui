@@ -132,6 +132,11 @@ export function DeliveryPricingCard({
               onChange={(e) => setP({ ...p, max_radius_km: e.target.value === "" ? null : Number(e.target.value) })}
             />
           </div>
+          <div className="space-y-1">
+            <p className={label}>Pickup only within (m of the outlet)</p>
+            <Input type="number" min={0} max={2000} step={50} value={p.pickup_only_radius_m ?? 200} onChange={num("pickup_only_radius_m")} />
+            <p className="text-xs text-muted-foreground">A customer this close is at the outlet and collects. 0 turns this off.</p>
+          </div>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
