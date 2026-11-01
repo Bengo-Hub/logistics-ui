@@ -596,6 +596,7 @@ export interface ServiceConfigEntry {
 export interface ServiceConfigMap {
   pod_required?: boolean;
   auto_assign_enabled?: boolean;
+  rider_self_claim_enabled?: boolean;
 }
 
 /** RBAC types */

@@ -8,6 +8,7 @@ import {
   Bike,
   Camera,
   CreditCard,
+  Hand,
   Layers,
   Loader2,
   MapPinned,
@@ -74,7 +75,7 @@ export default function SettingsPage() {
 
 // ─── Dispatch and delivery ───────────────────────────────────────────────────
 
-type OpsKey = "auto_assign_enabled" | "pod_required";
+type OpsKey = "auto_assign_enabled" | "rider_self_claim_enabled" | "pod_required";
 
 const OPS: Array<{ key: OpsKey; icon: typeof Zap; title: string; on: string; off: string }> = [
   {
@@ -83,6 +84,13 @@ const OPS: Array<{ key: OpsKey; icon: typeof Zap; title: string; on: string; off
     title: "Auto-assign new deliveries",
     on: "New delivery jobs go to the nearest available rider on shift.",
     off: "Jobs wait on the dispatch board until a dispatcher assigns them.",
+  },
+  {
+    key: "rider_self_claim_enabled",
+    icon: Hand,
+    title: "Riders can take open jobs",
+    on: "Riders on shift see unassigned jobs under Open jobs and take one themselves. Only one rider gets each job.",
+    off: "Riders only get the jobs a dispatcher or auto-assign gives them.",
   },
   {
     key: "pod_required",
@@ -134,7 +142,7 @@ function OperationsCard({ canManage }: { canManage: boolean }) {
           </div>
         ) : (
           OPS.map(({ key, icon: Icon, title, on, off }) => {
-            // Both default to on when never saved (the API's defaults).
+            // All default to on when never saved (the API's defaults).
             const value = form[key] ?? true;
             const row = (
               <div className="flex items-start gap-4 rounded-xl border border-border p-4">
