@@ -273,6 +273,18 @@ export async function setMemberEmployment(
   return data;
 }
 
+/** Details a fleet manager may correct (name and email belong to the rider's account). */
+export interface MemberDetails {
+  phone?: string;
+  id_number?: string;
+  license_no?: string;
+}
+
+export async function updateMemberDetails(tenantSlug: string, memberId: string, body: MemberDetails): Promise<FleetMember> {
+  const { data } = await api.patch(`${tenantSlug}/fleet/members/${memberId}`, body);
+  return data;
+}
+
 /** Reads a member's employment terms from metadata; members without terms are freelance on earning rules. */
 export function memberEmployment(m: Pick<FleetMember, "metadata">): Required<Employment> {
   const raw = (m.metadata?.employment ?? {}) as Partial<Employment> & { per_task_earnings?: boolean };

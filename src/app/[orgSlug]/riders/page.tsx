@@ -21,6 +21,7 @@ import {
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PermissionGate } from "@/components/ui/module-gate";
 import { EmploymentControl } from "@/components/riders/employment-control";
+import { RiderDetailsEditor } from "@/components/riders/rider-details-editor";
 import { InviteRiderDialog } from "@/components/riders/invite-rider-dialog";
 import { RiderVehicleLink } from "@/components/riders/rider-vehicle-link";
 import {
@@ -478,6 +479,9 @@ function RidersContent() {
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">Email</p>
                     <p className="truncate font-medium">{selected.email || "Not set"}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <RiderDetailsEditor member={selected} />
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">Engagement</p>

@@ -12,6 +12,7 @@ export interface FleetMember {
   role: string;
   driver_code?: string;
   id_passport_number?: string;
+  license_no?: string;
   id_passport_attachment?: string;
   rider_photo?: string;
   emergency_contact_name?: string;

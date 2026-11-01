@@ -19,8 +19,10 @@ import {
   rejectMember,
   setMemberEmployment,
   suspendMember,
+  updateMemberDetails,
   updateVehicle,
   type Employment,
+  type MemberDetails,
   type MembersParams,
   type OnboardRiderBody,
   type VehiclesParams,
@@ -86,6 +88,15 @@ export function useSetMemberEmployment() {
   return useMutation({
     mutationFn: ({ memberId, ...body }: { memberId: string } & Employment) =>
       setMemberEmployment(tenantSlug, memberId, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet-members"] }),
+  });
+}
+
+export function useUpdateMemberDetails() {
+  const tenantSlug = useTenantSlug();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, ...body }: { memberId: string } & MemberDetails) => updateMemberDetails(tenantSlug, memberId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet-members"] }),
   });
 }
