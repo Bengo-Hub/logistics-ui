@@ -24,7 +24,7 @@ import {
   type ZoneDraft,
 } from "@/components/zones/zone-utils";
 import { useMyPermissions } from "@/hooks/use-module-access";
-import { useCreateZone, useDeleteZone, useDeliveryCoverage, useZones } from "@/hooks/use-zones";
+import { useCreateZone, useDeleteZone, useDeliveryCoverage, useWorkingOutlet, useZones } from "@/hooks/use-zones";
 import { useAuthStore } from "@/store/auth";
 import { useOutletFilterStore } from "@/store/outlet-filter";
 import type { GeoFence } from "@/types/logistics";
@@ -60,7 +60,7 @@ export default function ZonesPage() {
   const outlets = coverage?.outlets ?? [];
   // New areas start around the outlet the user is working in (else the first one with a pin).
   const selectedOutlet = useOutletFilterStore((s) => s.selectedOutlet);
-  const workingOutlet = outlets.find((o) => o.id === selectedOutlet?.id) ?? outlets[0];
+  const workingOutlet = useWorkingOutlet();
   const defaultCenter = workingOutlet ? { latitude: workingOutlet.location.lat, longitude: workingOutlet.location.lng } : undefined;
   // With several outlets a new area belongs to the one being worked on until it is widened.
   const defaultOutletIds = outlets.length > 1 && selectedOutlet?.id ? [selectedOutlet.id] : [];

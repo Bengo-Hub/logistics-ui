@@ -148,6 +148,17 @@ export function useDeliveryCoverage() {
 }
 
 /**
+ * The outlet the user is working in, with its map pin: the branch chosen in the header, else the
+ * first outlet that has a pin. Maps open on it and new areas start around it.
+ */
+export function useWorkingOutlet() {
+  const { data: coverage } = useDeliveryCoverage();
+  const selectedId = useSelectedOutletId();
+  const outlets = coverage?.outlets ?? [];
+  return outlets.find((o) => o.id === selectedId) ?? outlets[0];
+}
+
+/**
  * The delivery fee the tenant's own per-km rules give for an area centred here, measured from
  * the selected outlet (else the nearest outlet with a map pin). Used to fill a new area's fee.
  */
