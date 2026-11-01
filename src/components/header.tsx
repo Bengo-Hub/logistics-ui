@@ -20,7 +20,6 @@ import {
   MapPin,
   Menu,
   PanelLeft,
-  Search,
   Settings,
   UserIcon,
 } from "lucide-react";
@@ -259,15 +258,6 @@ export function Header({ onMenuClick, onToggleSidebar, sidebarCollapsed }: Heade
           <h1 className="hidden sm:block text-lg sm:text-xl font-black tracking-tight text-foreground uppercase truncate max-w-none shrink-0">
             {getServiceTitle("Logistics")}
           </h1>
-
-          {/* Search — desktop only */}
-          <div className="hidden lg:flex relative w-64 max-w-full group shrink-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-            <input
-              placeholder="Search tasks, riders..."
-              className="w-full h-10 bg-muted/50 border-none rounded-xl py-1.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary/30 transition-all outline-none"
-            />
-          </div>
         </div>
 
         {/* Outlet context chip */}
