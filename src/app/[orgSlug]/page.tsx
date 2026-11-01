@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { Clock, MapPin, Package, TrendingUp, Users, CheckCircle, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/base";
-import { useFleet, useFleetMembers } from "@/hooks/use-fleet";
 import { useTasks } from "@/hooks/use-tasks";
 import { useTelemetry } from "@/hooks/use-telemetry";
 import { useParams } from "next/navigation";
@@ -38,18 +37,15 @@ export default function DashboardPage() {
   const params = useParams();
   const orgSlug = params.orgSlug as string;
 
-  const { data: fleet } = useFleet();
-  const { data: membersData } = useFleetMembers({ status: "active", limit: 5 });
-  const { data: allTasksData } = useTasks({ limit: 50 });
-  const { data: pendingTasksData } = useTasks({ status: "pending", limit: 1 });
+  // Counts come from logistics-api's summary (aggregated in SQL); the task list is only the
+  // recent-activity feed.
+  const { data: recentTasksData } = useTasks({ limit: 20 });
   const { data: telemetry } = useTelemetry({ period: "today" });
 
-  const tasks = allTasksData?.data ?? [];
-  const activeRiders = membersData?.total ?? fleet?.edges?.members?.filter(m => m.status === "active").length ?? 0;
-  const pendingCount = pendingTasksData?.total ?? 0;
-  const activeDeliveries = tasks.filter((t) =>
-    ["assigned", "accepted", "en_route", "en_route_pickup", "arrived_pickup", "picked_up", "en_route_dropoff", "arrived_dropoff"].includes(t.status)
-  ).length;
+  const tasks = recentTasksData?.data ?? [];
+  const activeRiders = telemetry?.active_riders ?? 0;
+  const pendingCount = telemetry?.pending_tasks ?? 0;
+  const activeDeliveries = telemetry?.in_progress_tasks ?? 0;
 
   const recentTasks = useMemo(
     () => [...tasks].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 8),
@@ -68,7 +64,7 @@ export default function DashboardPage() {
     {
       title: "Riders Online",
       value: activeRiders,
-      description: "Available for dispatch",
+      description: "Sharing their location now",
       icon: Users,
       color: "text-success",
       bg: "bg-success/10",
@@ -91,9 +87,7 @@ export default function DashboardPage() {
     },
   ];
 
-  const successRate = telemetry?.success_rate
-    ? Math.round(telemetry.success_rate * 100)
-    : null;
+  const successRate = telemetry?.success_rate != null ? Math.round(telemetry.success_rate * 100) : null;
 
   return (
     <div className="space-y-6">
@@ -144,7 +138,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Today&apos;s Deliveries</p>
-                <p className="text-xl font-bold">{telemetry.total_tasks}</p>
+                <p className="text-xl font-bold">{telemetry.total_tasks ?? 0}</p>
               </div>
             </CardContent>
           </Card>
@@ -155,7 +149,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Failed Today</p>
-                <p className="text-xl font-bold">{telemetry.failed_tasks}</p>
+                <p className="text-xl font-bold">{telemetry.failed_tasks ?? 0}</p>
               </div>
             </CardContent>
           </Card>

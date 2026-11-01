@@ -507,14 +507,23 @@ export interface TelemetryPoint {
   recorded_at: string;
 }
 
+/** GET /{tenant}/telemetry: the dashboard's counts, all aggregated by logistics-api. */
 export interface TelemetryStats {
   period: string;
-  total_tasks: number;
-  completed_tasks: number;
-  failed_tasks: number;
-  success_rate: number;
-  avg_delivery_time_minutes: number;
+  /** Riders with a live location stream (online now). */
   active_riders: number;
+  /** Deliveries finished (proof of delivery) in the period. */
+  completed_tasks: number;
+  avg_delivery_time_minutes: number;
+  active_streams: number;
+  /** Tasks created in the period, and how many of those failed. */
+  total_tasks: number;
+  failed_tasks: number;
+  /** Tasks a rider is working now, and tasks waiting for a rider, whenever created. */
+  in_progress_tasks: number;
+  pending_tasks: number;
+  /** Delivered / (delivered + failed) of the period's tasks, 0..1; null when none finished. */
+  success_rate: number | null;
 }
 
 /** Earnings */
