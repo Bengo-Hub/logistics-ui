@@ -17,9 +17,8 @@ test.describe('Logistics UI SSO login and landing', () => {
     await page.goto('/');
     const signInLink = page.getByRole('link', { name: /sign in|login/i }).first();
     await signInLink.click().catch(() => {});
-    // Real domain is codevertexafrica.com (devops-k8s apps/auth-ui/values.yaml) --
-    // codevertexitsolutions.com here previously never matched, so login silently
-    // no-op'd and this test failed later for the wrong reason.
+    // Real domain is codevertexafrica.com (devops-k8s apps/auth-ui/values.yaml); a wrong host
+    // here never matches, so login silently no-ops and this test fails later for the wrong reason.
     const onAccounts = await page.waitForURL(/accounts\.codevertexafrica\.com\/login/, { timeout: 15_000 }).then(() => true).catch(() => false);
     if (onAccounts) {
       await page.getByRole('textbox', { name: /email/i }).fill(EMAIL);
