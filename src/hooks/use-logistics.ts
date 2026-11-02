@@ -24,7 +24,8 @@ export {
   useUpdateTaskStatus,
   useAssignTask,
   useDispatchTask,
-  useSubmitPoD,
+  useConfirmDelivery,
+  useOverrideDelivery,
   useRateRider,
 } from "@/hooks/use-tasks";
 

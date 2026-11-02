@@ -187,6 +187,8 @@ export interface Task {
   order_number?: string;
   payment_method?: string;
   cash_on_delivery: number;
+  /** The customer has a delivery code the rider (or dispatcher) must enter; the code is never sent. */
+  pod_code_required?: boolean;
   distance_km: number | null;
   /** Delivery area the drop-off falls in (from the checkout quote or intake tagging). */
   zone_id?: string;
@@ -265,16 +267,19 @@ export interface TaskAssignment {
 }
 
 /** Proof of delivery */
+/** logistics-api ProofOfDelivery as returned by GET/POST .../tasks/{id}/pod. Recipient, notes,
+ * delivered_via (code | recipient | override), confirmed_by and override_reason are in metadata. */
 export interface ProofOfDelivery {
   id: string;
   task_id: string;
   fleet_member_id: string;
-  signature_url: string;
-  photo_url: string;
-  otp_code: string;
-  notes: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
+  signature_url?: string;
+  photo_url?: string;
+  otp_code?: string;
+  amount_collected?: number;
+  collection_method?: string;
+  captured_at: string;
+  metadata?: Record<string, unknown>;
 }
 
 /** SSE event types from /{tenant}/tasks/{taskId}/stream */

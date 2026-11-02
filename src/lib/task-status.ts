@@ -36,6 +36,8 @@ export function taskStatusTone(status: string): BadgeTone {
 
 /** The order is still at the outlet, so the job can move to another rider. */
 export const PRE_PICKUP_STATUSES: TaskStatus[] = ["assigned", "accepted", "en_route_pickup", "arrived_pickup"];
+/** The rider has the order; proof of delivery (the customer's code) is accepted from here. */
+export const POST_PICKUP_STATUSES: TaskStatus[] = ["picked_up", "en_route", "en_route_dropoff", "arrived_dropoff"];
 export const ON_THE_WAY_STATUSES: TaskStatus[] = [
   "en_route",
   "en_route_pickup",

@@ -35,9 +35,11 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { apiErrorText } from "@/lib/utils";
-import { CLOSED_STATUSES, PRE_PICKUP_STATUSES, taskStatusLabel } from "@/lib/task-status";
+import { CLOSED_STATUSES, POST_PICKUP_STATUSES, PRE_PICKUP_STATUSES, taskStatusLabel } from "@/lib/task-status";
 import type { PerDiemClaim } from "@/lib/api/logistics";
 import { PerDiemCard } from "@/components/tasks/per-diem-card";
+import { CloseDeliveryDialog } from "@/components/tasks/close-delivery-dialog";
+import { useMyPermissions } from "@/hooks/use-module-access";
 
 function formatTime(ts: string) {
   return new Date(ts).toLocaleString("en-KE", {
@@ -60,6 +62,8 @@ export default function TaskDetailPage() {
   const [confirm, setConfirm] = useState<null | "unassign" | "cancel">(null);
   const unassignMutation = useUnassignTask();
   const cancelMutation = useCancelTask();
+  const [closing, setClosing] = useState<null | "confirm" | "override">(null);
+  const { hasPermission } = useMyPermissions();
 
   const qc = useQueryClient();
   const { data: task, isLoading, isError } = useTask(taskId);
@@ -151,6 +155,13 @@ export default function TaskDetailPage() {
   const canAssign = task.status === "pending";
   const canReassign = !!task.assigned_rider_id && PRE_PICKUP_STATUSES.includes(task.status);
   const canCancel = !CLOSED_STATUSES.includes(task.status);
+  // Closing a delivery needs a rider holding it. A dispatcher can enter the customer's code once
+  // the order has left the outlet; an admin can override from any in-progress status.
+  const hasRider = !!task.assigned_rider_id && !CLOSED_STATUSES.includes(task.status) && task.status !== "pending";
+  const canConfirm = hasRider && POST_PICKUP_STATUSES.includes(task.status) && hasPermission("logistics.tasks.manage");
+  const canOverride = hasRider && hasPermission("logistics.tasks.override");
+  const podMeta = (pod?.metadata ?? {}) as Record<string, unknown>;
+  const podText = (k: string) => (typeof podMeta[k] === "string" ? (podMeta[k] as string) : "");
 
   return (
     <div className="space-y-6">
@@ -204,8 +215,19 @@ export default function TaskDetailPage() {
             </Button>
           </div>
         )}
-        {(canReassign || canCancel) && (
-          <div className="flex gap-2">
+        {(canReassign || canCancel || canConfirm || canOverride) && (
+          <div className="flex flex-wrap gap-2">
+            {canConfirm && (
+              <Button onClick={() => setClosing("confirm")}>
+                <CheckCircle2 className="mr-2 size-4" />
+                Confirm delivery
+              </Button>
+            )}
+            {canOverride && (
+              <Button variant="outline" onClick={() => setClosing("override")}>
+                Mark delivered (override)
+              </Button>
+            )}
             {canReassign && (
               <>
                 <Button
@@ -413,6 +435,38 @@ export default function TaskDetailPage() {
                   />
                 </div>
               )}
+              {podText("recipient_name") && (
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Received by</p>
+                  <p className="font-medium">{podText("recipient_name")}</p>
+                </div>
+              )}
+              <div>
+                <p className="mb-1 text-xs font-semibold text-muted-foreground">Confirmed with</p>
+                <p className="font-medium">
+                  {podText("delivered_via") === "code"
+                    ? "Customer's code"
+                    : podText("delivered_via") === "override"
+                      ? "Admin override"
+                      : "Recipient's name"}
+                  {podText("confirmed_by") === "dispatcher" && podText("delivered_via") !== "override"
+                    ? " (entered by the dispatcher)"
+                    : ""}
+                </p>
+                {podText("override_reason") && (
+                  <p className="text-sm text-muted-foreground">Reason: {podText("override_reason")}</p>
+                )}
+              </div>
+              {!!pod.amount_collected && pod.amount_collected > 0 && (
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Paid at the door</p>
+                  <p className="font-medium">
+                    KES {pod.amount_collected.toLocaleString()}{" "}
+                    {pod.collection_method === "mpesa" ? "M-Pesa" : "cash"}
+                    {podText("collection_reference") ? ` · ${podText("collection_reference")}` : ""}
+                  </p>
+                </div>
+              )}
               {pod.otp_code && (
                 <div>
                   <p className="mb-1 text-xs font-semibold text-muted-foreground">
@@ -421,8 +475,9 @@ export default function TaskDetailPage() {
                   <p className="font-mono text-lg font-bold">{pod.otp_code}</p>
                 </div>
               )}
+              {podText("notes") && <p className="w-full text-sm text-muted-foreground">{podText("notes")}</p>}
               <p className="w-full text-xs text-muted-foreground">
-                Submitted {formatTime(pod.created_at)}
+                Submitted {formatTime(pod.captured_at)}
               </p>
             </CardContent>
           </Card>
@@ -487,6 +542,9 @@ export default function TaskDetailPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+      {closing && task && (
+        <CloseDeliveryDialog task={task} mode={closing} onClose={() => setClosing(null)} />
       )}
       <ConfirmDialog
         open={confirm !== null}

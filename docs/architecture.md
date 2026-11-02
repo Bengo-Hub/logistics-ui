@@ -134,6 +134,23 @@ Fallback: REST polling every 5 seconds via `GET /tracking/rider/{riderId}/locati
 
 ---
 
+## Closing a delivery from the task page (2026-11-02)
+
+Logistics is the only path to "delivered" for a delivery order. The task detail page offers two
+ways to close one when a rider holds it, both through `components/tasks/close-delivery-dialog.tsx`:
+
+- **Confirm delivery** (`logistics.tasks.manage`, after pickup): the dispatcher calls the customer
+  for the 6-digit code and enters it with the recipient's name, for example when the rider's
+  phone is dead. It posts to the same `POST /{tenant}/tasks/{id}/pod` as the rider app, so
+  logistics-api checks the code; five wrong codes lock the job.
+- **Mark delivered (override)** (`logistics.tasks.override`, admins only, any in-progress status):
+  no code, a reason is required. `POST /{tenant}/tasks/{id}/override-delivered`.
+
+For a pay on delivery order both ask how the rider was paid (cash, or M-Pesa with its code); cash
+then shows on the Cash page until the rider hands it in. Either way ordering and pos receive the
+same `task.completed` event as a rider's proof of delivery. The proof card shows who received
+the order, whether it was confirmed with the code or overridden (with the reason) and the payment.
+
 ## MVP scope (March 17, 2026)
 
 ### Must-have

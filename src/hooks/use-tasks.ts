@@ -12,7 +12,10 @@ import {
   fetchTaskPod,
   fetchTasks,
   rateRider,
-  submitPoD,
+  confirmDelivery,
+  overrideDelivery,
+  type ConfirmDeliveryBody,
+  type OverrideDeliveryBody,
   unassignTask,
   updateTaskStatus,
   type TasksParams,
@@ -112,16 +115,27 @@ export function useDispatchTask() {
   });
 }
 
-export function useSubmitPoD() {
+function useDeliveryMutation<B>(call: (tenantSlug: string, taskId: string, body: B) => Promise<unknown>) {
   const tenantSlug = useTenantSlug();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ taskId, formData }: { taskId: string; formData: FormData }) =>
-      submitPoD(tenantSlug, taskId, formData),
+    mutationFn: ({ taskId, body }: { taskId: string; body: B }) => call(tenantSlug, taskId, body),
     onSuccess: (_, { taskId }) => {
       qc.invalidateQueries({ queryKey: ["task", tenantSlug, taskId] });
+      qc.invalidateQueries({ queryKey: ["task-pod", tenantSlug, taskId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
+}
+
+/** Dispatcher enters the customer's code for the rider. */
+export function useConfirmDelivery() {
+  return useDeliveryMutation<ConfirmDeliveryBody>(confirmDelivery);
+}
+
+/** Admin marks the delivery done without the code, with a reason. */
+export function useOverrideDelivery() {
+  return useDeliveryMutation<OverrideDeliveryBody>(overrideDelivery);
 }
 
 export function useRateRider() {

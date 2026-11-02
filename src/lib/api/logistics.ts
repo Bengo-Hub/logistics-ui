@@ -166,14 +166,45 @@ export async function dispatchTask(tenantSlug: string, taskId: string): Promise<
   return data;
 }
 
-export async function submitPoD(
+/** How a pay-on-delivery order was paid at the door (required when cash_on_delivery > 0). */
+export interface DoorPayment {
+  amount_collected?: number;
+  collection_method?: "cash" | "mpesa";
+  /** The 10-character M-Pesa code for an mpesa payment. */
+  collection_reference?: string;
+}
+
+export interface ConfirmDeliveryBody extends DoorPayment {
+  /** The customer's 6-digit code; logistics-api checks it (five wrong codes lock the job). */
+  confirmation_code?: string;
+  recipient_name: string;
+  notes?: string;
+}
+
+/** A dispatcher confirms the delivery with the customer's code on the rider's behalf (same
+ * server checks as the rider app; recorded as confirmed by the dispatcher). */
+export async function confirmDelivery(
   tenantSlug: string,
   taskId: string,
-  formData: FormData
+  body: ConfirmDeliveryBody
 ): Promise<ProofOfDelivery> {
-  const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/pod`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/pod`, body);
+  return data;
+}
+
+export interface OverrideDeliveryBody extends DoorPayment {
+  reason: string;
+  recipient_name?: string;
+  notes?: string;
+}
+
+/** Admin override: mark delivered without the customer's code (logistics.tasks.override). */
+export async function overrideDelivery(
+  tenantSlug: string,
+  taskId: string,
+  body: OverrideDeliveryBody
+): Promise<ProofOfDelivery> {
+  const { data } = await api.post(`${tenantSlug}/tasks/${taskId}/override-delivered`, body);
   return data;
 }
 

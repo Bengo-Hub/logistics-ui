@@ -363,7 +363,9 @@ function TasksContent() {
                     {pod.photo_url && (
                       <MediaImage src={pod.photo_url} displayWidth={512} alt="Proof of delivery" className="max-h-48 w-full rounded-lg border border-border object-cover" />
                     )}
-                    {pod.notes && <p className="mt-2 text-sm text-muted-foreground">{pod.notes}</p>}
+                    {typeof pod.metadata?.notes === "string" && pod.metadata.notes && (
+                      <p className="mt-2 text-sm text-muted-foreground">{pod.metadata.notes}</p>
+                    )}
                   </div>
                 )}
 
