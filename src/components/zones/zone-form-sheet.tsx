@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Circle, Loader2, MapPin, Search, Spline } from "lucide-react";
 import { toast } from "sonner";
 import type { ZoneGeometry, ZoneShape } from "@bengo-hub/maps";
+import { useDebouncedSearch } from "@bengo-hub/shared-ui-lib/search";
 import { Button, Input } from "@/components/ui/base";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useCreateZone, useFeeSuggestion, usePlaceSearch, useUpdateZone } from "@/hooks/use-zones";
@@ -36,16 +37,18 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
   const update = useUpdateZone();
   const saving = create.isPending || update.isPending;
   const [error, setError] = useState<string | null>(null);
-  const [placeQuery, setPlaceQuery] = useState("");
+  // Geocoding runs once typing pauses (or on Enter), and only from the third character.
+  const placeSearch = useDebouncedSearch({ minChars: 3 });
   const [mapLink, setMapLink] = useState("");
-  const places = usePlaceSearch(placeQuery);
+  const places = usePlaceSearch(placeSearch.term);
+  const placesLoading = places.isFetching || placeSearch.isDebouncing;
   // A saved area keeps its fee; a new one follows the suggestion until the admin types a fee.
   const [feeTouched, setFeeTouched] = useState(false);
 
   useEffect(() => {
     if (open) {
       setError(null);
-      setPlaceQuery("");
+      placeSearch.clear();
       setFeeTouched(!!draft.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,12 +176,12 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
               <p className={label}>Find a place</p>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-9" value={placeQuery} onChange={(e) => setPlaceQuery(e.target.value)} placeholder="Search a town, market or landmark" />
+                <Input className="pl-9" {...placeSearch.inputProps} placeholder="Search a town, market or landmark" />
               </div>
-              {placeQuery.trim().length >= 3 && (
+              {placeSearch.value.trim().length >= 3 && (
                 <div className="max-h-40 overflow-y-auto rounded-lg border bg-background text-sm">
-                  {places.isFetching && <p className="flex items-center gap-2 px-3 py-2 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Searching...</p>}
-                  {!places.isFetching && (places.data ?? []).length === 0 && <p className="px-3 py-2 text-muted-foreground">No places found.</p>}
+                  {placesLoading && <p className="flex items-center gap-2 px-3 py-2 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Searching...</p>}
+                  {!placesLoading && (places.data ?? []).length === 0 && <p className="px-3 py-2 text-muted-foreground">No places found.</p>}
                   {(places.data ?? []).map((p, i) => (
                     <button
                       key={`${p.display_name}-${i}`}
@@ -189,7 +192,7 @@ export function ZoneFormSheet({ open, onOpenChange, draft, setDraft, zones, outl
                         const geometry: ZoneGeometry =
                           g.shape === "circle" ? { ...g, center: c } : { ...g, boundary: [...g.boundary, [c.longitude, c.latitude]] };
                         set(draft.name.trim() ? { geometry } : { geometry, name: p.name });
-                        setPlaceQuery("");
+                        placeSearch.clear();
                       }}
                     >
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />

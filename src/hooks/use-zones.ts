@@ -21,7 +21,7 @@ import {
   savePlatformDeliveryPolicy,
 } from "@/lib/api/logistics";
 import { useOutletFilterStore } from "@/store/outlet-filter";
-import type { DeliveryPolicy, ZoneInput } from "@/types/logistics";
+import type { DeliveryPolicy, GeoPlace, ZoneInput } from "@/types/logistics";
 
 function useTenantSlug(): string {
   const params = useParams();
@@ -189,13 +189,16 @@ export function useDeliveryQuote(point: { lat: number; lng: number } | null, out
   });
 }
 
+/** Place search. Pass the debounced term (`useDebouncedSearch().term`), never the raw box text. */
 export function usePlaceSearch(q: string) {
   const tenantSlug = useTenantSlug();
   const term = q.trim();
-  return useQuery({
+  return useQuery<GeoPlace[]>({
     queryKey: ["place-search", tenantSlug, term],
-    queryFn: () => searchPlaces(tenantSlug, term),
+    queryFn: ({ signal }) => searchPlaces(tenantSlug, term, signal),
     enabled: !!tenantSlug && term.length >= 3,
+    // Keep the last suggestions listed while the next term loads.
+    placeholderData: (prev) => prev,
     staleTime: 5 * 60_000,
   });
 }

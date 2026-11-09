@@ -55,11 +55,12 @@ export function useFleetMembers(params?: MembersParams | string) {
   const tenantSlug = useTenantSlug();
   const normalizedParams: MembersParams =
     typeof params === "string" ? { status: params } : (params ?? {});
-  return useQuery({
+  return useQuery<PaginatedResponse<FleetMember>>({
     queryKey: ["fleet-members", tenantSlug, normalizedParams],
-    queryFn: () => fetchMembers(tenantSlug, normalizedParams),
+    queryFn: ({ signal }) => fetchMembers(tenantSlug, normalizedParams, signal),
     enabled: !!tenantSlug,
-    placeholderData: EMPTY_MEMBERS,
+    // Keep the current list while the next search loads; an empty list before the first one.
+    placeholderData: (prev) => prev ?? EMPTY_MEMBERS,
   });
 }
 
@@ -159,7 +160,7 @@ export function useFleetVehicles(params?: VehiclesParams, enabled = true) {
   const tenantSlug = useTenantSlug();
   return useQuery({
     queryKey: ["fleet-vehicles", tenantSlug, params ?? {}],
-    queryFn: () => fetchVehicles(tenantSlug, params),
+    queryFn: ({ signal }) => fetchVehicles(tenantSlug, params, signal),
     enabled: !!tenantSlug && enabled,
     placeholderData: keepPreviousData,
   });

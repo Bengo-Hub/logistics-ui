@@ -241,7 +241,8 @@ export interface MembersParams extends PaginationParams {
 
 export async function fetchMembers(
   tenantSlug: string,
-  params?: MembersParams
+  params?: MembersParams,
+  signal?: AbortSignal
 ): Promise<PaginatedResponse<FleetMember>> {
   const qs = new URLSearchParams();
   if (params?.status) qs.set("status", params.status);
@@ -249,7 +250,8 @@ export async function fetchMembers(
   if (params?.page) qs.set("page", String(params.page));
   if (params?.limit) qs.set("limit", String(params.limit));
   const query = qs.toString() ? `?${qs.toString()}` : "";
-  const { data } = await api.get(`${tenantSlug}/fleet/members${query}`);
+  // The signal cancels the request when a newer search replaces it.
+  const { data } = await api.get(`${tenantSlug}/fleet/members${query}`, { signal });
   if (Array.isArray(data)) {
     return { data, total: data.length, page: 1, limit: data.length, hasMore: false };
   }
@@ -453,9 +455,11 @@ export interface VehiclesParams extends PaginationParams {
 
 export async function fetchVehicles(
   tenantSlug: string,
-  params?: VehiclesParams
+  params?: VehiclesParams,
+  signal?: AbortSignal
 ): Promise<PaginatedResponse<FleetVehicle> & { summary: VehicleSummary }> {
-  const { data } = await api.get(`${tenantSlug}/fleet/vehicles`, { params });
+  // The signal cancels the request when a newer search or page replaces it.
+  const { data } = await api.get(`${tenantSlug}/fleet/vehicles`, { params, signal });
   return data;
 }
 
@@ -586,8 +590,9 @@ export async function refreshOutlets(tenantSlug: string): Promise<{ outlets_upda
   return data;
 }
 
-export async function searchPlaces(tenantSlug: string, q: string): Promise<GeoPlace[]> {
-  const { data } = await api.get(`${tenantSlug}/routing/geocode/search`, { params: { q } });
+export async function searchPlaces(tenantSlug: string, q: string, signal?: AbortSignal): Promise<GeoPlace[]> {
+  // Geocoding is a paid, rate-limited lookup: the signal drops a request a newer term replaced.
+  const { data } = await api.get(`${tenantSlug}/routing/geocode/search`, { params: { q }, signal });
   return Array.isArray(data) ? data : [];
 }
 

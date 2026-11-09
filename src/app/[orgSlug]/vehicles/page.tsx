@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDebouncedSearch } from "@bengo-hub/shared-ui-lib/search";
 import {
   AlertTriangle,
   Bike,
@@ -114,9 +115,10 @@ function CreateVehiclePanel({ onClose }: { onClose: () => void }) {
 
 function AssignRiderPanel({ vehicleId, onClose }: { vehicleId: string; onClose: () => void }) {
   const [memberId, setMemberId] = useState("");
-  const [riderSearch, setRiderSearch] = useState("");
-  // Server-side search keeps this fast however many riders the fleet has.
-  const { data: membersData } = useFleetMembers({ status: "active", search: riderSearch.trim() || undefined, limit: 20 });
+  // Server-side search keeps this fast however many riders the fleet has. It runs once typing
+  // pauses (or on Enter), not on every key.
+  const riderSearch = useDebouncedSearch();
+  const { data: membersData } = useFleetMembers({ status: "active", search: riderSearch.term || undefined, limit: 20 });
   const { mutateAsync: assignVehicle, isPending } = useAssignVehicle();
   const members = membersData?.data ?? [];
 
@@ -139,8 +141,7 @@ function AssignRiderPanel({ vehicleId, onClose }: { vehicleId: string; onClose: 
       <p className="text-xs font-medium">Assign to rider</p>
       <Input
         placeholder="Search riders by name, phone or email"
-        value={riderSearch}
-        onChange={(e) => setRiderSearch(e.target.value)}
+        {...riderSearch.inputProps}
         className="h-8 text-sm"
       />
       <div className="flex gap-2">
@@ -299,12 +300,13 @@ function VehicleCard({ vehicle }: { vehicle: FleetVehicle }) {
 
 export default function VehiclesPage() {
   const [showCreate, setShowCreate] = useState(false);
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  // Searched once typing pauses (or on Enter), starting again from the first page.
+  const search = useDebouncedSearch({ onTermChange: () => setPage(1) });
 
   // The API lists every vehicle, rider or not, with the rider it is linked to and its insurance,
   // and counts the whole fleet in SQL, so the page and the totals stay right however large it grows.
-  const { data, isLoading } = useFleetVehicles({ search: search.trim() || undefined, page, limit: PAGE_SIZE });
+  const { data, isLoading } = useFleetVehicles({ search: search.term || undefined, page, limit: PAGE_SIZE });
   const vehicles = data?.data ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
   const s = data?.summary;
@@ -355,11 +357,7 @@ export default function VehiclesPage() {
         <div className="relative max-w-sm flex-1">
           <Input
             placeholder="Search by plate, make, model..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+            {...search.inputProps}
           />
         </div>
       </div>

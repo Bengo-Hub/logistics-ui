@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Loader2, MapPin, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { LatLng, ZoneShape } from "@bengo-hub/maps";
+import { useDebouncedSearch } from "@bengo-hub/shared-ui-lib/search";
 import { Button, Input } from "@/components/ui/base";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCreateTask } from "@/hooks/use-tasks";
@@ -57,7 +58,8 @@ export function CreateTaskDialog({ open, onOpenChange }: { open: boolean; onOpen
   const createTask = useCreateTask();
   const [form, setForm] = useState<Form>(EMPTY);
   const [drop, setDrop] = useState<LatLng | null>(null);
-  const [search, setSearch] = useState("");
+  // Geocoding runs once typing pauses (or on Enter), and only from the third character.
+  const search = useDebouncedSearch({ minChars: 3 });
 
   const outlets = coverage?.outlets ?? [];
   const outlet = outlets.find((o) => o.id === form.outlet_id);
@@ -72,7 +74,7 @@ export function CreateTaskDialog({ open, onOpenChange }: { open: boolean; onOpen
   const point = drop ? { lat: drop.latitude, lng: drop.longitude } : null;
   const place = useReversePlace(point);
   const quote = useDeliveryQuote(point, form.outlet_id || undefined);
-  const results = usePlaceSearch(search);
+  const results = usePlaceSearch(search.term);
 
   // Fill the address from the pin unless the dispatcher already typed one.
   useEffect(() => {
@@ -96,7 +98,7 @@ export function CreateTaskDialog({ open, onOpenChange }: { open: boolean; onOpen
   const reset = () => {
     setForm(EMPTY);
     setDrop(null);
-    setSearch("");
+    search.clear();
   };
 
   const save = () => {
@@ -252,8 +254,8 @@ export function CreateTaskDialog({ open, onOpenChange }: { open: boolean; onOpen
           <div className="space-y-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find a place to pin" />
-              {search.trim().length >= 3 && (results.data?.length ?? 0) > 0 && (
+              <Input className="pl-9" {...search.inputProps} placeholder="Find a place to pin" />
+              {search.value.trim().length >= 3 && (results.data?.length ?? 0) > 0 && (
                 <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
                   {results.data!.map((p, i) => (
                     <button
@@ -263,7 +265,7 @@ export function CreateTaskDialog({ open, onOpenChange }: { open: boolean; onOpen
                       onClick={() => {
                         setDrop({ latitude: p.location.lat, longitude: p.location.lng });
                         set("dropoff_address", p.display_name || p.name);
-                        setSearch("");
+                        search.clear();
                       }}
                     >
                       <MapPin className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
