@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { useBiometric } from "@/hooks/use-biometric";
 import { useMe } from "@/hooks/useMe";
 import { attachOutletIdGetter, setOn401, setOnSubscription403 } from "@/lib/api/client";
+import { AUTH_STORAGE_KEY, reloadSessionFromStorage } from "@/lib/auth/token-refresh";
+import { watchSessionAcrossTabs } from "@bengo-hub/shared-ui-lib/auth";
 import { SubscriptionEntitlementsProvider } from "@/providers/subscription-entitlements-provider";
 import { useAuthStore } from "@/store/auth";
 import { ALL_OUTLETS, SELECTED_OUTLET_KEY, useOutletFilterStore } from "@/store/outlet-filter";
@@ -146,6 +148,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // Another tab renewed or replaced the session: load it here so this tab stops sending a
+  // rotated-away token. The API client reads the token from the store on every request.
+  useEffect(() => watchSessionAcrossTabs(AUTH_STORAGE_KEY, reloadSessionFromStorage), []);
 
   // Attach outlet ID getter so the API interceptor always sends X-Outlet-ID
   useEffect(() => {

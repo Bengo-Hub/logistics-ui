@@ -1,59 +1,51 @@
 /**
- * Token refresh manager with mutex to prevent concurrent refresh attempts.
- * When a 401 is received, all pending callers share a single refresh request.
+ * Access-token refresh for logistics-ui, built on the shared cross-tab-safe refresher
+ * (@bengo-hub/shared-ui-lib/auth createSessionRefresher). Before spending the refresh token it
+ * picks up a newer session another tab saved, tabs take turns refreshing, and an enrolment-only
+ * answer counts as signed out. See the shared module for the full story.
+ *
+ * This app's auth store is a plain zustand store saved by hand to localStorage under
+ * AUTH_STORAGE_KEY (lib/auth/session.ts), not zustand persist, so reading and saving go through
+ * loadAuthState and persistAuthState.
  */
 
+import { createSessionRefresher } from '@bengo-hub/shared-ui-lib/auth';
 import { useAuthStore } from '@/store/auth';
 import { refreshTokens } from '@/lib/auth/api';
+import { AUTH_STORAGE_KEY, loadAuthState, persistAuthState } from '@/lib/auth/session';
 
-let isRefreshing = false;
-let refreshPromise: Promise<string | null> | null = null;
+export { AUTH_STORAGE_KEY };
 
 /**
- * Attempt to refresh the access token using the stored refresh token.
- * Returns the new access token, or null if refresh failed.
- * Concurrent calls share the same in-flight refresh request (mutex).
+ * Loads the session another tab saved into this tab's store. A missing stored session leaves
+ * memory alone; the next refused call signs this tab out the usual way.
  */
-export async function refreshAccessToken(): Promise<string | null> {
-  const { session } = useAuthStore.getState();
-  if (!session?.refreshToken) return null;
-
-  if (isRefreshing && refreshPromise) {
-    return refreshPromise;
-  }
-
-  isRefreshing = true;
-  refreshPromise = doRefresh(session.refreshToken);
-
-  try {
-    return await refreshPromise;
-  } finally {
-    isRefreshing = false;
-    refreshPromise = null;
-  }
+export function reloadSessionFromStorage(): void {
+  const stored = loadAuthState();
+  if (!stored.session) return;
+  const { session, user } = useAuthStore.getState();
+  if (stored.session.accessToken === session?.accessToken) return;
+  useAuthStore.setState({ session: stored.session, user: stored.user ?? user });
 }
 
-async function doRefresh(currentRefreshToken: string): Promise<string | null> {
-  try {
-    const data = await refreshTokens(currentRefreshToken);
-    const newAccessToken = data.access_token;
-    const newRefreshToken = data.refresh_token || currentRefreshToken;
-    const expiresIn = data.expires_in || 3600;
+const refreshSession = createSessionRefresher({
+  lockName: AUTH_STORAGE_KEY,
+  getSession: () => useAuthStore.getState().session,
+  reloadSession: reloadSessionFromStorage,
+  saveSession: (session) => {
+    useAuthStore.setState({ session });
+    // Save it for the other tabs too; this app's store does not save itself.
+    persistAuthState({ session });
+  },
+  refresh: refreshTokens,
+});
 
-    const currentSession = useAuthStore.getState().session;
-    if (currentSession) {
-      useAuthStore.setState({
-        session: {
-          ...currentSession,
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-          expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
-        },
-      });
-    }
-
-    return newAccessToken;
-  } catch {
-    return null;
-  }
+/**
+ * Returns a usable access token, or null when the session is over (or auth-api could not be
+ * reached; callers here already treat both the same way). Pass the token the server just
+ * rejected when it is known.
+ */
+export async function refreshAccessToken(failedToken?: string | null): Promise<string | null> {
+  const outcome = await refreshSession(failedToken);
+  return 'token' in outcome ? outcome.token : null;
 }

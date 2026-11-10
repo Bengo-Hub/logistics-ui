@@ -1,6 +1,7 @@
 import type { SessionTokens, UserProfile } from "./types";
 
-const AUTH_STORAGE_KEY = "logistics_auth";
+/** localStorage key of the saved session; also watched for writes from other tabs. */
+export const AUTH_STORAGE_KEY = "logistics_auth";
 
 interface PersistedAuthState {
   session: SessionTokens | null;
