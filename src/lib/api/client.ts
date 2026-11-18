@@ -56,6 +56,11 @@ export function attachAuthTokenGetter(getter: () => string | null) {
   accessTokenGetter = getter;
 }
 
+/** The signed-in access token the client sends (held in memory with the cookie session). */
+export function currentAccessToken(): string | null {
+  return accessTokenGetter();
+}
+
 let on401Callback: (() => void) | null = null;
 let onSubscription403Callback: ((data: any) => void) | null = null;
 

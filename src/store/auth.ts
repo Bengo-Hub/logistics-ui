@@ -19,6 +19,7 @@ import {
     storeVerifier,
 } from "@/lib/auth/pkce";
 import { clearAuthState, loadAuthState, persistAuthState } from "@/lib/auth/session";
+import { cookieMode } from "@/lib/auth/session-mode";
 import type { AuthResponse, SessionTokens, UserProfile, UserRole } from "@/lib/auth/types";
 
 type AuthStatus = "idle" | "loading" | "authenticated" | "syncing" | "error" | "subscription_required";
@@ -74,6 +75,11 @@ function extractStatus(error: unknown): number | undefined {
  */
 function getInitialAuthState(): Pick<AuthState, "session" | "user" | "status" | "error"> {
   const loaded = loadAuthState();
+  if (cookieMode()) {
+    // No token is stored: a known profile waits ("loading") for initialize() to get its first token
+    // through the sso cookie, so AuthGuard does not send it to SSO first.
+    return { session: null, user: loaded.user, status: loaded.user ? "loading" : "idle", error: null };
+  }
   if (loaded.session && loaded.user) {
     const expiresAt = loaded.session.expiresAt ? new Date(loaded.session.expiresAt).getTime() : 0;
     const isValid = !expiresAt || Date.now() < expiresAt - 60_000;
@@ -89,6 +95,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSubscriptionInfo: (info: Record<string, unknown> | null) => set({ subscriptionInfo: info }),
 
   initialize: async () => {
+    if (cookieMode()) {
+      const known = get().user;
+      if (!known) {
+        set({ status: "idle", error: null });
+        return;
+      }
+      set({ status: "loading", error: null });
+      const { getCookieSession } = await import("@/lib/auth/cookie-session");
+      const token = await getCookieSession().getAccessToken();
+      if (!token) {
+        clearAuthState();
+        set({ status: "idle", user: null, session: null, error: null });
+        return;
+      }
+      set({ status: "authenticated", lastAuthenticatedAt: Date.now() });
+      return;
+    }
     const { session, user } = get();
     if (!session) {
       set({ status: "idle", user: null, error: null });
@@ -199,14 +222,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         redirectUri: callbackUrl,
       });
 
-      const session: SessionTokens = {
+      let session: SessionTokens = {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token ?? "",
         expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
         sessionId: "",
       };
-      persistAuthState({ session, user: null });
-      set({ session });
+      const adopted = await adoptSession(session);
+      if (!adopted) {
+        set({ status: "error", error: "Sign-in failed" });
+        return;
+      }
+      session = adopted;
 
       let syncAttempts = 0;
       const maxAttempts = 10;
@@ -250,14 +277,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (tenantSlug && typeof window !== "undefined") {
         localStorage.setItem("tenantSlug", tenantSlug);
       }
-      const session: SessionTokens = {
+      let session: SessionTokens = {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken ?? "",
         expiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
         sessionId: "",
       };
-      persistAuthState({ session, user: null });
-      set({ session });
+      const adopted = await adoptSession(session);
+      if (!adopted) {
+        set({ status: "error", error: "Biometric login failed" });
+        return;
+      }
+      session = adopted;
       const response = await fetchProfile(session.accessToken);
       const u = response.user;
       if (typeof window !== "undefined" && u.email) {
@@ -274,8 +305,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    const token = get().session?.accessToken;
-    await revokeServerSession(token);
+    if (cookieMode()) {
+      // Revokes the session, clears the sso cookie and signs the other tabs out.
+      const { getCookieSession } = await import("@/lib/auth/cookie-session");
+      await getCookieSession().end();
+    } else {
+      const token = get().session?.accessToken;
+      await revokeServerSession(token);
+    }
     clearAuthState();
     set({ status: "idle", user: null, session: null, error: null, subscriptionInfo: undefined, lastAuthenticatedAt: null });
     if (typeof window !== "undefined") {
@@ -290,3 +327,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 attachAuthTokenGetter(() => useAuthStore.getState().session?.accessToken ?? null);
+
+/**
+ * Puts a new sign-in's tokens to use and returns the session the store now holds, or null when
+ * the cookie was refused. With the cookie session the refresh token goes into auth-api's HttpOnly
+ * cookie and is dropped here; the store holds only the in-memory access token the cookie session
+ * hands back.
+ */
+async function adoptSession(session: SessionTokens): Promise<SessionTokens | null> {
+  if (!cookieMode()) {
+    persistAuthState({ session, user: null });
+    useAuthStore.setState({ session });
+    return session;
+  }
+  const { getCookieSession } = await import("@/lib/auth/cookie-session");
+  // A new sign-in replaces whoever was stored, so it is not taken for a user switch.
+  useAuthStore.setState({ user: null, session: null });
+  persistAuthState({ user: null });
+  const started = await getCookieSession().start(session.refreshToken);
+  const mirrored = useAuthStore.getState().session;
+  return "token" in started && mirrored ? mirrored : null;
+}

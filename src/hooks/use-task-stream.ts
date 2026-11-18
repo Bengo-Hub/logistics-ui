@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useAuthStore } from "@/store/auth";
+
 export interface TaskStreamEvent {
   event: string;
   data: {
@@ -32,16 +34,9 @@ export function useTaskStream({ taskId, tenantSlug, enabled = true, onEvent }: U
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexafrica.com/api/v1/";
     const base = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase;
 
-    const token = typeof window !== "undefined"
-      ? (() => {
-          try {
-            const store = JSON.parse(localStorage.getItem("auth-storage") ?? "{}");
-            return store?.state?.accessToken ?? null;
-          } catch {
-            return null;
-          }
-        })()
-      : null;
+    // The signed-in token the store holds (in memory with the cookie session). The old read of an
+    // "auth-storage" key never matched this app's storage, so the stream went without a token.
+    const token = useAuthStore.getState().session?.accessToken ?? null;
 
     const url = `${base}/${tenantSlug}/tasks/${taskId}/stream${token ? `?token=${encodeURIComponent(token)}` : ""}`;
     const es = new EventSource(url, { withCredentials: true });

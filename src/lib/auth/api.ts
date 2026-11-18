@@ -1,4 +1,4 @@
-import { api } from "@/lib/api/client";
+import { api, currentAccessToken } from "@/lib/api/client";
 import type { AuthResponse } from "@/lib/auth/types";
 import { revokeServerSession as sharedRevokeServerSession } from '@bengo-hub/shared-ui-lib/auth';
 
@@ -97,7 +97,8 @@ export async function refreshTokens(refreshToken: string): Promise<{
  * SSO always has the user immediately after login.
  */
 export async function fetchProfile(accessToken?: string): Promise<AuthResponse> {
-  const token = accessToken ?? (typeof window !== "undefined" ? (() => { try { const s = JSON.parse(localStorage.getItem("logistics_auth") ?? "{}"); return s.session?.accessToken ?? null; } catch { return null; } })() : null);
+  // The token the API client already holds; no token is read from browser storage.
+  const token = accessToken ?? currentAccessToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
