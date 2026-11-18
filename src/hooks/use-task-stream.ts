@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { useAuthStore } from "@/store/auth";
+import { fetchStreamTicket, streamUrl } from "@/lib/api/stream";
 
 export interface TaskStreamEvent {
   event: string;
@@ -21,48 +21,81 @@ interface UseTaskStreamOptions {
   onEvent?: (event: TaskStreamEvent) => void;
 }
 
+const RECONNECT_BASE_MS = 2_000;
+const RECONNECT_MAX_MS = 30_000;
+
+/**
+ * Live status of one task over SSE (GET /{tenant}/tasks/{id}/stream). EventSource cannot send
+ * an Authorization header, so each connect first fetches a single-use stream ticket and opens
+ * the stream with ?ticket=. The browser's own auto-reconnect would replay a used ticket, so on
+ * error the stream is closed and reopened here with a fresh ticket and backoff.
+ */
 export function useTaskStream({ taskId, tenantSlug, enabled = true, onEvent }: UseTaskStreamOptions) {
   const [connected, setConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<TaskStreamEvent | null>(null);
-  const esRef = useRef<EventSource | null>(null);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
   useEffect(() => {
     if (!enabled || !taskId || !tenantSlug) return;
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexafrica.com/api/v1/";
-    const base = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase;
+    let es: EventSource | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+    let stopped = false;
 
-    // The signed-in token the store holds (in memory with the cookie session). The old read of an
-    // "auth-storage" key never matched this app's storage, so the stream went without a token.
-    const token = useAuthStore.getState().session?.accessToken ?? null;
-
-    const url = `${base}/${tenantSlug}/tasks/${taskId}/stream${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-    const es = new EventSource(url, { withCredentials: true });
-    esRef.current = es;
-
-    es.onopen = () => setConnected(true);
-
-    es.addEventListener("status_changed", (e: MessageEvent) => {
-      try {
-        const parsed = JSON.parse(e.data) as TaskStreamEvent["data"];
-        const evt: TaskStreamEvent = { event: "status_changed", data: parsed };
-        setLastEvent(evt);
-        onEventRef.current?.(evt);
-      } catch {
-        // Malformed SSE data — ignore
-      }
-    });
-
-    es.onerror = () => {
-      setConnected(false);
-      // EventSource auto-reconnects; don't close unless unmounting
+    const scheduleReconnect = () => {
+      if (stopped) return;
+      const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+      attempt += 1;
+      timer = setTimeout(connect, delay);
     };
 
+    async function connect() {
+      if (stopped) return;
+      let ticket: string;
+      try {
+        ticket = await fetchStreamTicket(tenantSlug);
+      } catch {
+        scheduleReconnect();
+        return;
+      }
+      if (stopped) return;
+
+      const source = new EventSource(streamUrl(tenantSlug, `tasks/${taskId}/stream`, ticket, "http"));
+      es = source;
+
+      source.onopen = () => {
+        attempt = 0;
+        setConnected(true);
+      };
+
+      source.addEventListener("status_changed", (e: MessageEvent) => {
+        try {
+          const parsed = JSON.parse(e.data) as TaskStreamEvent["data"];
+          const evt: TaskStreamEvent = { event: "status_changed", data: parsed };
+          setLastEvent(evt);
+          onEventRef.current?.(evt);
+        } catch {
+          // Malformed SSE data: ignore
+        }
+      });
+
+      source.onerror = () => {
+        setConnected(false);
+        source.close();
+        if (es === source) es = null;
+        scheduleReconnect();
+      };
+    }
+
+    void connect();
+
     return () => {
-      es.close();
-      esRef.current = null;
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      es?.close();
+      es = null;
       setConnected(false);
     };
   }, [enabled, taskId, tenantSlug]);

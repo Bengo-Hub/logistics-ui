@@ -81,17 +81,20 @@ All list endpoints accept `page` (1-based) and `per_page` (default 20, max 100).
 
 ---
 
-## WebSocket (real-time tracking)
+## WebSocket and SSE (live updates)
 
-**URL**: `wss://logisticsapi.codevertexafrica.com/ws/tracking`
+Streams live under the tenant API path, for example `wss://logisticsapi.codevertexafrica.com/api/v1/{tenant}/notifications/stream` (WebSocket) and `https://logisticsapi.codevertexafrica.com/api/v1/{tenant}/tasks/{taskId}/stream` (SSE).
 
 ### Connection
 
+A browser cannot set an Authorization header on a WebSocket or EventSource request, and the access token must never go in the URL (URLs are written to access logs). Each connect first trades the Bearer token for a single-use ticket, then opens the stream with `?ticket=`. `src/lib/api/stream.ts` does both:
+
 ```typescript
-const ws = new WebSocket(
-  `${WS_URL}/fleet?token=${accessToken}&tenant=${tenantSlug}`
-);
+const ticket = await fetchStreamTicket(tenantSlug); // POST /{tenant}/stream-ticket
+const ws = new WebSocket(streamUrl(tenantSlug, "notifications/stream", ticket, "ws"));
 ```
+
+A ticket works once and expires after about 30 seconds, so every reconnect fetches a new one. The API rejects `?token=`.
 
 ### Message types
 
@@ -105,7 +108,7 @@ const ws = new WebSocket(
 ### Reconnection strategy
 
 - On disconnect: exponential backoff starting at 1s, max 30s
-- On token expiry (4401 close code): refresh token, reconnect
+- On every reconnect: fetch a fresh stream ticket first
 - Max reconnect attempts: 10, then show "connection lost" banner
 
 ### Polling fallback

@@ -4,7 +4,7 @@ import axios from "axios";
 // This is resilient to the common misconfiguration of omitting /api/v1 from NEXT_PUBLIC_API_URL.
 const _rawBase = (process.env.NEXT_PUBLIC_API_URL ?? "https://logisticsapi.codevertexafrica.com")
   .replace(/\/+$/, ""); // strip trailing slashes
-const NORMALISED_BASE_URL = _rawBase.includes("/api/v1")
+export const NORMALISED_BASE_URL = _rawBase.includes("/api/v1")
   ? `${_rawBase}/`
   : `${_rawBase}/api/v1/`;
 
