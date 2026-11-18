@@ -311,6 +311,8 @@ export interface MemberDetails {
   phone?: string;
   id_number?: string;
   license_no?: string;
+  /** Outlets the rider delivers for; an empty list means every outlet. */
+  outlet_ids?: string[];
 }
 
 export async function updateMemberDetails(tenantSlug: string, memberId: string, body: MemberDetails): Promise<FleetMember> {

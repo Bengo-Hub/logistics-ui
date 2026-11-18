@@ -22,6 +22,7 @@ import {
 } from "@/lib/api/logistics";
 import type { Task } from "@/types/logistics";
 import { useAuthReady } from "@/hooks/use-auth-ready";
+import { useOutletFilterStore } from "@/store/outlet-filter";
 
 function useTenantSlug(): string {
   const params = useParams();
@@ -31,8 +32,10 @@ function useTenantSlug(): string {
 export function useTasks(params?: TasksParams) {
   const tenantSlug = useTenantSlug();
   const authReady = useAuthReady();
+  // Tasks are outlet-scoped (X-Outlet-ID): a switch of outlet loads that outlet's tasks.
+  const outletId = useOutletFilterStore((s) => s.selectedOutlet?.id ?? "all");
   return useQuery({
-    queryKey: ["tasks", tenantSlug, params],
+    queryKey: ["tasks", tenantSlug, outletId, params],
     queryFn: () => fetchTasks(tenantSlug, params),
     enabled: !!tenantSlug && authReady,
     refetchInterval: 30_000,

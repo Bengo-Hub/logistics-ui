@@ -29,6 +29,7 @@ import {
 } from "@/lib/api/logistics";
 import type { CreateVehicleRequest, FleetMember, InsuranceInput, PaginatedResponse, VehicleStatus } from "@/types/logistics";
 import { useAuthReady } from "@/hooks/use-auth-ready";
+import { useOutletFilterStore } from "@/store/outlet-filter";
 
 function useTenantSlug(): string {
   const params = useParams();
@@ -58,8 +59,10 @@ export function useFleetMembers(params?: MembersParams | string) {
   const authReady = useAuthReady();
   const normalizedParams: MembersParams =
     typeof params === "string" ? { status: params } : (params ?? {});
+  // Riders are outlet-scoped (X-Outlet-ID): a switch of outlet loads that outlet's riders.
+  const outletId = useOutletFilterStore((s) => s.selectedOutlet?.id ?? "all");
   return useQuery<PaginatedResponse<FleetMember>>({
-    queryKey: ["fleet-members", tenantSlug, normalizedParams],
+    queryKey: ["fleet-members", tenantSlug, outletId, normalizedParams],
     queryFn: ({ signal }) => fetchMembers(tenantSlug, normalizedParams, signal),
     enabled: !!tenantSlug && authReady,
     // Keep the current list while the next search loads; an empty list before the first one.
