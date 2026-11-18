@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { fetchAuthMe, fetchModulesConfig, updateModulesConfig } from "@/lib/api/logistics";
 import { useAuthStore } from "@/store/auth";
+import { useAuthReady } from "@/hooks/use-auth-ready";
 
 function useTenantSlug(): string {
   const params = useParams();
@@ -17,10 +18,11 @@ function useTenantSlug(): string {
  */
 export function useServiceAuthMe() {
   const tenantSlug = useTenantSlug();
+  const authReady = useAuthReady();
   return useQuery({
     queryKey: ["service-auth-me", tenantSlug],
     queryFn: () => fetchAuthMe(tenantSlug),
-    enabled: !!tenantSlug,
+    enabled: !!tenantSlug && authReady,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -70,7 +72,7 @@ export function useModuleAccess() {
  * distinct from global SSO roles.
  */
 export function useMyPermissions() {
-  const { data: serviceMe } = useServiceAuthMe();
+  const { data: serviceMe, isError, isLoading, refetch } = useServiceAuthMe();
   const isPlatformOwner = useAuthStore((s) => s.user?.isPlatformOwner ?? false);
   const permissions: string[] = serviceMe?.permissions ?? [];
 
@@ -79,7 +81,9 @@ export function useMyPermissions() {
     return permissions.includes(code);
   }
 
-  return { hasPermission, permissions };
+  // isError lets a page say the permission check failed (with a retry) instead of quietly
+  // hiding every action that needs a permission.
+  return { hasPermission, permissions, isError, isLoading, refetch };
 }
 
 // ─── Admin: Module Management ─────────────────────────────────────────────────

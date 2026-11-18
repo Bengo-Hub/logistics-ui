@@ -77,12 +77,58 @@ export function setOnSubscription403(callback: ((data: any) => void) | null) {
 // Throttle for metered-limit toasts (polling can trigger 429/402 repeatedly).
 let lastLimitToastAt = 0;
 
+const AUTH_WAIT_MS = 10_000;
+let pendingAuthWait: Promise<string | null> | null = null;
+
+/**
+ * Waits for the auth store to finish starting up and returns the token it ends with. A request
+ * sent before the cookie session handed back its first token went out without one; this lets it
+ * be retried once instead of failing the page. Shared, so a burst of such requests waits once.
+ */
+function waitForAuthToken(): Promise<string | null> {
+  if (pendingAuthWait) return pendingAuthWait;
+  pendingAuthWait = (async () => {
+    // Dynamic import: the store imports this client.
+    const { useAuthStore } = await import("@/store/auth");
+    const settling = () => {
+      const s = useAuthStore.getState().status;
+      return s === "loading" || s === "syncing";
+    };
+    if (!settling()) {
+      const { status, user } = useAuthStore.getState();
+      // A known user without a token yet: start the session once (no-op when already done).
+      if (status !== "authenticated" && user) await useAuthStore.getState().initialize();
+    }
+    if (settling()) {
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => { unsub(); resolve(); }, AUTH_WAIT_MS);
+        const unsub = useAuthStore.subscribe(() => {
+          if (!settling()) { clearTimeout(timer); unsub(); resolve(); }
+        });
+      });
+    }
+    return accessTokenGetter();
+  })().finally(() => { pendingAuthWait = null; });
+  return pendingAuthWait;
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // If token is already cleared (explicit logout in progress), skip entirely
-      if (!accessTokenGetter()) return Promise.reject(error);
+      // No token: either sign-in is still starting up (wait once, then retry once) or the user
+      // signed out (the wait ends with no token and the error stands).
+      if (!accessTokenGetter()) {
+        if (error.config && !error.config._authWaited) {
+          error.config._authWaited = true;
+          const token = await waitForAuthToken();
+          if (token) {
+            error.config.headers.Authorization = `Bearer ${token}`;
+            return api.request(error.config);
+          }
+        }
+        return Promise.reject(error);
+      }
 
       const url: string = error.config?.url ?? "";
       if (!url.includes("/auth/me") && !error.config?._retried) {

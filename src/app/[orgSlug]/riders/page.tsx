@@ -250,7 +250,7 @@ function RidersContent() {
     router.replace(`${pathname}?${p.toString()}`);
   };
 
-  const { data, isLoading, error } = useFleetMembers({
+  const { data, isLoading, error, refetch, isFetching } = useFleetMembers({
     status: activeFilter !== "all" ? activeFilter : undefined,
     search: search || undefined,
     page,
@@ -348,7 +348,13 @@ function RidersContent() {
           <Loader2 className="mr-2 size-5 animate-spin" /> Loading riders...
         </div>
       ) : error ? (
-        <Card className="border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">{apiErrorText(error, "Could not load riders.")}</Card>
+        <Card className="flex flex-wrap items-center gap-3 border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
+          <span className="flex-1">{apiErrorText(error, "Could not load riders.")}</span>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching && <Loader2 className="mr-2 size-4 animate-spin" />}
+            Retry
+          </Button>
+        </Card>
       ) : members.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 px-6 py-14 text-center">
           <Users className="size-8 text-muted-foreground/60" />

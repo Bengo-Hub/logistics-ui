@@ -47,6 +47,26 @@ export const ON_THE_WAY_STATUSES: TaskStatus[] = [
   "arrived_dropoff",
 ];
 export const DELIVERED_STATUSES: TaskStatus[] = ["delivered", "completed"];
+
+/**
+ * The rider's legs in order, as the API state machine accepts them one step at a time. Delivered
+ * is not here: it needs proof of delivery or an override.
+ */
+const RIDER_LEGS: TaskStatus[] = [
+  "assigned",
+  "accepted",
+  "en_route_pickup",
+  "arrived_pickup",
+  "picked_up",
+  "en_route_dropoff",
+  "arrived_dropoff",
+];
+
+/** The next leg a dispatcher may move a rider's job to, or null when there is none. */
+export function nextRiderStatus(status: string): TaskStatus | null {
+  const i = RIDER_LEGS.indexOf(status as TaskStatus);
+  return i >= 0 && i + 1 < RIDER_LEGS.length ? RIDER_LEGS[i + 1] : null;
+}
 export const CLOSED_STATUSES: TaskStatus[] = ["delivered", "completed", "failed", "cancelled", "returned"];
 
 /** Board filters. The API OR-matches a comma-separated status list. */

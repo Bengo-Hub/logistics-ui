@@ -28,6 +28,7 @@ import {
   type VehiclesParams,
 } from "@/lib/api/logistics";
 import type { CreateVehicleRequest, FleetMember, InsuranceInput, PaginatedResponse, VehicleStatus } from "@/types/logistics";
+import { useAuthReady } from "@/hooks/use-auth-ready";
 
 function useTenantSlug(): string {
   const params = useParams();
@@ -44,21 +45,23 @@ const EMPTY_MEMBERS: PaginatedResponse<FleetMember> = {
 
 export function useFleet() {
   const tenantSlug = useTenantSlug();
+  const authReady = useAuthReady();
   return useQuery({
     queryKey: ["fleet", tenantSlug],
     queryFn: () => fetchFleet(tenantSlug),
-    enabled: !!tenantSlug,
+    enabled: !!tenantSlug && authReady,
   });
 }
 
 export function useFleetMembers(params?: MembersParams | string) {
   const tenantSlug = useTenantSlug();
+  const authReady = useAuthReady();
   const normalizedParams: MembersParams =
     typeof params === "string" ? { status: params } : (params ?? {});
   return useQuery<PaginatedResponse<FleetMember>>({
     queryKey: ["fleet-members", tenantSlug, normalizedParams],
     queryFn: ({ signal }) => fetchMembers(tenantSlug, normalizedParams, signal),
-    enabled: !!tenantSlug,
+    enabled: !!tenantSlug && authReady,
     // Keep the current list while the next search loads; an empty list before the first one.
     placeholderData: (prev) => prev ?? EMPTY_MEMBERS,
   });
@@ -66,10 +69,11 @@ export function useFleetMembers(params?: MembersParams | string) {
 
 export function useFleetMember(memberId: string) {
   const tenantSlug = useTenantSlug();
+  const authReady = useAuthReady();
   return useQuery({
     queryKey: ["fleet-member", tenantSlug, memberId],
     queryFn: () => fetchMember(tenantSlug, memberId),
-    enabled: !!tenantSlug && !!memberId,
+    enabled: !!tenantSlug && !!memberId && authReady,
   });
 }
 
@@ -158,10 +162,11 @@ function invalidateFleet(qc: QueryClient) {
 
 export function useFleetVehicles(params?: VehiclesParams, enabled = true) {
   const tenantSlug = useTenantSlug();
+  const authReady = useAuthReady();
   return useQuery({
     queryKey: ["fleet-vehicles", tenantSlug, params ?? {}],
     queryFn: ({ signal }) => fetchVehicles(tenantSlug, params, signal),
-    enabled: !!tenantSlug && enabled,
+    enabled: !!tenantSlug && enabled && authReady,
     placeholderData: keepPreviousData,
   });
 }

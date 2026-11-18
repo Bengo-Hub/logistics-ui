@@ -21,6 +21,7 @@ import {
   type TasksParams,
 } from "@/lib/api/logistics";
 import type { Task } from "@/types/logistics";
+import { useAuthReady } from "@/hooks/use-auth-ready";
 
 function useTenantSlug(): string {
   const params = useParams();
@@ -29,20 +30,22 @@ function useTenantSlug(): string {
 
 export function useTasks(params?: TasksParams) {
   const tenantSlug = useTenantSlug();
+  const authReady = useAuthReady();
   return useQuery({
     queryKey: ["tasks", tenantSlug, params],
     queryFn: () => fetchTasks(tenantSlug, params),
-    enabled: !!tenantSlug,
+    enabled: !!tenantSlug && authReady,
     refetchInterval: 30_000,
   });
 }
 
 export function useTask(taskId: string) {
   const tenantSlug = useTenantSlug();
+  const authReady = useAuthReady();
   return useQuery<Task>({
     queryKey: ["task", tenantSlug, taskId],
     queryFn: () => fetchTask(tenantSlug, taskId),
-    enabled: !!tenantSlug && !!taskId,
+    enabled: !!tenantSlug && !!taskId && authReady,
     refetchInterval: 15_000,
   });
 }

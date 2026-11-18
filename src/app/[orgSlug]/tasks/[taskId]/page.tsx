@@ -30,16 +30,38 @@ import {
   useDispatchTask,
   useFleetMembers,
 } from "@/hooks/use-logistics";
-import { useCancelTask, useTaskPod, useUnassignTask } from "@/hooks/use-tasks";
+import { useCancelTask, useTaskPod, useUnassignTask, useUpdateTaskStatus } from "@/hooks/use-tasks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { FeatureLock } from "@bengo-hub/shared-ui-lib/subscription";
 import { apiErrorText } from "@/lib/utils";
-import { CLOSED_STATUSES, POST_PICKUP_STATUSES, PRE_PICKUP_STATUSES, taskStatusLabel } from "@/lib/task-status";
+import {
+  CLOSED_STATUSES,
+  POST_PICKUP_STATUSES,
+  PRE_PICKUP_STATUSES,
+  nextRiderStatus,
+  taskStatusLabel,
+} from "@/lib/task-status";
+import type { FleetMember } from "@/types/logistics";
 import type { PerDiemClaim } from "@/lib/api/logistics";
 import { PerDiemCard } from "@/components/tasks/per-diem-card";
 import { CloseDeliveryDialog } from "@/components/tasks/close-delivery-dialog";
 import { useMyPermissions } from "@/hooks/use-module-access";
+
+/**
+ * Why a rider cannot take a job right now, or "" when they can. Mirrors the API's assign checks
+ * (member active, vehicle active and insured) using what the members list already returns.
+ */
+function ineligibleReason(m: FleetMember): string {
+  if (m.status !== "active") return `Not active (${m.status})`;
+  if (m.dispatch_block) {
+    if (m.dispatch_block_message) return m.dispatch_block_message;
+    if (m.dispatch_block === "vehicle_inactive") return "Vehicle not active";
+    if (m.dispatch_block === "no_insurance") return "Vehicle has no insurance";
+    return "Vehicle insurance expired";
+  }
+  return "";
+}
 
 function formatTime(ts: string) {
   return new Date(ts).toLocaleString("en-KE", {
@@ -63,12 +85,20 @@ export default function TaskDetailPage() {
   const unassignMutation = useUnassignTask();
   const cancelMutation = useCancelTask();
   const [closing, setClosing] = useState<null | "confirm" | "override">(null);
-  const { hasPermission } = useMyPermissions();
+  const {
+    hasPermission,
+    isError: permsError,
+    refetch: refetchPerms,
+  } = useMyPermissions();
+  const statusMutation = useUpdateTaskStatus();
 
   const qc = useQueryClient();
   const { data: task, isLoading, isError } = useTask(taskId);
-  const { data: membersPage } = useFleetMembers("active");
+  // Every rider, not just active ones, so the assign list can show who is held back and why.
+  const { data: membersPage } = useFleetMembers({ limit: 100 });
   const members = membersPage?.data ?? [];
+  const eligibleMembers = members.filter((m) => !ineligibleReason(m));
+  const ineligibleMembers = members.filter((m) => !!ineligibleReason(m));
   const assignMutation = useAssignTask();
   const dispatchMutation = useDispatchTask();
   const podEligible = task?.status === "delivered" || task?.status === "completed";
@@ -160,6 +190,19 @@ export default function TaskDetailPage() {
   const hasRider = !!task.assigned_rider_id && !CLOSED_STATUSES.includes(task.status) && task.status !== "pending";
   const canConfirm = hasRider && POST_PICKUP_STATUSES.includes(task.status) && hasPermission("logistics.tasks.manage");
   const canOverride = hasRider && hasPermission("logistics.tasks.override");
+  // A dispatcher can move the rider's job one step on their behalf (rider's phone off, no data).
+  const nextStatus = hasRider ? nextRiderStatus(task.status) : null;
+  const canAdvance = !!nextStatus && hasPermission("logistics.tasks.manage");
+  const handleAdvance = () => {
+    if (!nextStatus) return;
+    statusMutation.mutate(
+      { taskId, status: nextStatus },
+      {
+        onSuccess: () => toast.success(`Moved to ${taskStatusLabel(nextStatus)}`),
+        onError: (err) => toast.error(apiErrorText(err, "Could not update the status")),
+      }
+    );
+  };
   const podMeta = (pod?.metadata ?? {}) as Record<string, unknown>;
   const podText = (k: string) => (typeof podMeta[k] === "string" ? (podMeta[k] as string) : "");
 
@@ -215,8 +258,14 @@ export default function TaskDetailPage() {
             </Button>
           </div>
         )}
-        {(canReassign || canCancel || canConfirm || canOverride) && (
+        {(canReassign || canCancel || canConfirm || canOverride || canAdvance) && (
           <div className="flex flex-wrap gap-2">
+            {canAdvance && nextStatus && (
+              <Button variant="outline" onClick={handleAdvance} disabled={statusMutation.isPending}>
+                {statusMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Advance to {taskStatusLabel(nextStatus)}
+              </Button>
+            )}
             {canConfirm && (
               <Button onClick={() => setClosing("confirm")}>
                 <CheckCircle2 className="mr-2 size-4" />
@@ -252,6 +301,18 @@ export default function TaskDetailPage() {
           </div>
         )}
       </div>
+
+      {permsError && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+          <AlertTriangle className="size-4 shrink-0 text-destructive" />
+          <span className="flex-1">
+            Could not load your logistics permissions, so some actions on this job are hidden.
+          </span>
+          <Button variant="outline" size="sm" onClick={() => refetchPerms()}>
+            Retry
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Route */}
@@ -492,12 +553,13 @@ export default function TaskDetailPage() {
               <CardTitle>{reassigning ? "Move job to another rider" : "Assign Rider"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {members.length === 0 ? (
+              {eligibleMembers.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  No active riders available. Approve riders first from the
-                  Riders page.
+                  No rider can take this job right now. Approve riders, or fix their vehicle or
+                  insurance, from the Riders page.
                 </p>
-              ) : (
+              )}
+              {members.length > 0 && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Select Rider</label>
                   <select
@@ -506,12 +568,21 @@ export default function TaskDetailPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="">-- Choose a rider --</option>
-                    {members.map((m) => (
+                    {eligibleMembers.map((m) => (
                       <option key={m.id} value={m.id} disabled={m.id === task.assigned_rider_id}>
                         {riderName(m.id)}
                         {m.phone ? ` · ${m.phone}` : ""}
                       </option>
                     ))}
+                    {ineligibleMembers.length > 0 && (
+                      <optgroup label="Cannot take jobs">
+                        {ineligibleMembers.map((m) => (
+                          <option key={m.id} value={m.id} disabled>
+                            {riderName(m.id)} · {ineligibleReason(m)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
               )}
